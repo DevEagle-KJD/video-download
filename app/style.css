@@ -547,3 +547,9 @@ body.in-page .tabbar { display: none; }
 .primary-button.saved-btn { background: #ffcc00; color: #000; }
 .rv-back .wc-word, .rv-back .wc-here { text-align: center; }
 .chip.off { opacity: .4; }
+
+/* Word card syllables: stressed syllable coloured, current one lit while spoken */
+.wc-word .syl { border-radius: 8px; padding: 0 2px; transition: background .12s, color .12s; }
+.wc-word .syl.stress { color: var(--orange); }
+.wc-word .syl.on { background: rgba(10, 132, 255, .25); color: var(--blue); }
+.wc-word .sep { color: var(--tertiary); font-weight: 400; margin: 0 1px; }

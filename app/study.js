@@ -370,43 +370,30 @@ function setActive(i, scroll = true) {
   const el = t.querySelector(`.sent[data-i="${i}"]`);
   if (!el) return;
   el.classList.add('now');
-  if (scroll && prefs.follow) {
-    const scroller = $('#screen-lesson');
-    const playerBottom = $('#screen-lesson .player').getBoundingClientRect().bottom;
-    const r = el.getBoundingClientRect();
-    if (r.top < playerBottom + 8 || r.bottom > window.innerHeight - 40) {
-      scroller.scrollBy({ top: r.top - playerBottom - 16, behavior: 'smooth' });
-    }
-  }
+  if (scroll) followSentence(el);
+}
+
+// Auto-scroll: keep the current sentence right under the video. A manual
+// scroll pauses it for a few seconds so it doesn't fight your finger.
+let userScrolledAt = 0;
+['touchmove', 'wheel'].forEach(ev => $('#screen-lesson').addEventListener(ev, () => { userScrolledAt = Date.now(); }, { passive: true }));
+function followSentence(el) {
+  if (!prefs.follow || Date.now() - userScrolledAt < 4000) return;
+  const playerBottom = $('#screen-lesson .player').getBoundingClientRect().bottom;
+  const offset = el.getBoundingClientRect().top - playerBottom - 12;
+  if (Math.abs(offset) > 4) $('#screen-lesson').scrollBy({ top: offset, behavior: 'smooth' });
 }
 
 function setPlayIcon(playing) {
   $('#ls-playicon').innerHTML = playing ? '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>' : '<path d="M7 4.5v15l12-7.5z"/>';
 }
 
-let sayEl = null;
-function highlightWord(t) {
-  let el = null;
-  const s = lesson.data.sentences[cur];
-  if (s && t <= s.end + PAD_AFTER) {
-    const times = wordTimes(s);
-    const k = times.findIndex(([a, b], n) => t >= a - 0.05 && (t < b || n === times.length - 1 || t < times[n + 1][0]));
-    if (k >= 0) el = $(`#ls-transcript .sent[data-i="${cur}"] .tok[data-k="${k}"]`);
-  }
-  if (el !== sayEl) {
-    sayEl?.classList.remove('say');
-    el?.classList.add('say');
-    sayEl = el;
-  }
-}
-
 function tick() {
   const v = $('#ls-video');
-  if (!lesson || v.paused) { rafId = 0; sayEl?.classList.remove('say'); sayEl = null; return; }
+  if (!lesson || v.paused) { rafId = 0; return; }
   const t = v.currentTime;
   const i = sentenceAt(t);
   if (i >= 0) setActive(i);
-  highlightWord(t);
   if (stopAt != null && t >= stopAt) {
     if (prefs.loop && loopFrom != null) {
       v.currentTime = loopFrom;
@@ -491,17 +478,85 @@ if ('speechSynthesis' in window) {
   speechSynthesis.addEventListener?.('voiceschanged', pickVoice);
 }
 
-function speak(text, rate = 0.5) {
-  if (!('speechSynthesis' in window)) { toast('Speech isn’t available in this browser'); return; }
-  if (!ruVoice) pickVoice();
-  speechSynthesis.cancel();
+// Splits a Russian word into syllables (one vowel each), keeping the stress
+// mark: "молоко́" → ["мо", "ло", "ко́"].
+const VOWELS = 'аеёиоуыэюяАЕЁИОУЫЭЮЯ';
+function syllables(word) {
+  const w = String(word || '').replace(/[.,!?…:;«»"“”()]+/g, '').trim();
+  const chars = [...w];
+  const isV = c => VOWELS.includes(c);
+  const vowelAt = chars.map(isV);
+  const out = [];
+  let cur = '';
+  for (let i = 0; i < chars.length; i++) {
+    cur += chars[i];
+    const vowel = vowelAt[i];
+    if (chars[i + 1] === '\u0301') { cur += chars[++i]; }
+    if (!vowel) continue;
+    // Consonants until the next vowel (if any); decide where to cut.
+    let j = i + 1;
+    while (j < chars.length && !vowelAt[j]) j++;
+    if (j >= chars.length) continue;                  // last vowel: rest stays here
+    const cluster = chars.slice(i + 1, j).filter(c => c !== '\u0301');
+    // One consonant goes to the next syllable; in a cluster, a leading
+    // й/р/л/м/н (with its soft sign) stays with this one.
+    const real = cluster.filter(c => !/[ьъЬЪ]/.test(c));
+    let keep = 0;
+    if (real.length > 1 && /[йрлмнЙРЛМН]/.test(cluster[0])) {
+      keep = 1;
+      while (cluster[keep] && /[ьъЬЪ]/.test(cluster[keep])) keep++;
+    }
+    for (let n = 0; n < keep; n++) cur += chars[++i];
+    out.push(cur);
+    cur = '';
+  }
+  if (cur) { if (out.length && ![...cur].some(isV)) out[out.length - 1] += cur; else out.push(cur); }
+  return out.length ? out : [w];
+}
+
+function syllablesHTML(word) {
+  return syllables(word).map((sy, n) =>
+    `<span class="syl${sy.includes('\u0301') ? ' stress' : ''}" data-n="${n}">${esc(sy)}</span>`).join('<span class="sep">·</span>');
+}
+
+// Lights up each syllable in turn while an utterance plays.
+let sylTimer = null;
+function animateSyllables(root, rate) {
+  clearInterval(sylTimer);
+  const els = root ? [...root.querySelectorAll('.syl')] : [];
+  els.forEach(e => e.classList.remove('on'));
+  if (!els.length) return;
+  let n = 0;
+  const step = 230 / rate;              // ms per syllable, roughly
+  els[0].classList.add('on');
+  sylTimer = setInterval(() => {
+    els[n]?.classList.remove('on');
+    n++;
+    if (n >= els.length) { clearInterval(sylTimer); return; }
+    els[n].classList.add('on');
+  }, step);
+}
+
+function utter(text, rate, sylRoot) {
   const u = new SpeechSynthesisUtterance(plainWord(text));
   u.lang = 'ru-RU';
   if (ruVoice) u.voice = ruVoice;
   u.rate = rate;
-  speechSynthesis.speak(u);
+  u.onstart = () => animateSyllables(sylRoot, rate);
+  u.onend = () => { clearInterval(sylTimer); sylRoot?.querySelectorAll('.syl.on').forEach(e => e.classList.remove('on')); };
+  return u;
+}
+
+// rates: one or more speeds, spoken one after another (e.g. normal, then slow).
+function speak(text, rates = [0.5], sylRoot = null) {
+  if (!('speechSynthesis' in window)) { toast('Speech isn’t available in this browser'); return; }
+  if (!ruVoice) pickVoice();
+  speechSynthesis.cancel();
+  [].concat(rates).forEach(r => speechSynthesis.speak(utter(text, r, sylRoot)));
   if (!ruVoice) setTimeout(() => { if (!ruVoice) toast('No Russian voice found. Add one in Settings → Accessibility → Spoken Content → Voices'); }, 800);
 }
+
+const RATE_NORMAL = 0.9, RATE_SLOW = 0.4;
 
 // Plays just one word from the lesson video.
 function playWord(i, k) {
@@ -523,11 +578,11 @@ function openWord(i, k) {
   const id = `${lesson.id}:${i}:${k}`;
   openSheet('Word', `
     <div class="word-card">
-      <div class="wc-word">${esc(t.w.replace(/[.,!?…:;«»"“”()]+$|^[«"“(]+/g, ''))}</div>
+      <div class="wc-word" id="wc-word">${syllablesHTML(t.w)}</div>
       ${t.g ? `<div class="wc-here">${esc(t.g)}</div>` : ''}
       <div class="wc-audio">
-        <button class="chip" data-s="w-say" data-rate="0.45">🔊 Slowly</button>
-        <button class="chip" data-s="w-say" data-rate="0.85">🔊 Normal</button>
+        <button class="chip" data-s="w-say" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+        <button class="chip" data-s="w-say" data-rate="${RATE_SLOW}">🐢 Slowly</button>
         <button class="chip" data-s="w-video">🎬 From the video</button>
       </div>
       ${t.b || t.m ? `<div class="group kv wc-dict">
@@ -671,10 +726,10 @@ function showCard() {
     const listen = (c.seen || 0) % 2 === 1;
     $('#rv-body').innerHTML = `
       <p class="rv-hint">${listen ? 'Listen. What’s the word, and what does it mean?' : 'What does this word mean?'}</p>
-      <div class="rv-front">${listen ? '<div class="listen-icon">🔊</div>' : `<div class="wc-word">${esc(c.w)}</div>`}</div>
-      <div class="rv-tools"><button class="chip" data-s="rv-say">🔊 Hear it</button></div>
+      <div class="rv-front">${listen ? '<div class="listen-icon">🔊</div>' : `<div class="wc-word">${syllablesHTML(c.w)}</div>`}</div>
+      <div class="rv-tools"><button class="chip" data-s="rv-say" data-rate="${RATE_NORMAL}">🔊 Normal</button><button class="chip" data-s="rv-say" data-rate="${RATE_SLOW}">🐢 Slowly</button></div>
       <button class="primary-button" data-s="rv-show">Show</button>`;
-    if (listen) speak(c.w);   // right away, while still inside the tap (iOS requires it)
+    if (listen) speak(c.w, [RATE_NORMAL, RATE_SLOW]);   // right away, inside the tap (iOS requires it)
     return;
   }
 
@@ -708,7 +763,7 @@ function revealCard() {
   if (c.kind === 'word') {
     $('#rv-body').innerHTML = `
       <div class="rv-back">
-        <div class="wc-word">${esc(c.w)}</div>
+        <div class="wc-word" id="rv-word">${syllablesHTML(c.w)}</div>
         ${c.g ? `<div class="wc-here">${esc(c.g)}</div>` : ''}
         ${c.b || c.m ? `<p class="wc-dictline">${c.b ? `<b>${esc(c.b)}</b>` : ''}${c.b && c.m ? ' · ' : ''}${esc(c.m)}</p>` : ''}
         <div class="il" style="margin-top:14px">${tokensHTML(c.tokens, true, { hl: c.k })}</div>
@@ -716,11 +771,12 @@ function revealCard() {
         <p class="rv-src">${esc(c.title || '')}</p>
       </div>
       <div class="rv-tools">
-        <button class="chip" data-s="rv-say">🔊 Slowly</button>
+        <button class="chip" data-s="rv-say" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+        <button class="chip" data-s="rv-say" data-rate="${RATE_SLOW}">🐢 Slowly</button>
         ${hasVideo ? `<button class="chip" data-s="rv-word">🎬 Word</button><button class="chip" data-s="rv-play">▶ Sentence</button>` : ''}
       </div>
       ${grades}`;
-    if (hasVideo) playClip(c, 1, true); else speak(c.w);
+    speak(c.w, [RATE_NORMAL, RATE_SLOW], $('#rv-word'));
     return;
   }
   $('#rv-body').innerHTML = `
@@ -869,12 +925,17 @@ document.addEventListener('click', e => {
     case 'back': stBack(); break;
     case 'sent': playSentence(i); break;
     case 'replay': playSentence(i); break;
-    case 'word': openWord(i, Number(el.dataset.k)); break;
-    case 'w-say': speak(lesson.data.sentences[wordOpen.i].tokens[wordOpen.k].w, Number(el.dataset.rate)); break;
-    case 'w-say-base': speak(lesson.data.sentences[wordOpen.i].tokens[wordOpen.k].b, 0.45); break;
+    case 'word': {
+      openWord(i, Number(el.dataset.k));
+      const w = lesson.data.sentences[i].tokens[Number(el.dataset.k)].w;
+      speak(w, [RATE_NORMAL, RATE_SLOW], $('#wc-word'));   // inside the tap, so iOS allows it
+      break;
+    }
+    case 'w-say': speak(lesson.data.sentences[wordOpen.i].tokens[wordOpen.k].w, Number(el.dataset.rate), $('#wc-word')); break;
+    case 'w-say-base': speak(lesson.data.sentences[wordOpen.i].tokens[wordOpen.k].b, RATE_SLOW); break;
     case 'w-video': playWord(wordOpen.i, wordOpen.k); break;
     case 'w-save': toggleWord(); break;
-    case 'rv-say': speak(queue[qi].w, 0.45); break;
+    case 'rv-say': speak(queue[qi].w, Number(el.dataset.rate) || RATE_SLOW, $('#rv-word')); break;
     case 'rv-word': playClip(queue[qi], 1, true); break;
     case 'star': e.stopPropagation(); toggleStar(i); break;
     case 'toggle': togglePlay(); break;
