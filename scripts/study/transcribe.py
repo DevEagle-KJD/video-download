@@ -2,7 +2,8 @@
 
 Uses the video's human-made Russian subtitles when yt-dlp found some
 (out/media.ru*.vtt); otherwise transcribes the audio with Whisper
-(faster-whisper, large-v3-turbo), which is very accurate for Russian.
+(faster-whisper, large-v3: the most accurate Whisper model; slower than
+turbo on CPU, fast on a GPU).
 """
 import glob
 import json
@@ -65,7 +66,7 @@ def from_whisper(video):
     subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", video,
                     "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
 
-    model = WhisperModel("large-v3-turbo", device="cpu", compute_type="int8",
+    model = WhisperModel(os.environ.get("WHISPER_MODEL") or "large-v3", device="cpu", compute_type="int8",
                          cpu_threads=os.cpu_count() or 4)
     segments, info = model.transcribe(
         wav, language="ru", beam_size=5, vad_filter=True,
@@ -88,8 +89,9 @@ def from_whisper(video):
                 "start": cur[0].start,
                 "end": cur[-1].end,
                 "text": "".join(w.word for w in cur).strip(),
-                # Per-word timings, used to highlight each word as it's spoken.
-                "words": [[w.word.strip(), round(w.start, 2), round(w.end, 2)] for w in cur],
+                # Per-word timings and Whisper's confidence (0-1) in each word.
+                "words": [[w.word.strip(), round(w.start, 2), round(w.end, 2), round(w.probability, 3)]
+                          for w in cur],
             })
             cur.clear()
 
@@ -117,7 +119,7 @@ def main():
         print(f"Using subtitles {subs[0]}: {len(sentences)} sentences")
     if len(sentences) < 3:
         source = "whisper"
-        print("Transcribing with Whisper (large-v3-turbo)…", flush=True)
+        print(f"Transcribing with Whisper ({os.environ.get('WHISPER_MODEL') or 'large-v3'})…", flush=True)
         sentences = from_whisper(video)
 
     sentences = [s for s in sentences if s["text"]]

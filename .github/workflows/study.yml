@@ -76,9 +76,9 @@ jobs:
             ~/.cache/huggingface
             ~/.local/share/argos-translate
             ~/.local/cache/argos-translate
-          key: study-models-${{ env.ENGINE }}-v2
+          key: study-models-${{ env.ENGINE }}-large-v3
           restore-keys: |
-            whisper-large-v3-turbo
+            study-models-${{ env.ENGINE }}-
 
       - name: Download
         env:
@@ -89,6 +89,8 @@ jobs:
         run: bash scripts/iphone-compat.sh
 
       - name: Transcribe
+        env:
+          WHISPER_MODEL: ${{ vars.WHISPER_MODEL }}   # optional override, e.g. large-v3-turbo
         run: python3 scripts/study/transcribe.py
 
       - name: Translate

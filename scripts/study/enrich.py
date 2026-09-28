@@ -91,7 +91,7 @@ def add_timings(tokens, sentence):
     Uses Whisper's word timings when the words line up; anything left over
     is estimated by spreading the gap over the words by length.
     """
-    words = [(norm(w), a, b) for w, a, b in sentence.get("words") or [] if norm(w)]
+    words = [(norm(w[0]), w[1], w[2]) for w in sentence.get("words") or [] if norm(w[0])]
     wi = 0
     for tok in tokens:
         parts = [p for p in (norm(x) for x in tok["w"].split()) if p]
