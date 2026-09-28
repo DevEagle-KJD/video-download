@@ -1,31 +1,39 @@
 name: Deploy app
 
+# Publishes the app and all finished downloads to GitHub Pages. Also called
+# by the Download workflow (to publish a new file) and by Cleanup.
 on:
   push:
-    paths: ["app/**", ".github/workflows/pages.yml"]
+    paths: ["app/**", "scripts/build-site.sh", ".github/workflows/pages.yml"]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
   deploy:
-    if: github.ref_name == github.event.repository.default_branch
+    if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
+    # Queue deploys instead of cancelling: each one includes every file, so
+    # only the newest pending deploy needs to run.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+      - name: Build site
+        run: bash scripts/build-site.sh
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: app
+          path: site
       - id: deployment
         uses: actions/deploy-pages@v4

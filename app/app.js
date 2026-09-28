@@ -325,9 +325,15 @@ async function fetchFile(job) {
   transfers.set(job.id, 0);
   render();
   try {
-    const res = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/releases/assets/${job.asset.id}`, {
-      headers: { Authorization: `Bearer ${cfg.token}`, Accept: 'application/octet-stream' },
-    });
+    // The Download workflow copies each file onto this site (files/<id>/),
+    // which the app can read. GitHub's own release file host blocks
+    // cross-site reads, so the API route below is only a fallback.
+    let res = await fetch(`files/${job.id}/${encodeURIComponent(job.asset.name)}`, { cache: 'no-store' }).catch(() => null);
+    if (!res?.ok) {
+      res = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/releases/assets/${job.asset.id}`, {
+        headers: { Authorization: `Bearer ${cfg.token}`, Accept: 'application/octet-stream' },
+      });
+    }
     if (!res.ok) throw new Error(`GitHub error ${res.status}`);
     const total = job.asset.size || Number(res.headers.get('content-length')) || 0;
     const reader = res.body.getReader();

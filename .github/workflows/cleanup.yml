@@ -27,3 +27,12 @@ jobs:
               gh release delete "$tag" -R "$GITHUB_REPOSITORY" --cleanup-tag -y || true
             fi
           done
+
+  # Republishes the site so deleted downloads disappear from it too.
+  publish-site:
+    needs: cleanup
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

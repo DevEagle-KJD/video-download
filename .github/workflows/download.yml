@@ -80,3 +80,12 @@ jobs:
       - name: Report failure
         if: failure()
         run: bash scripts/report-failure.sh
+
+  # Copies the file onto the app's own website so the app can fetch it.
+  publish-site:
+    needs: download
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
