@@ -120,7 +120,7 @@ async function defaultBranch() {
 /* ───────── Jobs ───────── */
 async function startJob(url, q) {
   if (!configured()) {
-    toast('Add your GitHub token first');
+    toast('Paste your token here first. The Home Screen app and Safari keep separate settings');
     showScreen('settings');
     return;
   }
@@ -674,6 +674,16 @@ $('#s-owner').value = cfg.owner;
 $('#s-repo').value = cfg.repo;
 $('#s-token').value = cfg.token;
 $('#s-save').addEventListener('click', saveSettings);
+$('#s-show').addEventListener('click', () => {
+  const input = $('#s-token');
+  input.type = input.type === 'password' ? 'text' : 'password';
+  $('#s-show').textContent = input.type === 'password' ? 'Show' : 'Hide';
+});
+$('#s-copy').addEventListener('click', async () => {
+  const token = $('#s-token').value.trim();
+  if (!token) { toast('No token saved in this copy of the app'); return; }
+  try { await navigator.clipboard.writeText(token); toast('Token copied'); } catch { toast('Tap Show, then copy it manually'); }
+});
 $('#s-shortcut').addEventListener('click', () => openSheet('Share Sheet Shortcut', shortcutHTML()));
 $('#s-signout').addEventListener('click', () => {
   if (!confirm('Remove your token and download history from this device?')) return;

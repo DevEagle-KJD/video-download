@@ -93,13 +93,17 @@
           </label>
           <label class="cell field">
             <span>Token</span>
-            <input id="s-token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…">
+            <input id="s-token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ghp_… or github_pat_…">
           </label>
+          <div class="cell token-actions">
+            <button class="text-button" id="s-show">Show</button>
+            <button class="text-button" id="s-copy">Copy Token</button>
+          </div>
         </div>
         <p class="section-footer">
-          Your token never leaves this device except to talk to GitHub. Create a
-          <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine‑grained token</a>
-          for only this repository with <b>Actions</b> and <b>Contents</b> set to “Read and write”.
+          Your token stays on this device and is only sent to GitHub.
+          <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&amp;description=Grab" target="_blank" rel="noopener">Create a token</a>
+          if you need a new one. Safari and the Home Screen app keep separate settings. Use <b>Copy Token</b> to move it from one to the other.
         </p>
 
         <div class="group">

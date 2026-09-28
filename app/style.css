@@ -152,6 +152,7 @@ button.cell:active, .cell.tappable:active { background: var(--cell-pressed); tra
 
 .field > span { width: 100px; flex: none; }
 .field input { text-align: right; }
+.token-actions { justify-content: flex-end; gap: 24px; font-size: 15px; }
 
 .value-cell { justify-content: space-between; }
 .value-cell .secondary { text-align: right; font-size: 15px; }
