@@ -27,7 +27,7 @@ const PAD_BEFORE = 0.15, PAD_AFTER = 0.25;
 
 let lessons = store.get('lessons', []);
 let cards = store.get('cards', {});                 // id → card (deleted ones kept as tombstones)
-const prefs = Object.assign({ engine: 'free', literal: true, english: true, follow: true, loop: false, autopause: false, speed: 1 },
+const prefs = Object.assign({ player: 'local', engine: 'free', literal: true, english: true, follow: true, loop: false, autopause: false, speed: 1 },
   store.get('studyPrefs', {}));
 const saveLessons = () => store.set('lessons', lessons);
 const savePrefs = () => store.set('studyPrefs', prefs);
@@ -230,13 +230,99 @@ function stOpenPage(name) {
   showScreen(name);
 }
 function stBack() {
-  $('#ls-video').pause();
+  player.close();
   $('#rv-video').pause();
   stop();
   document.body.classList.remove('in-page');
   showScreen(prevTab);
   stRender();
 }
+
+/* ───────── Player: our downloaded copy, or YouTube's embedded player ───────── */
+// Everything in the lesson page talks to `player`, never to a <video> directly,
+// so the same features (sentence replay, loop, slow, word clips) work on both.
+function youtubeId(url) {
+  const m = String(url || '').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+let ytApi = null;
+function loadYouTubeApi() {
+  if (!ytApi) {
+    ytApi = new Promise((resolve, reject) => {
+      window.onYouTubeIframeAPIReady = () => resolve(window.YT);
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      tag.onerror = () => { ytApi = null; reject(new Error('YouTube player failed to load')); };
+      document.head.appendChild(tag);
+    });
+  }
+  return ytApi;
+}
+
+const player = {
+  mode: 'local',            // 'local' | 'youtube'
+  yt: null,
+  want: false,              // YouTube reports state changes late; track intent
+  get video() { return $('#ls-video'); },
+  get paused() { return this.mode === 'youtube' ? !this.want : this.video.paused; },
+  get time() { return this.mode === 'youtube' ? (this.yt?.getCurrentTime?.() || 0) : this.video.currentTime; },
+  seek(t) { if (this.mode === 'youtube') this.yt?.seekTo?.(t, true); else this.video.currentTime = t; },
+  play() {
+    if (this.mode === 'youtube') { this.want = true; this.yt?.playVideo?.(); setPlayIcon(true); }
+    else this.video.play().catch(() => {});
+  },
+  pause() {
+    if (this.mode === 'youtube') { this.want = false; this.yt?.pauseVideo?.(); setPlayIcon(false); }
+    else this.video.pause();
+  },
+  setRate(r) { if (this.mode === 'youtube') this.yt?.setPlaybackRate?.(r); else this.video.playbackRate = r; },
+  async open(l) {
+    this.pause();
+    const id = prefs.player === 'youtube' ? youtubeId(l.url || lesson?.data.url) : null;
+    const box = $('#ls-yt');
+    if (!id) {
+      if (prefs.player === 'youtube') toast('Not a YouTube video, so playing the downloaded copy');
+      this.mode = 'local';
+      box.hidden = true;
+      this.video.hidden = false;
+      this.video.src = `files/${l.id}/media.mp4`;
+      this.video.playbackRate = prefs.speed;
+      return;
+    }
+    this.mode = 'youtube';
+    this.video.removeAttribute('src');
+    this.video.load();
+    this.video.hidden = true;
+    box.hidden = false;
+    try {
+      const YT = await loadYouTubeApi();
+      if (this.yt) { this.yt.destroy(); this.yt = null; }
+      box.innerHTML = '<div id="ls-yt-frame"></div>';
+      this.yt = new YT.Player('ls-yt-frame', {
+        videoId: id,
+        playerVars: { playsinline: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, cc_load_policy: 0, controls: 1 },
+        events: {
+          onReady: () => this.setRate(prefs.speed),
+          onStateChange: e => {
+            // 1 playing, 3 buffering, 2 paused, 0 ended
+            if (e.data === 1) { this.want = true; setPlayIcon(true); startTick(); }
+            if (e.data === 2 || e.data === 0) { this.want = false; setPlayIcon(false); }
+          },
+          onError: e => toast(e.data === 101 || e.data === 150
+            ? 'This video’s owner doesn’t allow playing it in other apps. Switch Study → Play from: Downloaded.'
+            : 'YouTube couldn’t play this video'),
+        },
+      });
+    } catch (e) {
+      toast(e.message);
+    }
+  },
+  close() {
+    this.pause();
+    this.video.pause();
+  },
+};
 
 /* ───────── Lesson player ───────── */
 let lesson = null;          // { id, data }
@@ -268,9 +354,7 @@ async function openLesson(l) {
   lesson = { id: l.id, data, meta: l.meta || {}, url: l.url };
   cur = -1;
   stopAt = null; loopFrom = null; nextAfterStop = null;
-  const v = $('#ls-video');
-  v.src = `files/${l.id}/media.mp4`;
-  v.playbackRate = prefs.speed;
+  player.open(l);
   $('#ls-title').textContent = data.title || 'Lesson';
   renderTranscript();
   syncChips();
@@ -389,16 +473,15 @@ function setPlayIcon(playing) {
 }
 
 function tick() {
-  const v = $('#ls-video');
-  if (!lesson || v.paused) { rafId = 0; return; }
-  const t = v.currentTime;
+  if (!lesson || player.paused) { rafId = 0; return; }
+  const t = player.time;
   const i = sentenceAt(t);
   if (i >= 0) setActive(i);
   if (stopAt != null && t >= stopAt) {
     if (prefs.loop && loopFrom != null) {
-      v.currentTime = loopFrom;
+      player.seek(loopFrom);
     } else {
-      v.pause();
+      player.pause();
       stopAt = null;
       if (prefs.autopause) nextAfterStop = cur + 1;
     }
@@ -413,28 +496,26 @@ function playSentence(i) {
   const ss = lesson.data.sentences;
   if (i < 0 || i >= ss.length) return;
   const s = ss[i];
-  const v = $('#ls-video');
   nextAfterStop = null;
   loopFrom = Math.max(0, s.start - PAD_BEFORE);
   stopAt = s.end + PAD_AFTER;
-  v.currentTime = loopFrom;
+  player.seek(loopFrom);
   setActive(i);
-  v.play().catch(() => {});
+  player.play();
   startTick();
   store.set(`pos.${lesson.id}`, i);
 }
 
 function togglePlay() {
-  const v = $('#ls-video');
-  if (!v.paused) { v.pause(); return; }
+  if (!player.paused) { player.pause(); return; }
   if (nextAfterStop != null) { playSentence(nextAfterStop); return; }
   if (prefs.autopause || prefs.loop) { playSentence(Math.max(0, cur)); return; }
   // Continuous play from the current sentence.
   stopAt = null; loopFrom = null;
-  if (cur >= 0 && Math.abs(v.currentTime - lesson.data.sentences[cur].start) > 30) {
-    v.currentTime = Math.max(0, lesson.data.sentences[cur].start - PAD_BEFORE);
+  if (cur >= 0 && Math.abs(player.time - lesson.data.sentences[cur].start) > 30) {
+    player.seek(Math.max(0, lesson.data.sentences[cur].start - PAD_BEFORE));
   }
-  v.play().catch(() => {});
+  player.play();
   startTick();
 }
 
@@ -561,12 +642,12 @@ const RATE_NORMAL = 0.9, RATE_SLOW = 0.4;
 // Plays just one word from the lesson video.
 function playWord(i, k) {
   const [a, b] = wordTimes(lesson.data.sentences[i])[k];
-  const v = $('#ls-video');
   nextAfterStop = null;
   loopFrom = null;
-  stopAt = b + 0.12;
-  v.currentTime = Math.max(0, a - 0.08);
-  v.play().catch(() => {});
+  // YouTube reports its position a little late, so give words more room.
+  stopAt = b + (player.mode === 'youtube' ? 0.3 : 0.12);
+  player.seek(Math.max(0, a - 0.08));
+  player.play();
   startTick();
 }
 
@@ -944,7 +1025,7 @@ document.addEventListener('click', e => {
     case 'speed': {
       const speeds = [1, 0.75, 0.5];
       prefs.speed = speeds[(speeds.indexOf(prefs.speed) + 1) % speeds.length];
-      $('#ls-video').playbackRate = prefs.speed;
+      player.setRate(prefs.speed);
       savePrefs(); syncChips(); break;
     }
     case 'loop': prefs.loop = !prefs.loop; savePrefs(); syncChips(); break;
@@ -986,6 +1067,19 @@ function setEngine(e) {
 }
 $('#st-engine').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setEngine(b.dataset.engine); });
 setEngine(prefs.engine);
+
+function setPlayerPref(p) {
+  prefs.player = p;
+  savePrefs();
+  const btns = [...document.querySelectorAll('#st-player button')];
+  btns.forEach(b => b.setAttribute('aria-checked', String(b.dataset.player === p)));
+  $('#st-player .seg-thumb').style.transform = `translateX(${btns.findIndex(b => b.dataset.player === p) * 100}%)`;
+  $('#st-player-hint').textContent = p === 'youtube'
+    ? 'Test mode: lessons play through YouTube’s own player (no hosting of the video). Tap play on the YouTube video once to start it.'
+    : 'Lessons play the copy downloaded when the lesson was made.';
+}
+$('#st-player').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setPlayerPref(b.dataset.player); });
+setPlayerPref(prefs.player);
 
 $('#st-make').addEventListener('click', () => stStart($('#st-url').value));
 $('#st-url').addEventListener('keydown', e => { if (e.key === 'Enter') stStart($('#st-url').value); });

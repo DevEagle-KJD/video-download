@@ -161,6 +161,14 @@
         </button>
         <p class="section-footer" style="margin-top:-12px">Transcribes the video, then adds stress marks, word‑by‑word meanings and an English translation to every sentence. Takes roughly 1 minute per minute of video.</p>
 
+        <p class="section-header">Play lessons from</p>
+        <div class="segmented two" id="st-player" role="radiogroup" style="margin-top:0">
+          <span class="seg-thumb"></span>
+          <button role="radio" data-player="local" aria-checked="true">Downloaded</button>
+          <button role="radio" data-player="youtube" aria-checked="false">YouTube (test)</button>
+        </div>
+        <p class="section-footer" id="st-player-hint" style="margin-top:6px"></p>
+
         <p class="section-header">Lessons</p>
         <div class="group list" id="st-lessons"></div>
       </div>
@@ -179,6 +187,7 @@
       </header>
       <div class="player">
         <video id="ls-video" playsinline webkit-playsinline preload="metadata"></video>
+        <div id="ls-yt" class="yt-box" hidden></div>
         <div class="player-controls">
           <button data-s="prev" aria-label="Previous sentence"><svg viewBox="0 0 24 24"><path d="M6 5v14M19 5l-9 7 9 7z"/></svg></button>
           <button data-s="toggle" class="big" aria-label="Play or pause"><svg id="ls-playicon" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg></button>
