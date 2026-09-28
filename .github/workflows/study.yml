@@ -14,6 +14,10 @@ on:
       job_id:
         description: Unique id chosen by the app (used for the release tag)
         required: true
+      engine:
+        description: "free (open-source tools, $0) or ai (Claude, best quality)"
+        required: false
+        default: free
 
 permissions:
   contents: write
@@ -35,6 +39,7 @@ jobs:
       QUALITY: study
       JOB_ID: ${{ inputs.job_id }}
       TAG_PREFIX: study
+      ENGINE: ${{ inputs.engine || 'free' }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
@@ -45,23 +50,35 @@ jobs:
           [[ "$URL" =~ ^https?:// ]] || { echo "::error::URL must start with http(s)://"; exit 1; }
 
       - name: Install tools
+        env:
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg > /dev/null
           python3 -m pip install -q --upgrade pip
           python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
           python3 -m pip install -q "faster-whisper>=1.1" anthropic
+          if [ "$ENGINE" = "free" ] || [ "$HAS_KEY" != "true" ]; then
+            # CPU-only PyTorch (Argos Translate needs it) is ~10x smaller than the default.
+            python3 -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+            python3 -m pip install -q pymorphy3 ruaccent argostranslate
+          fi
           yt-dlp --version
 
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      # The Whisper model is ~1.6 GB; keep it between runs.
+      # Whisper (~1.6 GB), RUAccent and Argos models: keep them between runs.
       - uses: actions/cache@v4
         with:
-          path: ~/.cache/huggingface
-          key: whisper-large-v3-turbo
+          path: |
+            ~/.cache/huggingface
+            ~/.local/share/argos-translate
+            ~/.local/cache/argos-translate
+          key: study-models-${{ env.ENGINE }}-v2
+          restore-keys: |
+            whisper-large-v3-turbo
 
       - name: Download
         env:
@@ -78,7 +95,13 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           STUDY_MODEL: ${{ vars.STUDY_MODEL }}
-        run: python3 scripts/study/enrich.py
+        run: |
+          if [ "$ENGINE" = "ai" ] && [ -n "$ANTHROPIC_API_KEY" ]; then
+            python3 scripts/study/enrich.py
+          else
+            [ "$ENGINE" = "ai" ] && echo "::warning::No ANTHROPIC_API_KEY secret; using the free tools instead"
+            python3 scripts/study/enrich_free.py
+          fi
 
       - name: Publish
         run: bash scripts/study/publish.sh

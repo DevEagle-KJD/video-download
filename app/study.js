@@ -27,7 +27,7 @@ const PAD_BEFORE = 0.15, PAD_AFTER = 0.25;
 
 let lessons = store.get('lessons', []);
 let cards = store.get('cards', {});                 // id → card (deleted ones kept as tombstones)
-const prefs = Object.assign({ literal: true, english: true, follow: true, loop: false, autopause: false, speed: 1 },
+const prefs = Object.assign({ engine: 'free', literal: true, english: true, follow: true, loop: false, autopause: false, speed: 1 },
   store.get('studyPrefs', {}));
 const saveLessons = () => store.set('lessons', lessons);
 const savePrefs = () => store.set('studyPrefs', prefs);
@@ -37,14 +37,14 @@ async function stStart(url) {
   if (!configured()) { toast('Add your GitHub token in Settings first'); showScreen('settings'); return; }
   const m = String(url || '').match(/https?:\/\/\S+/i);
   if (!m) { toast('Paste a video link first'); $('#st-url').focus(); return; }
-  const lesson = { id: randomId(), url: m[0], created: Date.now(), state: 'starting' };
+  const lesson = { id: randomId(), url: m[0], created: Date.now(), state: 'starting', meta: { engine: prefs.engine } };
   lessons.unshift(lesson);
   saveLessons();
   stRender();
   try {
     await gh(`/actions/workflows/${ST_WORKFLOW}/dispatches`, {
       method: 'POST',
-      body: { ref: await defaultBranch(), inputs: { url: lesson.url, job_id: lesson.id } },
+      body: { ref: await defaultBranch(), inputs: { url: lesson.url, job_id: lesson.id, engine: prefs.engine } },
     });
     $('#st-url').value = '';
     toast('Making your lesson…');
@@ -195,7 +195,7 @@ function stRender() {
     let sub, dot = '';
     if (l.state === 'ready') {
       const mined = live.filter(c => c.lesson === l.id && c.kind !== 'word').length;
-      sub = `${m.count || 0} sentences${mined ? ` · ${mined} mined` : ''}${m.duration ? ` · ${fmtDuration(m.duration)}` : ''}`;
+      sub = `${m.engine === 'free' ? 'Free · ' : m.engine === 'ai' ? 'AI · ' : ''}${m.count || 0} sentences${mined ? ` · ${mined} mined` : ''}${m.duration ? ` · ${fmtDuration(m.duration)}` : ''}`;
       dot = 'ready';
     } else if (l.state === 'failed') {
       sub = 'Failed'; dot = 'failed';
@@ -629,7 +629,7 @@ function lessonMenu() {
     <div class="group kv">
       <div class="cell"><div class="k">Title</div>${esc(d.title || '')}</div>
       <div class="cell"><div class="k">Transcript</div>From ${src} · ${d.sentences.length} sentences</div>
-      ${d.model ? `<div class="cell"><div class="k">Meanings & translations</div>${esc(d.model)}</div>` : ''}
+      <div class="cell"><div class="k">Meanings made with</div>${d.engine === 'free' ? 'Free tools' : 'AI'}${d.model ? ` · ${esc(d.model)}` : ''}</div>
     </div>
     ${lesson.url ? `<a class="secondary-button" href="${esc(lesson.url)}" target="_blank" rel="noopener" style="margin-top:12px">Open Original Video</a>` : ''}
     <button class="secondary-button" data-s="lesson-help">How to use this page</button>
@@ -971,6 +971,21 @@ document.addEventListener('click', e => {
 
 // Tapping the video itself plays/pauses.
 $('#ls-video').addEventListener('click', togglePlay);
+
+const ENGINE_HINTS = {
+  free: 'Free: open-source tools add stress marks, dictionary meanings and a machine translation. Costs nothing; literal meanings are less precise.',
+  ai: 'AI: Claude writes stress marks, in-context literal meanings and natural translations. Best quality; uses your Anthropic API credit (needs the ANTHROPIC_API_KEY secret).',
+};
+function setEngine(e) {
+  prefs.engine = e;
+  savePrefs();
+  const btns = [...document.querySelectorAll('#st-engine button')];
+  btns.forEach(b => b.setAttribute('aria-checked', String(b.dataset.engine === e)));
+  $('#st-engine .seg-thumb').style.transform = `translateX(${btns.findIndex(b => b.dataset.engine === e) * 100}%)`;
+  $('#st-engine-hint').textContent = ENGINE_HINTS[e];
+}
+$('#st-engine').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setEngine(b.dataset.engine); });
+setEngine(prefs.engine);
 
 $('#st-make').addEventListener('click', () => stStart($('#st-url').value));
 $('#st-url').addEventListener('keydown', e => { if (e.key === 'Enter') stStart($('#st-url').value); });

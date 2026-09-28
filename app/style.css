@@ -553,3 +553,7 @@ body.in-page .tabbar { display: none; }
 .wc-word .syl.stress { color: var(--orange); }
 .wc-word .syl.on { background: rgba(10, 132, 255, .25); color: var(--blue); }
 .wc-word .sep { color: var(--tertiary); font-weight: 400; margin: 0 1px; }
+
+/* Two-option segmented control (Study: Free / AI) */
+.segmented.two { grid-template-columns: repeat(2, 1fr); margin-top: 10px; }
+.segmented.two .seg-thumb { width: calc((100% - 4px) / 2); }

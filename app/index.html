@@ -149,6 +149,12 @@
             <input id="st-url" type="url" inputmode="url" placeholder="Paste a Russian video link" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
           </div>
         </div>
+        <div class="segmented two" id="st-engine" role="radiogroup">
+          <span class="seg-thumb"></span>
+          <button role="radio" data-engine="free" aria-checked="true">Free</button>
+          <button role="radio" data-engine="ai" aria-checked="false">AI (best)</button>
+        </div>
+        <p class="section-footer" id="st-engine-hint" style="margin-top:6px"></p>
         <button class="primary-button" id="st-make">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H19v-3"/></svg>
           <span>Make Lesson</span>

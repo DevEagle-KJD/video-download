@@ -4,7 +4,7 @@
 set -euo pipefail
 
 notes=$(jq -c '{ok: true, kind: "study", title, url, duration, thumbnail, source,
-                enriched, count: (.sentences | length)}' out/lesson.json)
+                engine: (.engine // "ai"), enriched, count: (.sentences | length)}' out/lesson.json)
 title=$(jq -r '.title' out/lesson.json | cut -c1-120)
 
 gh release create "study-$JOB_ID" out/media.mp4 out/lesson.json \

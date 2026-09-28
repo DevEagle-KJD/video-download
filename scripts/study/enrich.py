@@ -219,6 +219,7 @@ def main():
         "duration": info.get("duration"),
         "thumbnail": info.get("thumbnail"),
         "source": data.get("source"),
+        "engine": "ai",
         "model": MODEL if enriched else None,
         "enriched": len(enriched),
         "sentences": [],
