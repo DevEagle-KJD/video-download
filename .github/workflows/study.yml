@@ -57,7 +57,7 @@ jobs:
           sudo apt-get install -y -qq ffmpeg > /dev/null
           python3 -m pip install -q --upgrade pip
           python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
-          python3 -m pip install -q "faster-whisper>=1.1" anthropic ruaccent
+          python3 -m pip install -q "faster-whisper>=1.1" anthropic ruaccent edge-tts
           # CPU-only PyTorch is ~10x smaller than the default build. Needed by
           # GigaAM (second transcriber) and Argos Translate (free engine).
           python3 -m pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
@@ -118,6 +118,12 @@ jobs:
             [ "$ENGINE" = "ai" ] && echo "::warning::No ANTHROPIC_API_KEY secret; using the free tools instead"
             python3 scripts/study/enrich_free.py
           fi
+
+      # Natural word audio (Microsoft neural voice). Optional: without it the
+      # app uses the phone's built-in voice.
+      - name: Voices
+        continue-on-error: true
+        run: python3 scripts/study/voices.py
 
       - name: Publish
         run: bash scripts/study/publish.sh

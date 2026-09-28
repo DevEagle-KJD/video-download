@@ -24,6 +24,9 @@ while read -r tag name size; do
   dir="site/files/${tag#*-}"
   mkdir -p "$dir"
   gh release download "$tag" -R "$GITHUB_REPOSITORY" -p "$name" -D "$dir"
+  if [ "$name" = "audio.zip" ]; then        # word recordings → files/<id>/audio/*.mp3
+    unzip -q -o "$dir/audio.zip" -d "$dir" && rm "$dir/audio.zip"
+  fi
   used=$((used + size))
   echo "Added $tag/$name"
 done < <(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '

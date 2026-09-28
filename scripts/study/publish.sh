@@ -7,7 +7,13 @@ notes=$(jq -c '{ok: true, kind: "study", title, url, duration, thumbnail, source
                 engine: (.engine // "ai"), enriched, count: (.sentences | length)}' out/lesson.json)
 title=$(jq -r '.title' out/lesson.json | cut -c1-120)
 
-gh release create "study-$JOB_ID" out/media.mp4 out/lesson.json \
+assets=(out/media.mp4 out/lesson.json)
+if [ -d out/audio ] && [ -n "$(ls -A out/audio)" ]; then
+  (cd out && zip -q -r audio.zip audio)
+  assets+=(out/audio.zip)
+fi
+
+gh release create "study-$JOB_ID" "${assets[@]}" \
   --target "$GITHUB_SHA" --prerelease --latest=false \
   --title "Lesson: $title" --notes "$notes"
 

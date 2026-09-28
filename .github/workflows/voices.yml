@@ -1,0 +1,42 @@
+name: Add voices
+
+# Records natural word audio for a lesson that was made without it, then
+# republishes the site. Started from the lesson's ••• menu in the app.
+run-name: "voices ${{ inputs.job_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: Lesson id (the part after "study-")
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  voices:
+    runs-on: ubuntu-latest
+    env:
+      JOB_ID: ${{ inputs.job_id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record words
+        run: |
+          [[ "$JOB_ID" =~ ^[a-z0-9]{6,32}$ ]] || { echo "::error::bad job id"; exit 1; }
+          python3 -m pip install -q edge-tts
+          mkdir -p out
+          gh release download "study-$JOB_ID" -p lesson.json -D out
+          python3 scripts/study/voices.py
+          [ -d out/audio ] || { echo "::error::No audio was recorded"; exit 1; }
+          (cd out && zip -q -r audio.zip audio)
+          gh release upload "study-$JOB_ID" out/audio.zip out/lesson.json --clobber
+
+  publish-site:
+    needs: voices
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

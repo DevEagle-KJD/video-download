@@ -354,6 +354,7 @@ async function openLesson(l) {
     return;
   }
   lesson = { id: l.id, data, meta: l.meta || {}, url: l.url };
+  audioMaps[l.id] = data.audio?.clips || {};
   cur = -1;
   stopAt = null; loopFrom = null; nextAfterStop = null;
   player.open(l);
@@ -604,13 +605,15 @@ function syllablesHTML(word) {
 
 // Lights up each syllable in turn while an utterance plays.
 let sylTimer = null;
-function animateSyllables(root, rate) {
+// stepMs: time per syllable. From a recording's real length when we have one,
+// otherwise estimated from the speech rate.
+function animateSyllables(root, rate, stepMs = null) {
   clearInterval(sylTimer);
   const els = root ? [...root.querySelectorAll('.syl')] : [];
   els.forEach(e => e.classList.remove('on'));
   if (!els.length) return;
   let n = 0;
-  const step = 230 / rate;              // ms per syllable, roughly
+  const step = stepMs || 230 / rate;    // ms per syllable
   els[0].classList.add('on');
   sylTimer = setInterval(() => {
     els[n]?.classList.remove('on');
@@ -631,7 +634,52 @@ function utter(text, rate, sylRoot) {
 }
 
 // rates: one or more speeds, spoken one after another (e.g. normal, then slow).
-function speak(text, rates = [0.5], sylRoot = null) {
+/* Natural voice: word recordings made with the lesson (Microsoft neural voice,
+ * as in the russian-study decks). audioMaps[lessonId] = {text: [normal, slow]}. */
+const audioMaps = {};
+const audioLoads = {};
+function speakable(text) {
+  return String(text || '').normalize('NFD').replace(/\u0301/g, '').normalize('NFC')
+    .replace(/[^\p{L}\p{N}_\s-]/gu, ' ').split(/\s+/).filter(Boolean).join(' ').toLowerCase();
+}
+function ensureAudio(lessonId) {
+  if (!lessonId || audioMaps[lessonId] || audioLoads[lessonId]) return audioLoads[lessonId];
+  audioLoads[lessonId] = fetch(`files/${lessonId}/lesson.json`)
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => { audioMaps[lessonId] = d?.audio?.clips || {}; })
+    .catch(() => { delete audioLoads[lessonId]; });
+  return audioLoads[lessonId];
+}
+
+const voicePlayer = new Audio();
+voicePlayer.preload = 'auto';
+function playClips(urls, sylRoot) {
+  speechSynthesis?.cancel?.();
+  let i = 0;
+  const next = () => {
+    if (i >= urls.length) { sylRoot?.querySelectorAll('.syl.on').forEach(e => e.classList.remove('on')); return; }
+    voicePlayer.src = urls[i++];
+    voicePlayer.onplaying = () => {
+      const n = sylRoot ? sylRoot.querySelectorAll('.syl').length : 0;
+      if (n && isFinite(voicePlayer.duration)) animateSyllables(sylRoot, 1, (voicePlayer.duration * 1000 * 0.85) / n);
+    };
+    voicePlayer.onended = () => setTimeout(next, 300);
+    voicePlayer.play().catch(() => {});
+  };
+  next();
+}
+
+// rates: one or more of RATE_NORMAL / RATE_SLOW, played one after another.
+function speak(text, rates = [0.5], sylRoot = null, lessonId = lesson?.id) {
+  const clips = audioMaps[lessonId]?.[speakable(text)];
+  if (clips) {
+    playClips([].concat(rates).map(r => `files/${lessonId}/audio/${clips[r <= RATE_SLOW ? 1 : 0]}`), sylRoot);
+    return;
+  }
+  speakWithPhone(text, rates, sylRoot);
+}
+
+function speakWithPhone(text, rates = [0.5], sylRoot = null) {
   if (!('speechSynthesis' in window)) { toast('Speech isn’t available in this browser'); return; }
   if (!ruVoice) pickVoice();
   speechSynthesis.cancel();
@@ -749,6 +797,7 @@ function lessonMenu() {
       <div class="cell"><div class="k">Meanings made with</div>${d.engine === 'free' ? 'Free tools' : 'AI'}${d.model ? ` · ${esc(d.model)}` : ''}</div>
     </div>
     ${lesson.url ? `<a class="secondary-button" href="${esc(lesson.url)}" target="_blank" rel="noopener" style="margin-top:12px">Open Original Video</a>` : ''}
+    ${d.audio ? '' : '<button class="secondary-button" data-s="add-voices">🎙️ Add Natural Voice</button>'}
     <button class="secondary-button" data-s="lesson-help">How to use this page</button>
     <button class="secondary-button destructive" data-s="delete-lesson">Delete Lesson</button>`);
 }
@@ -772,6 +821,7 @@ let queue = [], qi = 0, revealed = false, reviewed = 0;
 
 function startReview() {
   queue = dueCards().slice(0, 50);
+  [...new Set(queue.map(c => c.lesson))].forEach(ensureAudio);
   if (!queue.length) { toast('Nothing due right now'); return; }
   qi = 0; reviewed = 0;
   prevTab = 'study';
@@ -831,6 +881,8 @@ function playClip(c, rate = 1, word = false) {
 function showCard() {
   const c = queue[qi];
   if (!c) { reviewDone(); return; }
+  ensureAudio(c.lesson);
+  if (queue[qi + 1]) ensureAudio(queue[qi + 1].lesson);
   revealed = false;
   const mode = MODES[(c.seen || 0) % MODES.length];
   const v = $('#rv-video');
@@ -847,7 +899,7 @@ function showCard() {
       <div class="rv-front">${listen ? '<div class="listen-icon">🔊</div>' : `<div class="wc-word">${syllablesHTML(c.w)}</div>`}</div>
       <div class="rv-tools"><button class="chip" data-s="rv-say" data-rate="${RATE_NORMAL}">🔊 Normal</button><button class="chip" data-s="rv-say" data-rate="${RATE_SLOW}">🐢 Slowly</button></div>
       <button class="primary-button" data-s="rv-show">Show</button>`;
-    if (listen) speak(c.w, [RATE_NORMAL, RATE_SLOW]);   // right away, inside the tap (iOS requires it)
+    if (listen) speak(c.w, [RATE_NORMAL, RATE_SLOW], null, c.lesson);   // right away, inside the tap (iOS requires it)
     return;
   }
 
@@ -894,7 +946,7 @@ function revealCard() {
         ${hasVideo ? `<button class="chip" data-s="rv-word">🎬 Word</button><button class="chip" data-s="rv-play">▶ Sentence</button>` : ''}
       </div>
       ${grades}`;
-    speak(c.w, [RATE_NORMAL, RATE_SLOW], $('#rv-word'));
+    speak(c.w, [RATE_NORMAL, RATE_SLOW], $('#rv-word'), c.lesson);
     return;
   }
   $('#rv-body').innerHTML = `
@@ -1054,7 +1106,12 @@ document.addEventListener('click', e => {
     case 'w-video': playWord(wordOpen.i, wordOpen.k); break;
     case 'w-save': toggleWord(); break;
     case 'w-report': reportMistake(wordOpen.i, wordOpen.k); break;
-    case 'rv-say': speak(queue[qi].w, Number(el.dataset.rate) || RATE_SLOW, $('#rv-word')); break;
+    case 'add-voices':
+      defaultBranch().then(ref => gh('/actions/workflows/voices.yml/dispatches', { method: 'POST', body: { ref, inputs: { job_id: lesson.id } } }))
+        .then(() => { closeSheet(); toast('Recording a natural voice for every word. Reopen this lesson in about 10 minutes.'); })
+        .catch(e => toast(e.status === 404 ? 'The Add voices workflow isn’t on GitHub yet' : e.message));
+      break;
+    case 'rv-say': speak(queue[qi].w, Number(el.dataset.rate) || RATE_SLOW, $('#rv-word'), queue[qi].lesson); break;
     case 'rv-word': playClip(queue[qi], 1, true); break;
     case 'star': e.stopPropagation(); toggleStar(i); break;
     case 'toggle': togglePlay(); break;

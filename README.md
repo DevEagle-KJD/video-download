@@ -51,6 +51,12 @@ Words that are still uncertain get a dotted orange underline. Tapping one explai
 second transcriber heard. **🚩 Report a Mistake** files a GitHub issue with the details. (Your token needs
 permission to create issues: the classic `repo` scope has it, while a fine-grained token needs *Issues: Read and write*.)
 
+**Natural voice:** each lesson also records every word (and its dictionary form) with Microsoft's
+neural Russian voice (Svetlana, via `edge-tts`, as in the russian-study decks), at a learner pace and
+then slower. Tapping a word plays these recordings. Older lessons can get them from the lesson's •••
+menu (**Add Natural Voice**, which runs the *Add voices* workflow). Without recordings, the app falls
+back to the phone's built-in voice.
+
 In a lesson, tapping a sentence replays exactly that moment of the video. **Loop**, **Pause each**,
 and **0.75× / 0.5×** speeds help with shadowing. Tapping **☆** saves a sentence as a flashcard.
 **Review** drills your saved sentences three ways (read it, hear it, say it) and schedules them
