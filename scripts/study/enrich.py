@@ -20,7 +20,7 @@ import unicodedata
 
 OUT = "out"
 BATCH = 25
-MODEL = os.environ.get("STUDY_MODEL") or "claude-opus-5"
+MODEL = os.environ.get("STUDY_MODEL") or "claude-sonnet-5"
 
 SYSTEM = """You prepare Russian video transcripts for an English speaker who learns Russian by sentence mining: real spoken sentences, heard and repeated, never grammar lessons.
 
@@ -72,6 +72,182 @@ SCHEMA = {
     "required": ["sentences"],
     "additionalProperties": False,
 }
+
+
+REVIEW_SYSTEM = """You are a meticulous Russian teacher doing the final check of a lesson before learners study it. Learners trust every mark, so find and fix real mistakes.
+
+Each sentence comes with its tokens as [word with stress mark, literal meaning here, dictionary form, general meaning] and a natural English translation. Some tokens also have a second opinion on the stress from a stress-dictionary tool (RUAccent); it's usually right for ordinary words but can be wrong for names, homographs (за́мок/замо́к, до́ма/дома́) and context.
+
+Check every sentence for:
+- wrong or missing stress marks (words of 2+ syllables need exactly one acute accent U+0301 on the stressed vowel; ё needs none),
+- a literal meaning that doesn't fit how the word is used in THIS sentence,
+- a wrong dictionary form or general meaning,
+- an English translation that is wrong, misses meaning, or sounds unnatural.
+
+Return only the fixes:
+- fixes: tokens to correct, with sentence i, token k and the full corrected w, g, b, m. In w you may only change the stress mark, never the letters.
+- en: sentences whose English translation should be replaced.
+- flags: tokens that you believe may be wrong but can't settle (e.g. an unclear name), with a short note for the learner.
+Return empty lists when a batch is already correct. Don't rewrite things that are merely a matter of style."""
+
+REVIEW_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "fixes": {"type": "array", "items": {"type": "object", "properties": {
+            "i": {"type": "integer"}, "k": {"type": "integer"},
+            "w": {"type": "string"}, "g": {"type": "string"}, "b": {"type": "string"}, "m": {"type": "string"}},
+            "required": ["i", "k", "w", "g", "b", "m"], "additionalProperties": False}},
+        "en": {"type": "array", "items": {"type": "object", "properties": {
+            "i": {"type": "integer"}, "en": {"type": "string"}},
+            "required": ["i", "en"], "additionalProperties": False}},
+        "flags": {"type": "array", "items": {"type": "object", "properties": {
+            "i": {"type": "integer"}, "k": {"type": "integer"}, "note": {"type": "string"}},
+            "required": ["i", "k", "note"], "additionalProperties": False}},
+    },
+    "required": ["fixes", "en", "flags"],
+    "additionalProperties": False,
+}
+
+VOWELS = "аеёиоуыэюя"
+
+
+def stress_pos(word):
+    """Index of the stressed vowel (count of vowels before it), or None."""
+    n = 0
+    for ch in unicodedata.normalize("NFD", word.lower()):
+        if ch == "\u0301":
+            return n - 1
+        if ch in VOWELS:
+            n += 1
+    return None
+
+
+def syllable_count(word):
+    return sum(ch in VOWELS for ch in plain(word).lower())
+
+
+def plain(word):
+    return unicodedata.normalize("NFC", unicodedata.normalize("NFD", word).replace("\u0301", ""))
+
+
+def load_ruaccent():
+    try:
+        from ruaccent import RUAccent
+
+        acc = RUAccent()
+        acc.load(omograph_model_size="turbo", use_dictionary=True)
+        return acc
+    except Exception as e:  # noqa: BLE001
+        print(f"::warning::RUAccent unavailable for the stress double-check: {e}")
+        return None
+
+
+def ruaccent_words(acc, text):
+    """RUAccent's stressed version of a sentence, split like the tokens."""
+    out, i, marked = [], 0, acc.process_all(text)
+    res = []
+    while i < len(marked):
+        if marked[i] == "+" and i + 1 < len(marked):
+            res.append(marked[i + 1] + "\u0301")
+            i += 2
+        else:
+            res.append(marked[i])
+            i += 1
+    return "".join(res).split()
+
+
+def mark_flags(tokens, sentence):
+    """Copies transcription doubts onto the tokens as "u" (shown to the learner)."""
+    for f in sentence.get("flags") or []:
+        for tok in tokens:
+            if "u" not in tok and f["w"] and f["w"] in [norm(x) for x in tok["w"].split()]:
+                tok["u"] = {"alt": f.get("alt", ""), "note": "The two transcribers didn't agree on this word."
+                            if f.get("alt") else "This word may have been misheard."}
+                break
+    return tokens
+
+
+def review_batch(client, lesson_sentences, hints, idx):
+    """Check 3: returns (fixes, en_fixes, flags) for sentences idx."""
+    import anthropic
+
+    items = []
+    for i in idx:
+        s = lesson_sentences[i]
+        item = {"i": i, "tokens": [[t["w"], t.get("g", ""), t.get("b", ""), t.get("m", "")] for t in s["tokens"]], "en": s["en"]}
+        if hints.get(i):
+            item["ruaccent"] = {str(k): w for k, w in hints[i].items()}
+        items.append(item)
+    try:
+        response = client.beta.messages.create(
+            model=MODEL,
+            max_tokens=16000,
+            system=REVIEW_SYSTEM,
+            messages=[{"role": "user", "content": json.dumps(items, ensure_ascii=False)}],
+            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": REVIEW_SCHEMA}},
+            betas=["server-side-fallback-2026-07-01"],
+            extra_body={"fallbacks": "default"},
+        )
+    except (anthropic.APIStatusError, anthropic.APIConnectionError) as e:
+        print(f"  review batch {idx[0]}: API error: {e}", flush=True)
+        return [], [], []
+    if response.stop_reason != "end_turn":
+        print(f"  review batch {idx[0]}: stopped ({response.stop_reason})", flush=True)
+        return [], [], []
+    text = next((b.text for b in response.content if b.type == "text"), "")
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return [], [], []
+    ok = set(idx)
+    return ([f for f in data.get("fixes", []) if f.get("i") in ok],
+            [e for e in data.get("en", []) if e.get("i") in ok],
+            [f for f in data.get("flags", []) if f.get("i") in ok])
+
+
+def review(client, lesson_sentences):
+    """Check 3: second-opinion stress (RUAccent) + a Claude review pass."""
+    acc = load_ruaccent()
+    hints = {}
+    if acc:
+        for i, s in enumerate(lesson_sentences):
+            try:
+                ra = ruaccent_words(acc, s["ru"])
+            except Exception:  # noqa: BLE001
+                continue
+            if len(ra) != len(s["tokens"]):
+                continue
+            for k, (tok, alt) in enumerate(zip(s["tokens"], ra)):
+                if " " in tok["w"] or syllable_count(tok["w"]) < 2:
+                    continue
+                if norm(alt) == norm(tok["w"]) and stress_pos(alt) is not None and stress_pos(alt) != stress_pos(tok["w"]):
+                    hints.setdefault(i, {})[k] = alt
+        print(f"RUAccent disagrees on stress in {sum(len(h) for h in hints.values())} words; sending them for review")
+
+    batches = [list(range(k, min(k + BATCH, len(lesson_sentences)))) for k in range(0, len(lesson_sentences), BATCH)]
+    n_fix = n_en = n_flag = 0
+    with cf.ThreadPoolExecutor(max_workers=4) as pool:
+        for fixes, ens, flags in pool.map(lambda b: review_batch(client, lesson_sentences, hints, b), batches):
+            for f in fixes:
+                toks = lesson_sentences[f["i"]]["tokens"]
+                if not 0 <= f["k"] < len(toks):
+                    continue
+                tok = toks[f["k"]]
+                if norm(f["w"]) == norm(tok["w"]):      # only the stress may change, never the letters
+                    tok["w"] = f["w"]
+                tok["g"], tok["b"], tok["m"] = f["g"], f["b"], f["m"]
+                n_fix += 1
+            for e in ens:
+                if e["en"].strip():
+                    lesson_sentences[e["i"]]["en"] = e["en"].strip()
+                    n_en += 1
+            for f in flags:
+                toks = lesson_sentences[f["i"]]["tokens"]
+                if 0 <= f["k"] < len(toks) and "u" not in toks[f["k"]]:
+                    toks[f["k"]]["u"] = {"alt": "", "note": f["note"]}
+                    n_flag += 1
+    print(f"Review: {n_fix} word fixes, {n_en} translations improved, {n_flag} words flagged")
+    return {"review_word_fixes": n_fix, "review_translation_fixes": n_en, "review_flags": n_flag}
 
 
 def plain_tokens(text):
@@ -231,13 +407,20 @@ def main():
             "start": s["start"],
             "end": s["end"],
             "ru": s["text"],
-            "tokens": add_timings(tokens, s),
+            "tokens": mark_flags(add_timings(tokens, s), s),
             "en": e["en"] if e else "",
         })
 
+    checks = dict(data.get("checks") or {})
+    if enriched:
+        checks.update(review(client, lesson["sentences"]))
+    checks["flagged_words"] = sum("u" in t for s in lesson["sentences"] for t in s["tokens"])
+    lesson["checks"] = checks
+
     with open(os.path.join(OUT, "lesson.json"), "w", encoding="utf-8") as f:
         json.dump(lesson, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"lesson.json: {len(sentences)} sentences, {len(enriched)} with translations")
+    print(f"lesson.json: {len(sentences)} sentences, {len(enriched)} with translations, "
+          f"{checks['flagged_words']} words flagged for the learner")
 
 
 if __name__ == "__main__":

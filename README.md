@@ -32,10 +32,24 @@ finished download. The **Study** workflow then:
 
 1. Downloads the video at 480p. If the video has human-made Russian subtitles, it downloads those too.
 2. Makes a timed transcript. It uses the subtitles if there are any; otherwise it transcribes the
-   speech with Whisper (`large-v3-turbo`).
+   speech with Whisper (`large-v3`).
 3. Asks Claude to add three things to every sentence: stress marks (молоко́), the literal meaning
    of each word ("to-me it-seems"), and a natural English translation. There are no grammar labels.
 4. Publishes the lesson to the site at `files/<id>/lesson.json` and `files/<id>/media.mp4`.
+
+**Accuracy checks** (every lesson):
+1. **Two transcribers.** Whisper large-v3 and a second, independent model (GigaAM v3 for Russian)
+   both transcribe the speech. Words they disagree on, or that Whisper was unsure of, are marked doubtful.
+   (Skipped when the video has human-made subtitles.)
+2. **Claude proofreads the doubtful words** (AI engine) using both versions and the context. It may only
+   change doubtful words; a guard rail rejects any other change. Claude can't hear audio, so words it
+   can't settle stay flagged instead of being guessed.
+3. **Final review** (AI engine). Claude re-checks every sentence's stress marks, literal meanings and
+   translation, with RUAccent as a second opinion on stress.
+
+Words that are still uncertain get a dotted orange underline. Tapping one explains why and shows what the
+second transcriber heard. **🚩 Report a Mistake** files a GitHub issue with the details. (Your token needs
+permission to create issues: the classic `repo` scope has it, while a fine-grained token needs *Issues: Read and write*.)
 
 In a lesson, tapping a sentence replays exactly that moment of the video. **Loop**, **Pause each**,
 and **0.75× / 0.5×** speeds help with shadowing. Tapping **☆** saves a sentence as a flashcard.
@@ -47,7 +61,7 @@ Safari clearing its storage and work on any device.
 [console.anthropic.com](https://console.anthropic.com) and add it as a repository secret named
 `ANTHROPIC_API_KEY` (**Settings → Secrets and variables → Actions**). Without the key, lessons
 still get the video and the Russian transcript, but no meanings or translations. The workflow
-uses `claude-opus-5` by default. To use a different model, set the repository **variable**
+uses `claude-sonnet-5` by default. To use a different model, set the repository **variable**
 `STUDY_MODEL`.
 
 Lessons don't expire. The site has a 1 GB limit, so roughly 10–15 lessons' videos fit

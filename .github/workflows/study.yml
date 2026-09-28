@@ -57,11 +57,13 @@ jobs:
           sudo apt-get install -y -qq ffmpeg > /dev/null
           python3 -m pip install -q --upgrade pip
           python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
-          python3 -m pip install -q "faster-whisper>=1.1" anthropic
+          python3 -m pip install -q "faster-whisper>=1.1" anthropic ruaccent
+          # CPU-only PyTorch is ~10x smaller than the default build. Needed by
+          # GigaAM (second transcriber) and Argos Translate (free engine).
+          python3 -m pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install -q "git+https://github.com/salute-developers/GigaAM.git"
           if [ "$ENGINE" = "free" ] || [ "$HAS_KEY" != "true" ]; then
-            # CPU-only PyTorch (Argos Translate needs it) is ~10x smaller than the default.
-            python3 -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu
-            python3 -m pip install -q pymorphy3 ruaccent argostranslate
+            python3 -m pip install -q pymorphy3 argostranslate
           fi
           yt-dlp --version
 
@@ -74,9 +76,10 @@ jobs:
         with:
           path: |
             ~/.cache/huggingface
+            ~/.cache/gigaam
             ~/.local/share/argos-translate
             ~/.local/cache/argos-translate
-          key: study-models-${{ env.ENGINE }}-large-v3
+          key: study-models-${{ env.ENGINE }}-large-v3-gigaam
           restore-keys: |
             study-models-${{ env.ENGINE }}-
 
@@ -92,6 +95,17 @@ jobs:
         env:
           WHISPER_MODEL: ${{ vars.WHISPER_MODEL }}   # optional override, e.g. large-v3-turbo
         run: python3 scripts/study/transcribe.py
+
+      # Check 1: a second transcriber; words the two disagree on are doubtful.
+      - name: Second opinion
+        run: python3 scripts/study/second_asr.py
+
+      # Check 2: Claude settles doubtful words (AI engine); the rest get flagged.
+      - name: Proofread
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          STUDY_MODEL: ${{ vars.STUDY_MODEL }}
+        run: python3 scripts/study/proofread.py
 
       - name: Translate
         env:

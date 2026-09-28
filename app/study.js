@@ -19,7 +19,9 @@ const ST_STAGES = [
   ['Download', 'Downloading video'],
   ['Convert for iPhone', 'Preparing video'],
   ['Transcribe', 'Transcribing speech'],
-  ['Translate', 'Adding meanings & translations'],
+  ['Second opinion', 'Double-checking with a 2nd transcriber'],
+  ['Proofread', 'Proofreading doubtful words'],
+  ['Translate', 'Adding meanings, translations & final check'],
   ['Publish', 'Publishing lesson'],
 ];
 const DAY = 864e5;
@@ -385,7 +387,7 @@ function tokensHTML(tokens, withGloss, { i = null, hl = -1 } = {}) {
   return tokens.map((t, k) => {
     const saved = i != null && lesson && isSaved(`${lesson.id}:${i}:${k}`);
     const attrs = i != null ? ` data-s="word" data-i="${i}" data-k="${k}"` : '';
-    return `<span class="tok${k === hl ? ' hl' : ''}${saved ? ' saved' : ''}"${attrs}><b>${esc(t.w)}</b>${withGloss ? `<i>${esc(t.g || ' ')}</i>` : ''}</span>`;
+    return `<span class="tok${k === hl ? ' hl' : ''}${saved ? ' saved' : ''}${t.u ? ' unsure' : ''}"${attrs}><b>${esc(t.w)}</b>${withGloss ? `<i>${esc(t.g || ' ')}</i>` : ''}</span>`;
   }).join('');
 }
 
@@ -666,6 +668,9 @@ function openWord(i, k) {
         <button class="chip" data-s="w-say" data-rate="${RATE_SLOW}">🐢 Slowly</button>
         <button class="chip" data-s="w-video">🎬 From the video</button>
       </div>
+      ${t.u ? `<div class="wc-warn">⚠️ <b>This word may not be accurate.</b> ${esc(t.u.note || '')}
+        ${t.u.alt ? `<br>The second transcriber heard: <b>${esc(t.u.alt)}</b>` : ''}
+        <br><span>Tap 🎬 From the video to hear it yourself.</span></div>` : ''}
       ${t.b || t.m ? `<div class="group kv wc-dict">
         ${t.b ? `<div class="cell"><div class="k">Dictionary form</div><span class="wc-base">${esc(t.b)}</span> <button class="chip small" data-s="w-say-base">🔊</button></div>` : ''}
         ${t.m ? `<div class="cell"><div class="k">Meaning</div>${esc(t.m)}</div>` : ''}
@@ -676,6 +681,7 @@ function openWord(i, k) {
         ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
       </div>
       <button class="primary-button${isSaved(id) ? ' saved-btn' : ''}" data-s="w-save">${isSaved(id) ? '★ Saved (tap to remove)' : '☆ Save Word'}</button>
+      <button class="secondary-button" data-s="w-report">🚩 Report a Mistake</button>
     </div>`);
 }
 
@@ -703,6 +709,30 @@ function toggleWord() {
   openWord(i, k);
 }
 
+// Reports go to the repo as GitHub issues (the public version will store them
+// in its database and fix the shared lesson for everyone).
+async function reportMistake(i, k) {
+  const s = lesson.data.sentences[i];
+  const t = s.tokens[k];
+  const note = prompt(`What’s wrong with “${plainWord(t.w)}”? (e.g. wrong word, wrong meaning, wrong stress)`);
+  if (note == null) return;
+  const body = [
+    `**Lesson:** ${lesson.data.title} (\`${lesson.id}\`)`,
+    `**Sentence ${i}** at ${fmtDuration(s.start)}: ${s.ru}`,
+    `**Word ${k}:** ${t.w} · literal: ${t.g || '—'} · dictionary: ${t.b || '—'} · meaning: ${t.m || '—'}`,
+    `**English:** ${s.en || '—'}`,
+    t.u ? `**Flagged as uncertain:** ${t.u.note || ''} ${t.u.alt ? `(2nd transcriber heard “${t.u.alt}”)` : ''}` : '',
+    '',
+    `**Report:** ${note || '(no details)'}`,
+  ].filter(Boolean).join('\n');
+  try {
+    await gh('/issues', { method: 'POST', body: { title: `Lesson mistake: ${plainWord(t.w)}`, body } });
+    toast('Thanks! Reported');
+  } catch (e) {
+    toast(e.status === 403 || e.status === 404 ? 'Your token can’t create issues (it needs the Issues permission)' : e.message);
+  }
+}
+
 function lessonMenu() {
   const d = lesson.data;
   const src = d.source === 'subtitles' ? 'the video’s own Russian subtitles' : 'Whisper speech recognition';
@@ -710,6 +740,12 @@ function lessonMenu() {
     <div class="group kv">
       <div class="cell"><div class="k">Title</div>${esc(d.title || '')}</div>
       <div class="cell"><div class="k">Transcript</div>From ${src} · ${d.sentences.length} sentences</div>
+      ${d.checks ? `<div class="cell"><div class="k">Accuracy checks</div>${[
+        d.checks.second && `Double-checked by a 2nd transcriber (${esc(d.checks.second)}): ${Math.round((d.checks.agreement || 0) * 100)}% agreement`,
+        d.checks.proofread_fixed != null && (d.checks.proofread_fixed || d.checks.proofread_confirmed) && `Claude corrected ${d.checks.proofread_fixed} misheard sentence${d.checks.proofread_fixed === 1 ? '' : 's'} and confirmed ${d.checks.proofread_confirmed}`,
+        d.checks.review_word_fixes != null && `Final review fixed ${d.checks.review_word_fixes} word${d.checks.review_word_fixes === 1 ? '' : 's'} and ${d.checks.review_translation_fixes} translation${d.checks.review_translation_fixes === 1 ? '' : 's'}`,
+        `${d.checks.flagged_words || 0} word${d.checks.flagged_words === 1 ? '' : 's'} flagged as possibly inaccurate (dotted orange underline)`,
+      ].filter(Boolean).join('<br>')}</div>` : ''}
       <div class="cell"><div class="k">Meanings made with</div>${d.engine === 'free' ? 'Free tools' : 'AI'}${d.model ? ` · ${esc(d.model)}` : ''}</div>
     </div>
     ${lesson.url ? `<a class="secondary-button" href="${esc(lesson.url)}" target="_blank" rel="noopener" style="margin-top:12px">Open Original Video</a>` : ''}
@@ -720,6 +756,7 @@ function lessonMenu() {
 function helpSheet() {
   openSheet('How to use a lesson', `<ol>
     <li><b>Tap a word</b> to hear it slowly, hear it from the video, see its meaning, and save it.</li>
+    <li>A <b>dotted orange underline</b> means the word may not be accurate (the checks couldn’t confirm it). Tap it to see why, and 🚩 report mistakes you spot.</li>
     <li><b>▶</b> next to a sentence (or tapping its English line) replays exactly that moment of the video.</li>
     <li><b>☆</b> saves the whole sentence as a flashcard with its real audio clip.</li>
     <li><b>Loop</b> repeats one sentence until you tap ▶ again. Great for shadowing: say it along with the speaker.</li>
@@ -1016,6 +1053,7 @@ document.addEventListener('click', e => {
     case 'w-say-base': speak(lesson.data.sentences[wordOpen.i].tokens[wordOpen.k].b, RATE_SLOW); break;
     case 'w-video': playWord(wordOpen.i, wordOpen.k); break;
     case 'w-save': toggleWord(); break;
+    case 'w-report': reportMistake(wordOpen.i, wordOpen.k); break;
     case 'rv-say': speak(queue[qi].w, Number(el.dataset.rate) || RATE_SLOW, $('#rv-word')); break;
     case 'rv-word': playClip(queue[qi], 1, true); break;
     case 'star': e.stopPropagation(); toggleStar(i); break;

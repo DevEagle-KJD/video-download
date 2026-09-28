@@ -19,7 +19,7 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(__file__))
-from enrich import add_timings, norm, plain_tokens  # noqa: E402
+from enrich import add_timings, mark_flags, norm, plain_tokens  # noqa: E402
 
 OUT = "out"
 VOWELS = set("аеёиоуыэюя")
@@ -176,7 +176,7 @@ def main():
 
         lesson_sentences.append({
             "start": s["start"], "end": s["end"], "ru": s["text"],
-            "tokens": add_timings(tokens, s), "en": en,
+            "tokens": mark_flags(add_timings(tokens, s), s), "en": en,
         })
         if n % 50 == 0:
             print(f"  {n}/{len(sentences)} sentences", flush=True)
@@ -192,6 +192,8 @@ def main():
         "enriched": len(sentences) if (dictionary or translate) else 0,
         "sentences": lesson_sentences,
     }
+    lesson["checks"] = dict(data.get("checks") or {})
+    lesson["checks"]["flagged_words"] = sum("u" in t for s in lesson_sentences for t in s["tokens"])
     with open(os.path.join(OUT, "lesson.json"), "w", encoding="utf-8") as f:
         json.dump(lesson, f, ensure_ascii=False, separators=(",", ":"))
     print(f"lesson.json: {len(sentences)} sentences, {translated} translated (free tools)")
