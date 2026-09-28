@@ -34,20 +34,53 @@ run() {
   return "${PIPESTATUS[0]}"
 }
 
+blocked() {
+  grep -qiE "not a bot|sign in to confirm|HTTP Error 403|HTTP Error 429|Requested format is not available" out/log.txt
+}
+
+# Routes the runner's traffic through Cloudflare WARP (free VPN) so the site
+# sees a Cloudflare IP instead of one of GitHub's data-center IPs.
+enable_warp() {
+  echo "::group::Connecting to Cloudflare WARP"
+  curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg |
+    sudo gpg --yes --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" |
+    sudo tee /etc/apt/sources.list.d/cloudflare-client.list > /dev/null
+  sudo apt-get update -qq && sudo apt-get install -y -qq cloudflare-warp > /dev/null
+  sudo systemctl start warp-svc 2>/dev/null || true
+  for _ in $(seq 1 15); do warp-cli --accept-tos status > /dev/null 2>&1 && break; sleep 1; done
+  warp-cli --accept-tos registration new
+  warp-cli --accept-tos connect
+  for _ in $(seq 1 20); do
+    curl -fsS --max-time 5 https://www.cloudflare.com/cdn-cgi/trace 2>/dev/null | grep -q '^warp=on' && break
+    sleep 1
+  done
+  curl -fsS --max-time 5 https://www.cloudflare.com/cdn-cgi/trace | grep -E '^(warp|colo)=' || true
+  echo "::endgroup::"
+}
+
 set +e
 run
 status=$?
 
 # YouTube often blocks data-center IPs ("confirm you're not a bot"). Retry
-# posing as other YouTube clients, which are sometimes treated differently.
-for clients in "tv_simply,web_safari" "mweb,web_embedded" "tv,ios"; do
-  [ "$status" -eq 0 ] && break
-  grep -qiE "not a bot|sign in to confirm|HTTP Error 403|Requested format is not available" out/log.txt || break
-  echo "::warning::Blocked by YouTube, retrying as player_client=$clients"
-  rm -f out/media.*
-  run --extractor-args "youtube:player_client=$clients"
-  status=$?
-done
+# through WARP, also posing as other YouTube clients.
+if [ "$status" -ne 0 ] && blocked; then
+  echo "::warning::Blocked by the site; retrying through Cloudflare WARP"
+  enable_warp
+  for clients in "" "tv_simply,web_safari" "mweb,web_embedded" "tv,ios"; do
+    rm -f out/media.*
+    if [ -n "$clients" ]; then
+      echo "::warning::Retrying as player_client=$clients"
+      run --extractor-args "youtube:player_client=$clients"
+    else
+      run
+    fi
+    status=$?
+    [ "$status" -eq 0 ] && break
+    blocked || break
+  done
+fi
 set -e
 
 if [ "$status" -ne 0 ]; then
