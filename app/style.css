@@ -546,3 +546,4 @@ body.in-page .tabbar { display: none; }
 .wc-sentence .tok b { font-size: 18px; }
 .primary-button.saved-btn { background: #ffcc00; color: #000; }
 .rv-back .wc-word, .rv-back .wc-here { text-align: center; }
+.chip.off { opacity: .4; }

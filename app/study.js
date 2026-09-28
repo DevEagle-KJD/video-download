@@ -343,8 +343,11 @@ function syncChips() {
   $('#ls-speed').classList.toggle('on', prefs.speed !== 1);
   $('#ls-loop').classList.toggle('on', prefs.loop);
   $('#ls-autopause').classList.toggle('on', prefs.autopause);
-  $('#ls-literal').classList.toggle('on', prefs.literal);
-  $('#ls-english').classList.toggle('on', prefs.english);
+  const has = !!lesson?.data.enriched;
+  $('#ls-literal').classList.toggle('on', has && prefs.literal);
+  $('#ls-english').classList.toggle('on', has && prefs.english);
+  $('#ls-literal').classList.toggle('off', !has);
+  $('#ls-english').classList.toggle('off', !has);
   $('#ls-follow').classList.toggle('on', prefs.follow);
 }
 
@@ -885,8 +888,14 @@ document.addEventListener('click', e => {
     }
     case 'loop': prefs.loop = !prefs.loop; savePrefs(); syncChips(); break;
     case 'autopause': prefs.autopause = !prefs.autopause; nextAfterStop = null; savePrefs(); syncChips(); break;
-    case 'show-literal': prefs.literal = !prefs.literal; savePrefs(); syncChips(); applyDisplayPrefs(); break;
-    case 'show-english': prefs.english = !prefs.english; savePrefs(); syncChips(); applyDisplayPrefs(); break;
+    case 'show-literal':
+    case 'show-english':
+      if (!lesson?.data.enriched) {
+        toast('This lesson has no meanings yet. Add the ANTHROPIC_API_KEY secret, then make the lesson again');
+        break;
+      }
+      if (el.dataset.s === 'show-literal') prefs.literal = !prefs.literal; else prefs.english = !prefs.english;
+      savePrefs(); syncChips(); applyDisplayPrefs(); break;
     case 'show-follow': prefs.follow = !prefs.follow; savePrefs(); syncChips(); break;
     case 'lesson-menu': lessonMenu(); break;
     case 'lesson-help': closeSheet(); setTimeout(helpSheet, 350); break;
