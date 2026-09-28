@@ -177,9 +177,11 @@ function dueCards() {
 function stRender() {
   const live = Object.values(cards).filter(c => !c.deleted);
   const due = dueCards().length;
+  const nWords = live.filter(c => c.kind === 'word').length, nSent = live.length - nWords;
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   $('#st-review-card').innerHTML = live.length
-    ? `<div class="rc-text"><b>${due ? `${due} sentence${due === 1 ? '' : 's'} to review` : 'All caught up'}</b>
-         <span>${live.length} sentence${live.length === 1 ? '' : 's'} mined</span></div>
+    ? `<div class="rc-text"><b>${due ? `${plural(due, 'card')} to review` : 'All caught up'}</b>
+         <span>${[nSent && `${plural(nSent, 'sentence')} mined`, nWords && `${plural(nWords, 'word')} saved`].filter(Boolean).join(' · ')}</span></div>
        <button class="rc-btn" data-s="review" ${due ? '' : 'disabled'}>Review</button>`
     : `<div class="rc-text"><b>Mine your first sentence</b>
          <span>Open a lesson and tap ☆ on sentences you want to learn.</span></div>`;
@@ -192,7 +194,7 @@ function stRender() {
     const title = m.title || hostOf(l.url) || 'New lesson';
     let sub, dot = '';
     if (l.state === 'ready') {
-      const mined = live.filter(c => c.lesson === l.id).length;
+      const mined = live.filter(c => c.lesson === l.id && c.kind !== 'word').length;
       sub = `${m.count || 0} sentences${mined ? ` · ${mined} mined` : ''}${m.duration ? ` · ${fmtDuration(m.duration)}` : ''}`;
       dot = 'ready';
     } else if (l.state === 'failed') {
@@ -279,9 +281,31 @@ async function openLesson(l) {
   if (pos > 0) setActive(pos, false);
 }
 
-function tokensHTML(tokens, withGloss) {
-  return tokens.map(t => `<span class="tok"><b>${esc(t.w)}</b>${withGloss ? `<i>${esc(t.g || ' ')}</i>` : ''}</span>`).join('');
+// Word timings: from the lesson (Whisper), or estimated by word length.
+function wordTimes(s) {
+  if (s._t) return s._t;
+  if (s.tokens.every(t => Array.isArray(t.t))) return (s._t = s.tokens.map(t => t.t));
+  const lens = s.tokens.map(t => Math.max(1, plainWord(t.w).length));
+  const total = lens.reduce((a, b) => a + b, 0);
+  let pos = s.start;
+  return (s._t = lens.map(L => { const d = (s.end - s.start) * L / total; const r = [pos, pos + d]; pos += d; return r; }));
 }
+
+// "Пра́в." → "Прав" (no stress marks or punctuation), for speech and matching.
+function plainWord(w) {
+  return String(w || '').normalize('NFD').replace(/\u0301/g, '').normalize('NFC').replace(/[^\p{L}\p{N}\s-]/gu, '').trim();
+}
+
+// hl: index of a token to highlight; i: sentence index to make words tappable.
+function tokensHTML(tokens, withGloss, { i = null, hl = -1 } = {}) {
+  return tokens.map((t, k) => {
+    const saved = i != null && lesson && isSaved(`${lesson.id}:${i}:${k}`);
+    const attrs = i != null ? ` data-s="word" data-i="${i}" data-k="${k}"` : '';
+    return `<span class="tok${k === hl ? ' hl' : ''}${saved ? ' saved' : ''}"${attrs}><b>${esc(t.w)}</b>${withGloss ? `<i>${esc(t.g || ' ')}</i>` : ''}</span>`;
+  }).join('');
+}
+
+const isSaved = id => cards[id] && !cards[id].deleted;
 
 function renderTranscript() {
   const { data } = lesson;
@@ -292,12 +316,17 @@ function renderTranscript() {
       const starred = cards[`${lesson.id}:${i}`] && !cards[`${lesson.id}:${i}`].deleted;
       return `<div class="sent${starred ? ' starred' : ''}" data-s="sent" data-i="${i}">
         <div class="sent-main">
-          <div class="il">${tokensHTML(s.tokens, true)}</div>
+          <div class="il">${tokensHTML(s.tokens, true, { i })}</div>
           ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
         </div>
-        <button class="star" data-s="star" data-i="${i}" aria-label="Save sentence">
-          <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
-        </button>
+        <div class="sent-side">
+          <button class="replay" data-s="replay" data-i="${i}" aria-label="Replay sentence">
+            <svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>
+          </button>
+          <button class="star" data-s="star" data-i="${i}" aria-label="Save sentence">
+            <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+          </button>
+        </div>
       </div>`;
     }).join('');
   applyDisplayPrefs();
@@ -352,12 +381,29 @@ function setPlayIcon(playing) {
   $('#ls-playicon').innerHTML = playing ? '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>' : '<path d="M7 4.5v15l12-7.5z"/>';
 }
 
+let sayEl = null;
+function highlightWord(t) {
+  let el = null;
+  const s = lesson.data.sentences[cur];
+  if (s && t <= s.end + PAD_AFTER) {
+    const times = wordTimes(s);
+    const k = times.findIndex(([a, b], n) => t >= a - 0.05 && (t < b || n === times.length - 1 || t < times[n + 1][0]));
+    if (k >= 0) el = $(`#ls-transcript .sent[data-i="${cur}"] .tok[data-k="${k}"]`);
+  }
+  if (el !== sayEl) {
+    sayEl?.classList.remove('say');
+    el?.classList.add('say');
+    sayEl = el;
+  }
+}
+
 function tick() {
   const v = $('#ls-video');
-  if (!lesson || v.paused) { rafId = 0; return; }
+  if (!lesson || v.paused) { rafId = 0; sayEl?.classList.remove('say'); sayEl = null; return; }
   const t = v.currentTime;
   const i = sentenceAt(t);
   if (i >= 0) setActive(i);
+  highlightWord(t);
   if (stopAt != null && t >= stopAt) {
     if (prefs.loop && loopFrom != null) {
       v.currentTime = loopFrom;
@@ -430,6 +476,94 @@ function toggleStar(i) {
   cardsChanged();
 }
 
+/* ───────── Words: tap a word to hear it, see it, save it ───────── */
+let ruVoice = null;
+function pickVoice() {
+  const voices = speechSynthesis.getVoices();
+  ruVoice = voices.find(v => /^ru(-|_|$)/i.test(v.lang) && /milena|premium|enhanced/i.test(v.name))
+    || voices.find(v => /^ru(-|_|$)/i.test(v.lang)) || null;
+}
+if ('speechSynthesis' in window) {
+  pickVoice();
+  speechSynthesis.addEventListener?.('voiceschanged', pickVoice);
+}
+
+function speak(text, rate = 0.5) {
+  if (!('speechSynthesis' in window)) { toast('Speech isn’t available in this browser'); return; }
+  if (!ruVoice) pickVoice();
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(plainWord(text));
+  u.lang = 'ru-RU';
+  if (ruVoice) u.voice = ruVoice;
+  u.rate = rate;
+  speechSynthesis.speak(u);
+  if (!ruVoice) setTimeout(() => { if (!ruVoice) toast('No Russian voice found. Add one in Settings → Accessibility → Spoken Content → Voices'); }, 800);
+}
+
+// Plays just one word from the lesson video.
+function playWord(i, k) {
+  const [a, b] = wordTimes(lesson.data.sentences[i])[k];
+  const v = $('#ls-video');
+  nextAfterStop = null;
+  loopFrom = null;
+  stopAt = b + 0.12;
+  v.currentTime = Math.max(0, a - 0.08);
+  v.play().catch(() => {});
+  startTick();
+}
+
+let wordOpen = null;   // { i, k }
+function openWord(i, k) {
+  wordOpen = { i, k };
+  const s = lesson.data.sentences[i];
+  const t = s.tokens[k];
+  const id = `${lesson.id}:${i}:${k}`;
+  openSheet('Word', `
+    <div class="word-card">
+      <div class="wc-word">${esc(t.w.replace(/[.,!?…:;«»"“”()]+$|^[«"“(]+/g, ''))}</div>
+      ${t.g ? `<div class="wc-here">${esc(t.g)}</div>` : ''}
+      <div class="wc-audio">
+        <button class="chip" data-s="w-say" data-rate="0.45">🔊 Slowly</button>
+        <button class="chip" data-s="w-say" data-rate="0.85">🔊 Normal</button>
+        <button class="chip" data-s="w-video">🎬 From the video</button>
+      </div>
+      ${t.b || t.m ? `<div class="group kv wc-dict">
+        ${t.b ? `<div class="cell"><div class="k">Dictionary form</div><span class="wc-base">${esc(t.b)}</span> <button class="chip small" data-s="w-say-base">🔊</button></div>` : ''}
+        ${t.m ? `<div class="cell"><div class="k">Meaning</div>${esc(t.m)}</div>` : ''}
+      </div>` : (lesson.data.enriched ? '' : '<p class="section-footer" style="margin:12px 0">Meanings appear once the lesson is made with the ANTHROPIC_API_KEY secret set.</p>')}
+      <div class="wc-sentence">
+        <div class="k">In this sentence</div>
+        <div class="il">${tokensHTML(s.tokens, false, { hl: k })}</div>
+        ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
+      </div>
+      <button class="primary-button${isSaved(id) ? ' saved-btn' : ''}" data-s="w-save">${isSaved(id) ? '★ Saved (tap to remove)' : '☆ Save Word'}</button>
+    </div>`);
+}
+
+function toggleWord() {
+  const { i, k } = wordOpen;
+  const s = lesson.data.sentences[i];
+  const t = s.tokens[k];
+  const id = `${lesson.id}:${i}:${k}`;
+  if (isSaved(id)) {
+    cards[id].deleted = true;
+    cards[id].updated = Date.now();
+    toast('Word removed from review');
+  } else {
+    const now = Date.now();
+    cards[id] = {
+      id, kind: 'word', lesson: lesson.id, title: lesson.data.title, i, k,
+      w: t.w, g: t.g || '', b: t.b || '', m: t.m || '', t: wordTimes(s)[k],
+      start: s.start, end: s.end, ru: s.ru, tokens: s.tokens.map(({ w, g }) => ({ w, g })), en: s.en,
+      created: now, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
+    };
+    toast('Word saved ⭐');
+  }
+  cardsChanged();
+  $(`#ls-transcript .tok[data-i="${i}"][data-k="${k}"]`)?.classList.toggle('saved', isSaved(id));
+  openWord(i, k);
+}
+
 function lessonMenu() {
   const d = lesson.data;
   const src = d.source === 'subtitles' ? 'the video’s own Russian subtitles' : 'Whisper speech recognition';
@@ -446,8 +580,9 @@ function lessonMenu() {
 
 function helpSheet() {
   openSheet('How to use a lesson', `<ol>
-    <li><b>Tap a sentence</b> to replay exactly that moment of the video.</li>
-    <li><b>☆</b> saves the sentence as a flashcard with its real audio clip.</li>
+    <li><b>Tap a word</b> to hear it slowly, hear it from the video, see its meaning, and save it.</li>
+    <li><b>▶</b> next to a sentence (or tapping its English line) replays exactly that moment of the video.</li>
+    <li><b>☆</b> saves the whole sentence as a flashcard with its real audio clip.</li>
     <li><b>Loop</b> repeats one sentence until you tap ▶ again. Great for shadowing: say it along with the speaker.</li>
     <li><b>Pause each</b> stops after every sentence; tap ▶ for the next one.</li>
     <li><b>1× / 0.75× / 0.5×</b> slows the speaker down without changing their voice.</li>
@@ -500,12 +635,13 @@ function fmtIvl(days) {
 }
 
 let rvStopAt = null, rvRaf = 0;
-function playClip(c, rate = 1) {
+function playClip(c, rate = 1, word = false) {
   const v = $('#rv-video');
   if (v.hidden) return;
+  const [a, b] = word && c.t ? [c.t[0] - 0.08, c.t[1] + 0.12] : [c.start - PAD_BEFORE, c.end + PAD_AFTER];
   v.playbackRate = rate;
-  v.currentTime = Math.max(0, c.start - PAD_BEFORE);
-  rvStopAt = c.end + PAD_AFTER;
+  v.currentTime = Math.max(0, a);
+  rvStopAt = b;
   v.play().catch(() => {});
   cancelAnimationFrame(rvRaf);
   const loop = () => {
@@ -528,6 +664,17 @@ function showCard() {
   if (hasVideo && !v.src.endsWith(src)) v.src = src;
   $('#rv-count').textContent = `${qi + 1} of ${queue.length}`;
 
+  if (c.kind === 'word') {
+    const listen = (c.seen || 0) % 2 === 1;
+    $('#rv-body').innerHTML = `
+      <p class="rv-hint">${listen ? 'Listen. What’s the word, and what does it mean?' : 'What does this word mean?'}</p>
+      <div class="rv-front">${listen ? '<div class="listen-icon">🔊</div>' : `<div class="wc-word">${esc(c.w)}</div>`}</div>
+      <div class="rv-tools"><button class="chip" data-s="rv-say">🔊 Hear it</button></div>
+      <button class="primary-button" data-s="rv-show">Show</button>`;
+    if (listen) speak(c.w);   // right away, while still inside the tap (iOS requires it)
+    return;
+  }
+
   const prompt = {
     read: { hint: 'Read it. What does it mean?', body: `<div class="il big">${tokensHTML(c.tokens, false)}</div>` },
     listen: { hint: hasVideo ? 'Listen. What did they say?' : 'Read it. What does it mean?',
@@ -542,7 +689,7 @@ function showCard() {
       ${hasVideo ? `<button class="chip" data-s="rv-play">▶ Replay</button><button class="chip" data-s="rv-slow">🐢 Slow</button>` : ''}
     </div>
     <button class="primary-button" data-s="rv-show">Show</button>`;
-  if (hasVideo && mode === 'listen') setTimeout(() => playClip(c), 150);
+  if (hasVideo && mode === 'listen') playClip(c);
 }
 
 function revealCard() {
@@ -550,6 +697,29 @@ function revealCard() {
   revealed = true;
   const iv = nextIntervals(c);
   const hasVideo = !$('#rv-video').hidden;
+  const grades = `<div class="grades">
+      <button class="grade again" data-s="grade" data-g="again"><b>Again</b><span>${fmtIvl(iv.again)}</span></button>
+      <button class="grade good" data-s="grade" data-g="good"><b>Good</b><span>${fmtIvl(iv.good)}</span></button>
+      <button class="grade easy" data-s="grade" data-g="easy"><b>Easy</b><span>${fmtIvl(iv.easy)}</span></button>
+    </div>`;
+  if (c.kind === 'word') {
+    $('#rv-body').innerHTML = `
+      <div class="rv-back">
+        <div class="wc-word">${esc(c.w)}</div>
+        ${c.g ? `<div class="wc-here">${esc(c.g)}</div>` : ''}
+        ${c.b || c.m ? `<p class="wc-dictline">${c.b ? `<b>${esc(c.b)}</b>` : ''}${c.b && c.m ? ' · ' : ''}${esc(c.m)}</p>` : ''}
+        <div class="il" style="margin-top:14px">${tokensHTML(c.tokens, true, { hl: c.k })}</div>
+        ${c.en ? `<p class="en">${esc(c.en)}</p>` : ''}
+        <p class="rv-src">${esc(c.title || '')}</p>
+      </div>
+      <div class="rv-tools">
+        <button class="chip" data-s="rv-say">🔊 Slowly</button>
+        ${hasVideo ? `<button class="chip" data-s="rv-word">🎬 Word</button><button class="chip" data-s="rv-play">▶ Sentence</button>` : ''}
+      </div>
+      ${grades}`;
+    if (hasVideo) playClip(c, 1, true); else speak(c.w);
+    return;
+  }
   $('#rv-body').innerHTML = `
     <div class="rv-back">
       <div class="il">${tokensHTML(c.tokens, true)}</div>
@@ -559,11 +729,7 @@ function revealCard() {
     <div class="rv-tools">
       ${hasVideo ? `<button class="chip" data-s="rv-play">▶ Replay</button><button class="chip" data-s="rv-slow">🐢 Slow</button>` : ''}
     </div>
-    <div class="grades">
-      <button class="grade again" data-s="grade" data-g="again"><b>Again</b><span>${fmtIvl(iv.again)}</span></button>
-      <button class="grade good" data-s="grade" data-g="good"><b>Good</b><span>${fmtIvl(iv.good)}</span></button>
-      <button class="grade easy" data-s="grade" data-g="easy"><b>Easy</b><span>${fmtIvl(iv.easy)}</span></button>
-    </div>`;
+    ${grades}`;
   if (hasVideo) playClip(c);
 }
 
@@ -698,7 +864,15 @@ document.addEventListener('click', e => {
     case 'retry': { const l = lessons.find(x => x.id === id); closeSheet(); if (l) { lessons = lessons.filter(x => x !== l); stStart(l.url); } break; }
     case 'forget': lessons = lessons.filter(x => x.id !== id); saveLessons(); closeSheet(); stRender(); break;
     case 'back': stBack(); break;
-    case 'sent': if (!e.target.closest('.star')) playSentence(i); break;
+    case 'sent': playSentence(i); break;
+    case 'replay': playSentence(i); break;
+    case 'word': openWord(i, Number(el.dataset.k)); break;
+    case 'w-say': speak(lesson.data.sentences[wordOpen.i].tokens[wordOpen.k].w, Number(el.dataset.rate)); break;
+    case 'w-say-base': speak(lesson.data.sentences[wordOpen.i].tokens[wordOpen.k].b, 0.45); break;
+    case 'w-video': playWord(wordOpen.i, wordOpen.k); break;
+    case 'w-save': toggleWord(); break;
+    case 'rv-say': speak(queue[qi].w, 0.45); break;
+    case 'rv-word': playClip(queue[qi], 1, true); break;
     case 'star': e.stopPropagation(); toggleStar(i); break;
     case 'toggle': togglePlay(); break;
     case 'prev': playSentence(Math.max(0, cur - 1)); break;

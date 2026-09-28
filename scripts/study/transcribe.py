@@ -88,6 +88,8 @@ def from_whisper(video):
                 "start": cur[0].start,
                 "end": cur[-1].end,
                 "text": "".join(w.word for w in cur).strip(),
+                # Per-word timings, used to highlight each word as it's spoken.
+                "words": [[w.word.strip(), round(w.start, 2), round(w.end, 2)] for w in cur],
             })
             cur.clear()
 
