@@ -150,9 +150,19 @@ async function startJob(url, q) {
       ? 'Couldn’t find the Download workflow. Check the owner/repo in Settings and that your token has Actions: Read and write.'
       : e.message;
   }
+  if (job.state === 'failed') restoreLink(job);
   saveJobs();
   render();
   schedulePoll(1500);
+}
+
+// After a failure, put the link back in the box (and its quality back in the
+// picker) so it can be retried or tried at another quality without re-pasting.
+function restoreLink(job) {
+  if (!job.url || $('#url').value.trim()) return;
+  $('#url').value = job.url;
+  if (QUALITY_LABEL[job.quality]) setQuality(job.quality);
+  syncClear();
 }
 
 function stageOf(ghJob) {
@@ -263,6 +273,7 @@ async function poll() {
     await Promise.all(active.map(async job => {
       try { await updateJob(job); } catch (e) { console.warn(job.id, e); }
       if (job.state === 'ready' && job.id === currentId) toast('Ready to save');
+      if (job.state === 'failed' && job.id === currentId) restoreLink(job);
     }));
     saveJobs();
     render();
@@ -724,6 +735,7 @@ document.addEventListener('visibilitychange', () => {
 })();
 
 setQuality(quality);
+if (findJob(currentId)?.state === 'failed') restoreLink(findJob(currentId));
 showScreen(configured() ? (store.get('tab', 'download') === 'library' ? 'library' : 'download') : 'settings');
 render();
 schedulePoll(300);
