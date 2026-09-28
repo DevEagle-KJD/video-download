@@ -28,6 +28,13 @@ jobs:
   download:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # Generates YouTube "PO tokens" (proof a real browser is asking), which
+    # often gets past "Sign in to confirm you're not a bot" without cookies.
+    services:
+      pot:
+        image: brainicism/bgutil-ytdlp-pot-provider
+        ports:
+          - 4416:4416
     env:
       URL: ${{ inputs.url }}
       QUALITY: ${{ inputs.quality }}
@@ -49,7 +56,7 @@ jobs:
           python3 -m pip install -q --upgrade pip
           # Latest (nightly) yt-dlp keeps up with site changes; curl-cffi lets it
           # impersonate a real browser for Cloudflare-protected sites.
-          python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]"
+          python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
           yt-dlp --version
 
       # YouTube needs a JavaScript runtime to solve its player challenges.

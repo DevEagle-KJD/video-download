@@ -29,9 +29,25 @@ case "$QUALITY" in
   audio) args+=(-f "ba/b" -x --audio-format mp3 --audio-quality 0 --embed-thumbnail) ;;
 esac
 
+run() {
+  yt-dlp "${args[@]}" "$@" -- "$URL" 2>&1 | tee out/log.txt
+  return "${PIPESTATUS[0]}"
+}
+
 set +e
-yt-dlp "${args[@]}" -- "$URL" 2>&1 | tee out/log.txt
-status=${PIPESTATUS[0]}
+run
+status=$?
+
+# YouTube often blocks data-center IPs ("confirm you're not a bot"). Retry
+# posing as other YouTube clients, which are sometimes treated differently.
+for clients in "tv_simply,web_safari" "mweb,web_embedded" "tv,ios"; do
+  [ "$status" -eq 0 ] && break
+  grep -qiE "not a bot|sign in to confirm|HTTP Error 403|Requested format is not available" out/log.txt || break
+  echo "::warning::Blocked by YouTube, retrying as player_client=$clients"
+  rm -f out/media.*
+  run --extractor-args "youtube:player_client=$clients"
+  status=$?
+done
 set -e
 
 if [ "$status" -ne 0 ]; then
