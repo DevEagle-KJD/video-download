@@ -25,6 +25,34 @@ iPhone (Grab app on GitHub Pages)
  Photos / Files        (release is deleted after saving, or after 24 h)
 ```
 
+## Study tab (learn Russian from videos)
+
+Paste a Russian video link on the **Study** tab, or tap **📖 Make Russian Lesson** on a
+finished download. The **Study** workflow then:
+
+1. Downloads the video at 480p. If the video has human-made Russian subtitles, it downloads those too.
+2. Makes a timed transcript. It uses the subtitles if there are any; otherwise it transcribes the
+   speech with Whisper (`large-v3-turbo`).
+3. Asks Claude to add three things to every sentence: stress marks (молоко́), the literal meaning
+   of each word ("to-me it-seems"), and a natural English translation. There are no grammar labels.
+4. Publishes the lesson to the site at `files/<id>/lesson.json` and `files/<id>/media.mp4`.
+
+In a lesson, tapping a sentence replays exactly that moment of the video. **Loop**, **Pause each**,
+and **0.75× / 0.5×** speeds help with shadowing. Tapping **☆** saves a sentence as a flashcard.
+**Review** drills your saved sentences three ways (read it, hear it, say it) and schedules them
+with spaced repetition. Your cards sync to the `study-data` branch (`cards.json`), so they survive
+Safari clearing its storage and work on any device.
+
+**One-time setup for translations:** create an API key at
+[console.anthropic.com](https://console.anthropic.com) and add it as a repository secret named
+`ANTHROPIC_API_KEY` (**Settings → Secrets and variables → Actions**). Without the key, lessons
+still get the video and the Russian transcript, but no meanings or translations. The workflow
+uses `claude-opus-5` by default. To use a different model, set the repository **variable**
+`STUDY_MODEL`.
+
+Lessons don't expire. The site has a 1 GB limit, so roughly 10–15 lessons' videos fit
+(lesson text is always kept). Delete old lessons from the ••• menu in a lesson.
+
 ## Why MP3 for audio?
 
 MP3 plays everywhere: iPhone, cars, old players, and every editing app. Grab encodes it at

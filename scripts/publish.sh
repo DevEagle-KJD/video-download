@@ -3,7 +3,7 @@
 # small JSON document the app reads (title, duration, source...).
 set -euo pipefail
 
-file=$(ls out/media.* | grep -vE '\.(json|txt|part)$' | head -n 1)
+file=$(ls out/media.* | grep -vE '\.(json|txt|part|vtt|srt|wav)$' | head -n 1)
 ext="${file##*.}"
 info=out/media.info.json
 [ -f "$info" ] || info=/dev/null

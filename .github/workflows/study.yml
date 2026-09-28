@@ -1,0 +1,96 @@
+name: Study
+
+# Turns a video into a Russian lesson for the Grab app's Study tab:
+# download (480p) → transcript (subtitles or Whisper) → stress marks, literal
+# meanings and translations (Claude) → release "study-<id>" + Pages copy.
+run-name: "study ${{ inputs.job_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Video page URL
+        required: true
+      job_id:
+        description: Unique id chosen by the app (used for the release tag)
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: study-${{ inputs.job_id }}
+
+jobs:
+  lesson:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    services:
+      pot:
+        image: brainicism/bgutil-ytdlp-pot-provider
+        ports:
+          - 4416:4416
+    env:
+      URL: ${{ inputs.url }}
+      QUALITY: study
+      JOB_ID: ${{ inputs.job_id }}
+      TAG_PREFIX: study
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate input
+        run: |
+          [[ "$JOB_ID" =~ ^[a-z0-9]{6,32}$ ]] || { echo "::error::bad job id"; exit 1; }
+          [[ "$URL" =~ ^https?:// ]] || { echo "::error::URL must start with http(s)://"; exit 1; }
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          python3 -m pip install -q --upgrade pip
+          python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
+          python3 -m pip install -q "faster-whisper>=1.1" anthropic
+          yt-dlp --version
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # The Whisper model is ~1.6 GB; keep it between runs.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-large-v3-turbo
+
+      - name: Download
+        env:
+          COOKIES: ${{ secrets.YTDLP_COOKIES }}
+        run: bash scripts/download.sh
+
+      - name: Convert for iPhone
+        run: bash scripts/iphone-compat.sh
+
+      - name: Transcribe
+        run: python3 scripts/study/transcribe.py
+
+      - name: Translate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          STUDY_MODEL: ${{ vars.STUDY_MODEL }}
+        run: python3 scripts/study/enrich.py
+
+      - name: Publish
+        run: bash scripts/study/publish.sh
+
+      - name: Report failure
+        if: failure()
+        run: bash scripts/report-failure.sh
+
+  publish-site:
+    needs: lesson
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

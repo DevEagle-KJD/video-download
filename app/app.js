@@ -492,6 +492,7 @@ function cardHTML(job) {
       actions += `<button class="primary-button" data-action="fetch" data-id="${job.id}">${ICON.save}<span>Save to iPhone</span></button>`;
     }
     if (job.state === 'ready') {
+      if (job.url && job.quality !== 'audio') actions += `<button class="secondary-button" data-action="study" data-id="${job.id}">📖 Make Russian Lesson</button>`;
       actions += `<a class="secondary-button" href="${esc(job.asset.url)}" target="_blank" rel="noopener">${ICON.link}Open Link</a>
         <button class="secondary-button destructive" data-action="remove" data-id="${job.id}">${ICON.trash}Remove from GitHub</button>`;
     }
@@ -557,8 +558,12 @@ function render() {
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === `screen-${name}`));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.screen === name));
-  store.set('tab', name);
+  if (!['lesson', 'review'].includes(name)) {
+    document.body.classList.remove('in-page');
+    store.set('tab', name);
+  }
   if (name === 'library') syncRemote();
+  if (name === 'study' && window.studyShow) window.studyShow();
 }
 
 function openSheet(title, html) {
@@ -651,6 +656,7 @@ document.addEventListener('click', async e => {
     case 'share': shareFile(job); break;
     case 'remove': removeFromGitHub(job); break;
     case 'retry': closeSheet(); showScreen('download'); startJob(job.url, job.quality); break;
+    case 'study': closeSheet(); showScreen('study'); window.stStart?.(job.url); break;
     case 'delete': deleteJob(job); break;
     case 'open': sheetJobId = job.id; openSheet('Details', ''); render(); break;
     case 'copy-token': await navigator.clipboard.writeText(cfg.token); toast('Token copied'); break;
@@ -742,7 +748,7 @@ document.addEventListener('visibilitychange', () => {
 
 setQuality(quality);
 if (findJob(currentId)?.state === 'failed') restoreLink(findJob(currentId));
-showScreen(configured() ? (store.get('tab', 'download') === 'library' ? 'library' : 'download') : 'settings');
+showScreen(configured() ? (['library', 'study'].includes(store.get('tab')) ? store.get('tab') : 'download') : 'settings');
 render();
 schedulePoll(300);
 if (configured() && !$('#screen-library').classList.contains('active')) syncRemote();

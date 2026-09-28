@@ -1,7 +1,7 @@
 // Offline shell for the home-screen app. App files are network-first so
 // updates show up right away; GitHub API calls are never cached.
-const CACHE = 'grab-v5';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'grab-v6';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'study.js', 'manifest.webmanifest', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

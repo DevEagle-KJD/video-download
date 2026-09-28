@@ -27,6 +27,10 @@ case "$QUALITY" in
   1080)  args+=(-f "bv*+ba/b" -S "res:1080,fps,hdr:sdr,vcodec:h264,acodec:aac" --merge-output-format mp4) ;;
   720)   args+=(-f "bv*+ba/b" -S "res:720,fps,hdr:sdr,vcodec:h264,acodec:aac" --merge-output-format mp4) ;;
   audio) args+=(-f "ba/b" -x --audio-format mp3 --audio-quality 0 --embed-thumbnail) ;;
+  # Study lessons: 480p keeps files small; also grab human-made Russian
+  # subtitles when the video has them (auto-generated ones are skipped).
+  study) args+=(-f "bv*+ba/b" -S "res:480,fps:30,hdr:sdr,vcodec:h264,acodec:aac" --merge-output-format mp4
+                --write-subs --sub-langs "ru.*,ru" --sub-format vtt) ;;
 esac
 
 run() {

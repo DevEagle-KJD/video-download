@@ -128,6 +128,82 @@
         </div>
       </div>
     </section>
+
+    <!-- ───────── Study ───────── -->
+    <section class="screen" id="screen-study" data-title="Study">
+      <header class="navbar">
+        <span class="navbar-title">Study</span>
+        <button class="navbar-action" id="st-refresh" aria-label="Refresh">
+          <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>
+        </button>
+      </header>
+      <div class="content">
+        <h1 class="large-title">Study</h1>
+
+        <div class="review-card" id="st-review-card"></div>
+
+        <p class="section-header">New lesson</p>
+        <div class="group">
+          <div class="cell input-cell">
+            <svg class="cell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
+            <input id="st-url" type="url" inputmode="url" placeholder="Paste a Russian video link" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+          </div>
+        </div>
+        <button class="primary-button" id="st-make">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H19v-3"/></svg>
+          <span>Make Lesson</span>
+        </button>
+        <p class="section-footer" style="margin-top:-12px">Transcribes the video, then adds stress marks, word‑by‑word meanings and an English translation to every sentence. Takes roughly 1 minute per minute of video.</p>
+
+        <p class="section-header">Lessons</p>
+        <div class="group list" id="st-lessons"></div>
+      </div>
+    </section>
+
+    <!-- ───────── Lesson player ───────── -->
+    <section class="screen page" id="screen-lesson">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Study</span>
+        </button>
+        <span class="navbar-title page-title" id="ls-title"></span>
+        <button class="navbar-action" data-s="lesson-menu" aria-label="More">
+          <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>
+        </button>
+      </header>
+      <div class="player">
+        <video id="ls-video" playsinline webkit-playsinline preload="metadata"></video>
+        <div class="player-controls">
+          <button data-s="prev" aria-label="Previous sentence"><svg viewBox="0 0 24 24"><path d="M6 5v14M19 5l-9 7 9 7z"/></svg></button>
+          <button data-s="toggle" class="big" aria-label="Play or pause"><svg id="ls-playicon" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg></button>
+          <button data-s="next" aria-label="Next sentence"><svg viewBox="0 0 24 24"><path d="M18 5v14M5 5l9 7-9 7z"/></svg></button>
+          <button data-s="speed" class="chip" id="ls-speed">1×</button>
+          <button data-s="loop" class="chip" id="ls-loop">Loop</button>
+          <button data-s="autopause" class="chip" id="ls-autopause">Pause each</button>
+        </div>
+        <div class="player-options">
+          <button data-s="show-literal" class="chip small" id="ls-literal">Literal</button>
+          <button data-s="show-english" class="chip small" id="ls-english">English</button>
+          <button data-s="show-follow" class="chip small" id="ls-follow">Follow</button>
+        </div>
+      </div>
+      <div class="transcript" id="ls-transcript"></div>
+    </section>
+
+    <!-- ───────── Review ───────── -->
+    <section class="screen page" id="screen-review">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Study</span>
+        </button>
+        <span class="navbar-title page-title" id="rv-count"></span>
+        <span style="width:60px"></span>
+      </header>
+      <div class="player review-player">
+        <video id="rv-video" playsinline webkit-playsinline preload="auto"></video>
+      </div>
+      <div class="review-body" id="rv-body"></div>
+    </section>
   </main>
 
   <!-- Tab bar -->
@@ -135,6 +211,11 @@
     <button class="tab active" data-screen="download" role="tab">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v9M8 12.5l4 4 4-4"/></svg>
       <span>Download</span>
+    </button>
+    <button class="tab" data-screen="study" role="tab">
+      <svg viewBox="0 0 24 24"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 6v13.5"/></svg>
+      <span>Study</span>
+      <i class="badge" id="st-badge" hidden></i>
     </button>
     <button class="tab" data-screen="library" role="tab">
       <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2.5"/><path d="M6 3h12M10 10.5v5l4.5-2.5z"/></svg>
@@ -161,5 +242,6 @@
   <div class="toast" id="toast" role="status"></div>
 
   <script src="app.js"></script>
+  <script src="study.js"></script>
 </body>
 </html>

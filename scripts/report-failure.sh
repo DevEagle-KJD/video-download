@@ -10,6 +10,6 @@ notes=$(jq -n --arg error "$msg" --arg url "$URL" \
   --arg run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
   '{ok: false, error: $error, url: $url, run: $run}')
 
-gh release delete "dl-$JOB_ID" --cleanup-tag -y 2>/dev/null || true
-gh release create "dl-$JOB_ID" --target "$GITHUB_SHA" --prerelease --latest=false \
+gh release delete "${TAG_PREFIX:-dl}-$JOB_ID" --cleanup-tag -y 2>/dev/null || true
+gh release create "${TAG_PREFIX:-dl}-$JOB_ID" --target "$GITHUB_SHA" --prerelease --latest=false \
   --title "Failed download" --notes "$notes"

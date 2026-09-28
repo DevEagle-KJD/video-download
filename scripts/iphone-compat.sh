@@ -3,7 +3,7 @@
 # Only re-encodes when the codec isn't iPhone-friendly (e.g. VP9/AV1 4K on YouTube).
 set -euo pipefail
 
-src=$(ls out/media.* | grep -vE '\.(json|txt|part)$' | head -n 1)
+src=$(ls out/media.* | grep -vE '\.(json|txt|part|vtt|srt|wav)$' | head -n 1)
 probe() { ffprobe -v error -select_streams "$1:0" -show_entries stream=codec_name -of csv=p=0 "$src" || true; }
 vcodec=$(probe v)
 acodec=$(probe a)

@@ -1,0 +1,178 @@
+"""Adds the three study lines to every sentence and writes out/lesson.json.
+
+For each Russian sentence Claude returns:
+  - the words with stress marks (молоко́), each with its literal meaning in
+    this context ("to-me", "it-seems"), set phrases grouped as one unit
+  - a natural English translation
+
+Without an ANTHROPIC_API_KEY the lesson is still written, with plain words and
+no translations, so the video and tap-to-replay transcript still work.
+"""
+import concurrent.futures as cf
+import json
+import os
+import sys
+
+OUT = "out"
+BATCH = 25
+MODEL = os.environ.get("STUDY_MODEL") or "claude-opus-5"
+
+SYSTEM = """You prepare Russian video transcripts for an English speaker who learns Russian by sentence mining: real spoken sentences, heard and repeated, never grammar lessons.
+
+For every sentence you are given, return:
+1. tokens: the sentence split into words, in order, each with:
+   - w: the word exactly as transcribed, plus a stress mark: a combining acute accent (U+0301) right after the stressed vowel of every word with two or more syllables (молоко́, по́мнишь, говори́т). Don't mark ё (it is always stressed) or one-syllable words. Keep attached punctuation on the word (e.g. "пра́в." or "Приве́т,").
+   - g: the literal English meaning of that word in THIS sentence, short and hyphenated when it takes several English words ("to-me", "it-seems", "there's-no", "(they)-call"). Mirror the Russian closely so the learner sees how Russian builds the idea; don't smooth it into natural English. Never mention grammar terms (no "genitive", "perfective", etc.).
+   - When a few words form a fixed phrase whose word-by-word meaning would mislead (да ладно, ну и что, как раз, всё равно), keep them together as ONE token (w with a space inside) and gloss the whole phrase literally, e.g. w "Да ла́дно" g "yes fine".
+   - Words that are fillers (ну, вот, типа) still get a gloss ("well", "so", "like").
+2. en: a natural, idiomatic English translation of the whole sentence as a native speaker would say it.
+
+Rules:
+- Keep the Russian words exactly as transcribed (only add stress marks). Don't add, drop or correct words.
+- Return every sentence you were given, with the same "i" numbers, in the same order.
+- Use the earlier sentences only as context for meaning; don't return them."""
+
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "sentences": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "i": {"type": "integer"},
+                    "tokens": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"w": {"type": "string"}, "g": {"type": "string"}},
+                            "required": ["w", "g"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "en": {"type": "string"},
+                },
+                "required": ["i", "tokens", "en"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["sentences"],
+    "additionalProperties": False,
+}
+
+
+def plain_tokens(text):
+    return [{"w": w, "g": ""} for w in text.split()]
+
+
+def enrich_batch(client, title, sentences, start, n=BATCH):
+    """Returns {index: {"tokens": [...], "en": str}} for sentences[start:start+n]."""
+    import anthropic
+
+    batch = sentences[start:start + n]
+    context = sentences[max(0, start - 3):start]
+    lines = [f"Video title: {title}", ""]
+    if context:
+        lines.append("Earlier sentences (context only, don't return):")
+        lines += [f"- {s['text']}" for s in context]
+        lines.append("")
+    lines.append("Sentences to prepare:")
+    lines += [f"{start + k}. {s['text']}" for k, s in enumerate(batch)]
+
+    try:
+        response = client.beta.messages.create(
+            model=MODEL,
+            max_tokens=16000,
+            system=SYSTEM,
+            messages=[{"role": "user", "content": "\n".join(lines)}],
+            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": SCHEMA}},
+            betas=["server-side-fallback-2026-07-01"],
+            extra_body={"fallbacks": "default"},
+        )
+    except anthropic.APIStatusError as e:
+        print(f"  batch {start}: API error {e.status_code}: {e.message}", flush=True)
+        return {}
+    except anthropic.APIConnectionError as e:
+        print(f"  batch {start}: connection error: {e}", flush=True)
+        return {}
+
+    if response.stop_reason != "end_turn":
+        print(f"  batch {start}: stopped ({response.stop_reason})", flush=True)
+        # Too long or declined: retry as two halves.
+        if len(batch) > 1 and response.stop_reason in ("max_tokens", "refusal"):
+            half = len(batch) // 2
+            left = enrich_batch(client, title, sentences, start, half)
+            right = enrich_batch(client, title, sentences, start + half, len(batch) - half)
+            return {**left, **right}
+        return {}
+
+    text = next((b.text for b in response.content if b.type == "text"), "")
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        print(f"  batch {start}: unreadable JSON", flush=True)
+        return {}
+
+    result = {}
+    for s in data.get("sentences", []):
+        i = s.get("i")
+        if isinstance(i, int) and start <= i < start + len(batch) and s.get("tokens"):
+            result[i] = {"tokens": s["tokens"], "en": s.get("en", "")}
+    print(f"  batch {start}: {len(result)}/{len(batch)} sentences", flush=True)
+    return result
+
+
+def main():
+    with open(os.path.join(OUT, "sentences.json"), encoding="utf-8") as f:
+        data = json.load(f)
+    sentences = data["sentences"]
+
+    info = {}
+    if os.path.exists(os.path.join(OUT, "media.info.json")):
+        with open(os.path.join(OUT, "media.info.json"), encoding="utf-8") as f:
+            info = json.load(f)
+    title = info.get("title") or "Russian video"
+
+    enriched = {}
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        import anthropic
+
+        client = anthropic.Anthropic(max_retries=4)
+        print(f"Adding stress, literal meanings and translations with {MODEL} "
+              f"({len(sentences)} sentences)…", flush=True)
+        with cf.ThreadPoolExecutor(max_workers=4) as pool:
+            futures = [pool.submit(enrich_batch, client, title, sentences, start)
+                       for start in range(0, len(sentences), BATCH)]
+            for fut in cf.as_completed(futures):
+                enriched.update(fut.result())
+    else:
+        print("::warning::No ANTHROPIC_API_KEY secret: lesson will have no translations")
+
+    lesson = {
+        "title": title,
+        "url": os.environ.get("URL", ""),
+        "duration": info.get("duration"),
+        "thumbnail": info.get("thumbnail"),
+        "source": data.get("source"),
+        "model": MODEL if enriched else None,
+        "enriched": len(enriched),
+        "sentences": [],
+    }
+    for i, s in enumerate(sentences):
+        e = enriched.get(i)
+        lesson["sentences"].append({
+            "start": s["start"],
+            "end": s["end"],
+            "ru": s["text"],
+            "tokens": e["tokens"] if e else plain_tokens(s["text"]),
+            "en": e["en"] if e else "",
+        })
+
+    with open(os.path.join(OUT, "lesson.json"), "w", encoding="utf-8") as f:
+        json.dump(lesson, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"lesson.json: {len(sentences)} sentences, {len(enriched)} with translations")
+
+
+if __name__ == "__main__":
+    sys.exit(main())
