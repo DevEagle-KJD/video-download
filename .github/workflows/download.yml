@@ -1,0 +1,75 @@
+name: Download
+
+# Triggered by the Grab app (app/) through the GitHub API.
+# Only people with write access to this repo can trigger workflow_dispatch.
+run-name: "dl ${{ inputs.job_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Video page URL
+        required: true
+      quality:
+        description: best | 1080 | 720 | audio
+        required: true
+        default: best
+      job_id:
+        description: Unique id chosen by the app (used for the release tag)
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dl-${{ inputs.job_id }}
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      URL: ${{ inputs.url }}
+      QUALITY: ${{ inputs.quality }}
+      JOB_ID: ${{ inputs.job_id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate input
+        run: |
+          [[ "$JOB_ID" =~ ^[a-z0-9]{6,32}$ ]] || { echo "::error::bad job id"; exit 1; }
+          [[ "$QUALITY" =~ ^(best|1080|720|audio)$ ]] || { echo "::error::bad quality"; exit 1; }
+          [[ "$URL" =~ ^https?:// ]] || { echo "::error::URL must start with http(s)://"; exit 1; }
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          python3 -m pip install -q --upgrade pip
+          # Latest (nightly) yt-dlp keeps up with site changes; curl-cffi lets it
+          # impersonate a real browser for Cloudflare-protected sites.
+          python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]"
+          yt-dlp --version
+
+      # YouTube needs a JavaScript runtime to solve its player challenges.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Download
+        env:
+          COOKIES: ${{ secrets.YTDLP_COOKIES }}
+        run: bash scripts/download.sh
+
+      - name: Convert for iPhone
+        if: inputs.quality != 'audio'
+        run: bash scripts/iphone-compat.sh
+
+      - name: Upload
+        run: bash scripts/publish.sh
+
+      # Leaves a release with the error message so the app can show it.
+      - name: Report failure
+        if: failure()
+        run: bash scripts/report-failure.sh
