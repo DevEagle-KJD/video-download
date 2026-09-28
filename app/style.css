@@ -510,3 +510,13 @@ body.in-page .tabbar { display: none; }
 .grade.good { background: var(--green); }
 .grade.easy { background: var(--blue); }
 .grade:active { transform: scale(.97); }
+
+/* "Use for Russian Study" on finished downloads */
+.study-button {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; height: 50px; margin-bottom: 10px;
+  background: linear-gradient(135deg, #5e5ce6, #bf5af2); color: #fff;
+  font-weight: 600; border-radius: 14px;
+}
+.study-button:active { opacity: .8; }
+.study-button.done { background: var(--fill); color: var(--label); }

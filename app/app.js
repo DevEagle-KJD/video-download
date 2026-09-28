@@ -492,15 +492,23 @@ function cardHTML(job) {
       actions += `<button class="primary-button" data-action="fetch" data-id="${job.id}">${ICON.save}<span>Save to iPhone</span></button>`;
     }
     if (job.state === 'ready') {
-      if (job.url && job.quality !== 'audio') actions += `<button class="secondary-button" data-action="study" data-id="${job.id}">📖 Make Russian Lesson</button>`;
       actions += `<a class="secondary-button" href="${esc(job.asset.url)}" target="_blank" rel="noopener">${ICON.link}Open Link</a>
         <button class="secondary-button destructive" data-action="remove" data-id="${job.id}">${ICON.trash}Remove from GitHub</button>`;
     }
-  } else if (job.state === 'failed') {
+  }
+
+  // Any finished video (saved or not) can become a Russian lesson.
+  if (job.url && job.quality !== 'audio' && ['ready', 'saved', 'removed', 'expired'].includes(job.state)) {
+    actions += job.lessonStarted
+      ? `<button class="study-button done" data-action="open-study">✓ Lesson started, open Study</button>`
+      : `<button class="study-button" data-action="study" data-id="${job.id}">📖 Use for Russian Study</button>`;
+  }
+
+  if (job.state === 'failed') {
     status = `<p class="job-status failed">${ICON.x}Failed</p>${job.error ? `<p class="job-error">${esc(job.error).replace(/\n/g, '<br>')}</p>` : ''}`;
     if (job.url) actions += `<button class="primary-button" data-action="retry" data-id="${job.id}">${ICON.retry}<span>Try Again</span></button>`;
     if (job.runUrl) actions += `<a class="secondary-button" href="${esc(job.runUrl)}" target="_blank" rel="noopener">${ICON.link}View Log on GitHub</a>`;
-  } else {
+  } else if (!status) {
     status = `<p class="job-status" style="color:var(--secondary)">${statusText(job)}</p>`;
   }
 
@@ -656,7 +664,15 @@ document.addEventListener('click', async e => {
     case 'share': shareFile(job); break;
     case 'remove': removeFromGitHub(job); break;
     case 'retry': closeSheet(); showScreen('download'); startJob(job.url, job.quality); break;
-    case 'study': closeSheet(); showScreen('study'); window.stStart?.(job.url); break;
+    case 'study':
+      job.lessonStarted = true;
+      saveJobs();
+      render();
+      closeSheet();
+      showScreen('study');
+      window.stStart?.(job.url);
+      break;
+    case 'open-study': closeSheet(); showScreen('study'); break;
     case 'delete': deleteJob(job); break;
     case 'open': sheetJobId = job.id; openSheet('Details', ''); render(); break;
     case 'copy-token': await navigator.clipboard.writeText(cfg.token); toast('Token copied'); break;
