@@ -28,6 +28,7 @@ const DAY = 864e5;
 const PAD_BEFORE = 0.15, PAD_AFTER = 0.25;
 
 let lessons = store.get('lessons', []);
+const deletedLessons = new Set(store.get('deletedLessons', []));   // never show these again
 let cards = store.get('cards', {});                 // id → card (deleted ones kept as tombstones)
 const prefs = Object.assign({ player: 'local', engine: 'free', literal: true, english: true, follow: true, loop: false, autopause: false, speed: 1 },
   store.get('studyPrefs', {}));
@@ -95,6 +96,7 @@ async function stRefresh() {
 
     for (const rel of releases.filter(r => r.tag_name.startsWith('study-'))) {
       const id = rel.tag_name.slice(6);
+      if (deletedLessons.has(id)) continue;
       const l = byId.get(id) || { id, created: Date.parse(rel.created_at) };
       let meta = {};
       try { meta = JSON.parse(rel.body || '{}'); } catch { /* ignore */ }
@@ -115,7 +117,9 @@ async function stRefresh() {
     }
 
     for (const [id, run] of runs) {
-      if (next.some(l => l.id === id)) continue;
+      if (next.some(l => l.id === id) || deletedLessons.has(id)) continue;
+      // A finished run whose lesson no longer exists was deleted; don't resurrect it.
+      if (run.status === 'completed' && run.conclusion === 'success' && Date.now() - Date.parse(run.updated_at || run.created_at) > 10 * 60e3) continue;
       const l = byId.get(id) || { id, created: Date.parse(run.created_at), url: '' };
       l.runId = run.id;
       l.runUrl = run.html_url;
@@ -160,6 +164,8 @@ async function stDeleteLesson(l) {
     // Rebuild the site so the video file is removed from it too.
     gh('/actions/workflows/pages.yml/dispatches', { method: 'POST', body: { ref: await defaultBranch() } }).catch(() => {});
     lessons = lessons.filter(x => x !== l);
+    deletedLessons.add(l.id);
+    store.set('deletedLessons', [...deletedLessons]);
     saveLessons();
     closeSheet();
     stBack();
@@ -1091,7 +1097,11 @@ document.addEventListener('click', e => {
   switch (el.dataset.s) {
     case 'open': { const l = lessons.find(x => x.id === id); if (l) openLesson(l); break; }
     case 'retry': { const l = lessons.find(x => x.id === id); closeSheet(); if (l) { lessons = lessons.filter(x => x !== l); stStart(l.url); } break; }
-    case 'forget': lessons = lessons.filter(x => x.id !== id); saveLessons(); closeSheet(); stRender(); break;
+    case 'forget':
+      lessons = lessons.filter(x => x.id !== id);
+      deletedLessons.add(id);
+      store.set('deletedLessons', [...deletedLessons]);
+      saveLessons(); closeSheet(); stRender(); break;
     case 'back': stBack(); break;
     case 'sent': playSentence(i); break;
     case 'replay': playSentence(i); break;
