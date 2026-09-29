@@ -1263,14 +1263,19 @@ function svAction(what) {
   if (what === 'remove') {
     if (!confirm(c.kind === 'word' ? 'Remove this word from your saved words?' : 'Remove this sentence from your saved sentences?')) return;
     c.deleted = true;
-  } else if (what === 'now') {
-    c.due = Date.now();
-    toast('It’s in your next review');
   }
   c.updated = Date.now();
   cardsChanged();
   closeSheet();
   renderSaved();
+}
+
+// Review just this one card, right now; back returns to the Saved list.
+function svReviewNow() {
+  const c = svOpen;
+  if (!c) return;
+  closeSheet();
+  startReview([c], 'saved');
 }
 
 async function svOpenLesson() {
@@ -1454,7 +1459,7 @@ document.addEventListener('click', e => {
     case 'saved': openSaved(); break;
     case 'sv-open': openSavedCard(el.dataset.id); break;
     case 'sv-say': speak(svOpen.w, Number(el.dataset.rate), $('#sv-word'), svOpen.lesson); break;
-    case 'sv-now': svAction('now'); break;
+    case 'sv-now': svReviewNow(); break;
     case 'sv-remove': svAction('remove'); break;
     case 'sv-lesson': svOpenLesson(); break;
     case 'sv-review-all': startReview(liveCards(svKind).sort((a, b) => a.due - b.due), 'saved'); break;
