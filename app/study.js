@@ -338,6 +338,7 @@ let cur = -1;               // active sentence index
 let stopAt = null;          // stop playback at this time (sentence mode)
 let loopFrom = null;        // loop start time when looping one sentence
 let nextAfterStop = null;   // "Pause each": sentence to play on the next ▶
+let lockedIdx = null;       // while replaying one sentence, keep it highlighted
 let rafId = 0;
 
 async function openLesson(l) {
@@ -484,7 +485,10 @@ function setPlayIcon(playing) {
 function tick() {
   if (!lesson || player.paused) { rafId = 0; return; }
   const t = player.time;
-  const i = sentenceAt(t);
+  // Replaying one sentence runs a moment past its end (so the last word isn't
+  // clipped); don't let the next sentence steal the highlight meanwhile.
+  if (stopAt == null) lockedIdx = null;   // plain playback again: follow the video
+  const i = lockedIdx != null ? lockedIdx : sentenceAt(t);
   if (i >= 0) setActive(i);
   if (stopAt != null && t >= stopAt) {
     if (prefs.loop && loopFrom != null) {
@@ -506,6 +510,7 @@ function playSentence(i) {
   if (i < 0 || i >= ss.length) return;
   const s = ss[i];
   nextAfterStop = null;
+  lockedIdx = i;
   loopFrom = Math.max(0, s.start - PAD_BEFORE);
   stopAt = s.end + PAD_AFTER;
   player.seek(loopFrom);
@@ -519,8 +524,8 @@ function togglePlay() {
   if (!player.paused) { player.pause(); return; }
   if (nextAfterStop != null) { playSentence(nextAfterStop); return; }
   if (prefs.autopause || prefs.loop) { playSentence(Math.max(0, cur)); return; }
-  // Continuous play from the current sentence.
-  stopAt = null; loopFrom = null;
+  // Continuous play from the current sentence: the highlight follows the video.
+  stopAt = null; loopFrom = null; lockedIdx = null;
   if (cur >= 0 && Math.abs(player.time - lesson.data.sentences[cur].start) > 30) {
     player.seek(Math.max(0, lesson.data.sentences[cur].start - PAD_BEFORE));
   }
@@ -697,6 +702,7 @@ const RATE_NORMAL = 0.9, RATE_SLOW = 0.4;
 
 // Plays just one word from the lesson video.
 function playWord(i, k) {
+  lockedIdx = i;
   const [a, b] = wordTimes(lesson.data.sentences[i])[k];
   nextAfterStop = null;
   loopFrom = null;
