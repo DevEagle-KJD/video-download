@@ -252,6 +252,9 @@ function stRender() {
 }
 
 function studyShow() {
+  // Load the word recordings for every lesson with saved cards, so review
+  // never has to wait for them.
+  [...new Set(Object.values(cards).filter(c => !c.deleted).map(c => c.lesson))].forEach(ensureAudio);
   stRender();
   stRefresh();
   syncLoad();
@@ -847,14 +850,37 @@ function playClips(urls, sylRoot) {
   next();
 }
 
+// A moment of silence, used to "unlock" the voice player inside a tap so it
+// may play a recording a little later (iOS only lets audio start from a tap).
+let silence = null;
+function silentWav() {
+  if (silence) return silence;
+  const n = 800, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, str) => [...str].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, 'data'); v.setUint32(40, n * 2, true);
+  return (silence = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
+}
+
 // rates: one or more of RATE_NORMAL / RATE_SLOW, played one after another.
+// Uses the lesson's natural-voice recordings. If they're still loading (e.g.
+// the first card of a review), waits for them instead of falling back to the
+// phone's robotic voice; that's only used when a word has no recording.
 function speak(text, rates = [0.5], sylRoot = null, lessonId = lesson?.id) {
-  const clips = audioMaps[lessonId]?.[speakable(text)];
-  if (clips) {
-    playClips([].concat(rates).map(r => `files/${lessonId}/audio/${clips[r <= RATE_SLOW ? 1 : 0]}`), sylRoot);
-    return;
-  }
-  speakWithPhone(text, rates, sylRoot);
+  const play = () => {
+    const clips = audioMaps[lessonId]?.[speakable(text)];
+    if (clips) playClips([].concat(rates).map(r => `files/${lessonId}/audio/${clips[r <= RATE_SLOW ? 1 : 0]}`), sylRoot);
+    else speakWithPhone(text, rates, sylRoot);
+  };
+  if (!lessonId || audioMaps[lessonId]) { play(); return; }
+  speechSynthesis?.cancel?.();
+  voicePlayer.src = silentWav();
+  voicePlayer.onended = null;
+  voicePlayer.play().catch(() => {});
+  const loading = ensureAudio(lessonId) || Promise.resolve();
+  Promise.race([loading, new Promise(r => setTimeout(r, 4000))]).then(play);
 }
 
 function speakWithPhone(text, rates = [0.5], sylRoot = null) {

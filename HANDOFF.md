@@ -347,7 +347,11 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
   - **☆ Save Word** and **🚩 Report a Mistake**.
 - **Voice:** it plays the lesson's recorded Svetlana clips (`files/<id>/audio/…`). Only if a word
   has no recording does it fall back to the phone's speechSynthesis (the owner found the phone
-  voice "horrible", so the fallback should stay rare).
+  voice "horrible", so the fallback should stay rare). The recordings map comes from each
+  lesson's `lesson.json` (`ensureAudio`, preloaded in `studyShow` for every lesson with saved
+  cards). If `speak()` is called before the map has loaded (it happened on the first review
+  card), it plays a generated silent WAV inside the tap to unlock the voice player, waits for the
+  map (up to 4 s), then plays the recording, instead of falling back to the phone voice.
 - **Flagged words** (`u`) get a **dotted orange underline**. Their card shows "⚠️ This word may not
   be accurate", the reason, and what the second transcriber heard.
 - **🚩 Report a Mistake** creates a **GitHub issue** in the repo (title "Lesson mistake: <word>",
