@@ -494,8 +494,8 @@ function setActive(i, scroll = true) {
 // scroll pauses it for a few seconds so it doesn't fight your finger.
 let userScrolledAt = 0;
 ['touchmove', 'wheel'].forEach(ev => $('#screen-lesson').addEventListener(ev, () => { userScrolledAt = Date.now(); }, { passive: true }));
-function followSentence(el) {
-  if (!prefs.follow || Date.now() - userScrolledAt < 4000) return;
+function followSentence(el, force = false) {
+  if (!prefs.follow || (!force && Date.now() - userScrolledAt < 4000)) return;
   const playerBottom = $('#screen-lesson .player').getBoundingClientRect().bottom;
   const offset = el.getBoundingClientRect().top - playerBottom - 12;
   if (Math.abs(offset) > 4) $('#screen-lesson').scrollBy({ top: offset, behavior: 'smooth' });
@@ -514,6 +514,14 @@ function tick() {
   if (stopAt == null) lockedIdx = null;   // plain playback again: follow the video
   const i = lockedIdx != null ? lockedIdx : sentenceAt(t);
   if (i >= 0) setActive(i);
+  if (justStarted && i >= 0) {
+    // Playback just (re)started, however it was started (our ▶, a sentence tap,
+    // or YouTube's own play button): bring the sentence being spoken back into
+    // view, even if you'd scrolled away or toggled Literal/English meanwhile.
+    justStarted = false;
+    const el = $(`#ls-transcript .sent[data-i="${i}"]`);
+    if (el) followSentence(el, true);
+  }
   if (stopAt != null && t >= stopAt) {
     if (prefs.loop && loopFrom != null) {
       player.seek(loopFrom);
@@ -552,7 +560,10 @@ $('#ls-seek').addEventListener('change', () => {
 });
 ['loadedmetadata', 'timeupdate', 'seeked'].forEach(ev => $('#ls-video').addEventListener(ev, () => updateScrub()));
 
-function startTick() { if (!rafId) rafId = requestAnimationFrame(tick); }
+let justStarted = false;
+function startTick() {
+  if (!rafId) { justStarted = true; rafId = requestAnimationFrame(tick); }
+}
 function stop() { cancelAnimationFrame(rafId); rafId = 0; }
 
 // Where replaying sentence i should start and stop: a little padding so the
