@@ -161,8 +161,8 @@ def mark_flags(tokens, sentence):
     for f in sentence.get("flags") or []:
         for tok in tokens:
             if "u" not in tok and f["w"] and f["w"] in [norm(x) for x in tok["w"].split()]:
-                tok["u"] = {"alt": f.get("alt", ""), "note": "The two transcribers didn't agree on this word."
-                            if f.get("alt") else "This word may have been misheard."}
+                tok["u"] = {"alt": f.get("alt", ""), "note": f.get("note") or (
+                    "The two transcribers didn't agree on this word." if f.get("alt") else "This word may have been misheard.")}
                 break
     return tokens
 
@@ -395,7 +395,8 @@ def main():
         "duration": info.get("duration"),
         "thumbnail": info.get("thumbnail"),
         "source": data.get("source"),
-        "engine": "ai",
+        "engine": "captions" if os.environ.get("ENGINE") == "captions" else "ai",
+        "video": os.path.exists(os.path.join(OUT, "media.mp4")),
         "model": MODEL if enriched else None,
         "enriched": len(enriched),
         "sentences": [],

@@ -1,9 +1,14 @@
-"""Turns out/media.mp4 into timed Russian sentences (out/sentences.json).
+"""Turns a video into timed Russian sentences (out/sentences.json).
 
-Uses the video's human-made Russian subtitles when yt-dlp found some
-(out/media.ru*.vtt); otherwise transcribes the audio with Whisper
-(faster-whisper, large-v3: the most accurate Whisper model; slower than
-turbo on CPU, fast on a GPU).
+Normal lessons: uses the video's human-made Russian subtitles when yt-dlp found
+some (out/media.ru*.vtt); otherwise transcribes out/media.mp4 with Whisper
+(faster-whisper, large-v3: the most accurate Whisper model; slower than turbo
+on CPU, fast on a GPU).
+
+Captions-only test (ENGINE=captions): no video or audio is downloaded; the
+transcript comes from YouTube's own captions (out/media.ru*.json3): the
+creator's captions if the video has them, otherwise YouTube's automatic ones
+(which have word timings but no punctuation).
 """
 import glob
 import json
@@ -43,7 +48,71 @@ def from_vtt(path):
         if body and (not cues or body != cues[-1]["text"]):
             cues.append({"start": start, "end": end, "text": body})
 
-    # Join cues into whole sentences (a sentence often spans several cues).
+    return cues_to_sentences(cues)
+
+
+def group_words(words, max_gap=1.2, max_words=MAX_WORDS):
+    """[(text, start, end, prob)] → sentences, split at . ! ? …, pauses, or length."""
+    sentences, cur = [], []
+
+    def flush():
+        if cur:
+            sentences.append({
+                "start": cur[0][1], "end": cur[-1][2],
+                "text": " ".join(w[0] for w in cur).strip(),
+                "words": [[w[0], round(w[1], 2), round(w[2], 2), round(w[3], 3)] for w in cur],
+            })
+            cur.clear()
+
+    for i, w in enumerate(words):
+        cur.append(w)
+        nxt = words[i + 1] if i + 1 < len(words) else None
+        gap = (nxt[1] - w[2]) if nxt else 0
+        if (END.search(w[0]) and len(cur) >= 2) or (gap > max_gap and len(cur) >= 3) or len(cur) >= max_words:
+            flush()
+    flush()
+    return sentences
+
+
+def from_json3(path, manual):
+    """YouTube's json3 captions → sentences.
+
+    Creator captions: one caption line per event, merged into sentences like VTT cues.
+    Automatic captions: word-level timings but no punctuation, so sentences are
+    split at pauses (Claude restores punctuation later in clean_captions.py).
+    """
+    events = json.load(open(path, encoding="utf-8")).get("events", [])
+    if manual:
+        cues = []
+        for e in events:
+            text = "".join(sg.get("utf8", "") for sg in e.get("segs") or [])
+            text = re.sub(r"\[[^\]]*\]", "", text)
+            text = re.sub(r"\s+", " ", text).strip(" -–")
+            if not text:
+                continue
+            start = e.get("tStartMs", 0) / 1000
+            cues.append({"start": start, "end": start + e.get("dDurationMs", 0) / 1000, "text": text})
+        return cues_to_sentences(cues)
+
+    words = []
+    for e in events:
+        t0 = e.get("tStartMs", 0) / 1000
+        t_end = t0 + e.get("dDurationMs", 0) / 1000
+        for sg in e.get("segs") or []:
+            text = sg.get("utf8", "").strip()
+            if not text or text.startswith("["):
+                continue
+            words.append([text, t0 + sg.get("tOffsetMs", 0) / 1000, t_end, 1.0])
+    # Captions only give each word's start. Estimate its length from its size,
+    # so real pauses show up as gaps between words (and split sentences).
+    for n, w in enumerate(words):
+        nxt = words[n + 1][1] if n + 1 < len(words) else w[2]
+        w[2] = max(w[1] + 0.1, min(nxt, w[1] + 0.12 + 0.065 * len(w[0])))
+    return group_words([tuple(w) for w in words], max_gap=0.8, max_words=20)
+
+
+def cues_to_sentences(cues):
+    """Joins subtitle cues into whole sentences (a sentence often spans several cues)."""
     sentences, cur = [], None
     for c in cues:
         if cur is None:
@@ -106,7 +175,33 @@ def from_whisper(video):
     return sentences
 
 
+def captions_main():
+    info = {}
+    if os.path.exists(os.path.join(OUT, "media.info.json")):
+        with open(os.path.join(OUT, "media.info.json"), encoding="utf-8") as f:
+            info = json.load(f)
+    manual_langs = set(info.get("subtitles") or {})
+    # Prefer the plain "ru" track (creator captions win over automatic ones there).
+    files = sorted(glob.glob(os.path.join(OUT, "media.ru*.json3")), key=lambda p: (not p.endswith("media.ru.json3"), p))
+    if not files:
+        with open(os.path.join(OUT, "error.txt"), "w") as f:
+            f.write("This video has no Russian captions on YouTube (neither the creator's nor automatic ones).")
+        sys.exit(1)
+    path = files[0]
+    lang = os.path.basename(path)[len("media."):-len(".json3")]
+    manual = lang in manual_langs
+    sentences = from_json3(path, manual)
+    source = "creator-captions" if manual else "auto-captions"
+    print(f"Using YouTube {'creator' if manual else 'automatic'} captions ({lang}): {len(sentences)} sentences")
+    return sentences, source
+
+
 def main():
+    if os.environ.get("ENGINE") == "captions":
+        sentences, source = captions_main()
+        finish(sentences, source)
+        return
+
     video = os.path.join(OUT, "media.mp4")
     if not os.path.exists(video):
         sys.exit("no out/media.mp4 to transcribe")
@@ -121,7 +216,10 @@ def main():
         source = "whisper"
         print(f"Transcribing with Whisper ({os.environ.get('WHISPER_MODEL') or 'large-v3'})…", flush=True)
         sentences = from_whisper(video)
+    finish(sentences, source)
 
+
+def finish(sentences, source):
     sentences = [s for s in sentences if s["text"]]
     for s in sentences:
         s["start"] = round(max(0.0, s["start"]), 2)

@@ -31,6 +31,9 @@ case "$QUALITY" in
   # subtitles when the video has them (auto-generated ones are skipped).
   study) args+=(-f "bv*+ba/b" -S "res:480,fps:30,hdr:sdr,vcodec:h264,acodec:aac" --merge-output-format mp4
                 --write-subs --sub-langs "ru.*,ru" --sub-format vtt) ;;
+  # Captions-only test: no video or audio at all, just YouTube's captions
+  # (the creator's if any, else the automatic ones) and the video's details.
+  captions) args+=(--skip-download --write-subs --write-auto-subs --sub-langs "ru,ru-orig" --sub-format json3) ;;
 esac
 
 run() {

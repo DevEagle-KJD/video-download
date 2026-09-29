@@ -578,3 +578,8 @@ body.in-page .tabbar { display: none; }
 .scrub span:last-child { text-align: right; }
 .scrub input[type=range] { flex: 1; height: 28px; margin: 0; accent-color: var(--blue); background: transparent; }
 .scrub[hidden] { display: none; }
+
+/* Three-option segmented control (Study engine: Free / AI / Captions) */
+.segmented.three { grid-template-columns: repeat(3, 1fr); margin-top: 10px; }
+.segmented.three .seg-thumb { width: calc((100% - 4px) / 3); }
+.segmented.three button { font-size: 13px; }

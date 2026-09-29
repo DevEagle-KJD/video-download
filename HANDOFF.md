@@ -84,7 +84,7 @@ lessons first (newest first), then downloads, and skips videos over a ~900 MB bu
 `lesson.json` is always included.
 
 **Deploy note:** pushing anything under `app/` redeploys the site within about a minute. **Bump
-`CACHE` in `app/sw.js`** (currently `grab-v22`) whenever app files change. The service worker is
+`CACHE` in `app/sw.js`** (currently `grab-v23`) whenever app files change. The service worker is
 network-first, but the bump guarantees clean updates. Users must reload with **Safari's address-bar
 ↻**; the in-app ↻ only refreshes the lesson list.
 
@@ -191,11 +191,37 @@ literal glosses + **Argos Translate** ru→en (needs CPU torch). Every tool is o
 weaknesses: literal glosses are dictionary senses, not in-context (до́ма → "house"), and Argos
 mistranslates things like сушки/баранки.
 
+### Captions-only test engine (`engine=captions`)
+Built to test whether a **public** version could work for any YouTube video **without downloading
+video or audio** (YouTube's terms forbid downloading; see §12). The Study tab's engine switch
+has a third option, **Captions (test)**.
+- `download.sh` QUALITY=captions: `--skip-download --write-subs --write-auto-subs --sub-langs ru,ru-orig
+  --sub-format json3`. That's the video details plus YouTube's captions only. (It still goes through
+  the WARP fallback on GitHub.)
+- `transcribe.py` (`ENGINE=captions`): **creator captions** (the language is in info.json `subtitles`)
+  → cues merged into sentences, used as-is. **Automatic captions** → per-word start times (the
+  word length is estimated so pauses show), sentences split at 0.8 s pauses / 20 words; there's
+  no punctuation. `source` = `creator-captions` | `auto-captions`.
+- `clean_captions.py` (automatic captions only, needs the key): Claude restores punctuation and
+  capitals and fixes **clearly** misrecognised words from text + context (no audio). It returns
+  `changed` + `unsure` words, which **all become flags** (a changed word shows the original caption
+  word). Guard rail: a cleanup that rewrites more than ~40% of a sentence is rejected.
+- Whisper, GigaAM and proofread are skipped. Translate/review/voices run as normal (AI if a key
+  is set, else free). There's no `media.mp4`: `lesson.video=false`, and the release body has
+  `video:false, engine:"captions"`.
+- App: captions lessons **always play through the YouTube player** (even if "Downloaded" is
+  selected). Review has no video clips for them (the voice still works). The list shows
+  "Captions · …", and the ••• menu explains the source and the number of corrected words.
+- **Status:** built and tested locally with sample caption data and a stand-in Claude reply. **Not
+  yet run for real.** Next step: the owner makes the breakfast video as a Captions lesson and
+  compares it with the full AI lesson (that video has only automatic captions, so it's the worst
+  case), ideally also a video with creator captions.
+
 ### `lesson.json` shape
 ```json
 {
   "title": "...", "url": "https://youtu.be/...", "duration": 1685, "thumbnail": "...",
-  "source": "whisper|subtitles", "engine": "ai|free", "model": "claude-sonnet-5", "enriched": 423,
+  "source": "whisper|subtitles|creator-captions|auto-captions", "engine": "ai|free|captions", "video": true, "model": "claude-sonnet-5", "enriched": 423,
   "checks": {"second": "GigaAM v3", "agreement": 0.891, "doubtful_sentences": 186,
              "proofread_fixed": 43, "proofread_confirmed": 143, "proofread_rejected": 0,
              "review_word_fixes": 48, "review_translation_fixes": 0, "review_flags": 11,

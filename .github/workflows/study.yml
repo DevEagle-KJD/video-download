@@ -15,7 +15,7 @@ on:
         description: Unique id chosen by the app (used for the release tag)
         required: true
       engine:
-        description: "free (open-source tools, $0) or ai (Claude, best quality)"
+        description: "free (open-source tools, $0), ai (Claude, best quality) or captions (test: YouTube captions only, no download)"
         required: false
         default: free
 
@@ -36,7 +36,7 @@ jobs:
           - 4416:4416
     env:
       URL: ${{ inputs.url }}
-      QUALITY: study
+      QUALITY: ${{ inputs.engine == 'captions' && 'captions' || 'study' }}
       JOB_ID: ${{ inputs.job_id }}
       TAG_PREFIX: study
       ENGINE: ${{ inputs.engine || 'free' }}
@@ -57,12 +57,16 @@ jobs:
           sudo apt-get install -y -qq ffmpeg > /dev/null
           python3 -m pip install -q --upgrade pip
           python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
-          python3 -m pip install -q "faster-whisper>=1.1" anthropic ruaccent edge-tts
-          # CPU-only PyTorch is ~10x smaller than the default build. Needed by
-          # GigaAM (second transcriber) and Argos Translate (free engine).
-          python3 -m pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-          python3 -m pip install -q "git+https://github.com/salute-developers/GigaAM.git"
+          python3 -m pip install -q anthropic ruaccent edge-tts
+          if [ "$ENGINE" != "captions" ]; then
+            python3 -m pip install -q "faster-whisper>=1.1"
+            # CPU-only PyTorch is ~10x smaller than the default build. Needed by
+            # GigaAM (second transcriber) and Argos Translate (free engine).
+            python3 -m pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+            python3 -m pip install -q "git+https://github.com/salute-developers/GigaAM.git"
+          fi
           if [ "$ENGINE" = "free" ] || [ "$HAS_KEY" != "true" ]; then
+            [ "$ENGINE" = "captions" ] && python3 -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu
             python3 -m pip install -q pymorphy3 argostranslate
           fi
           yt-dlp --version
@@ -89,6 +93,7 @@ jobs:
         run: bash scripts/download.sh
 
       - name: Convert for iPhone
+        if: env.ENGINE != 'captions'
         run: bash scripts/iphone-compat.sh
 
       - name: Transcribe
@@ -96,12 +101,23 @@ jobs:
           WHISPER_MODEL: ${{ vars.WHISPER_MODEL }}   # optional override, e.g. large-v3-turbo
         run: python3 scripts/study/transcribe.py
 
+      # Captions-only test: Claude restores punctuation and fixes clear
+      # recognition errors in YouTube's automatic captions; changes are flagged.
+      - name: Clean captions
+        if: env.ENGINE == 'captions'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          STUDY_MODEL: ${{ vars.STUDY_MODEL }}
+        run: python3 scripts/study/clean_captions.py
+
       # Check 1: a second transcriber; words the two disagree on are doubtful.
       - name: Second opinion
+        if: env.ENGINE != 'captions'
         run: python3 scripts/study/second_asr.py
 
       # Check 2: Claude settles doubtful words (AI engine); the rest get flagged.
       - name: Proofread
+        if: env.ENGINE != 'captions'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           STUDY_MODEL: ${{ vars.STUDY_MODEL }}
@@ -112,7 +128,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           STUDY_MODEL: ${{ vars.STUDY_MODEL }}
         run: |
-          if [ "$ENGINE" = "ai" ] && [ -n "$ANTHROPIC_API_KEY" ]; then
+          if [ "$ENGINE" != "free" ] && [ -n "$ANTHROPIC_API_KEY" ]; then
             python3 scripts/study/enrich.py
           else
             [ "$ENGINE" = "ai" ] && echo "::warning::No ANTHROPIC_API_KEY secret; using the free tools instead"

@@ -3,11 +3,14 @@
 # The release body is a short JSON summary the app lists lessons from.
 set -euo pipefail
 
-notes=$(jq -c '{ok: true, kind: "study", title, url, duration, thumbnail, source,
-                engine: (.engine // "ai"), enriched, count: (.sentences | length)}' out/lesson.json)
+notes=$(jq -c --argjson video "$([ -f out/media.mp4 ] && echo true || echo false)" \
+  '{ok: true, kind: "study", title, url, duration, thumbnail, source, video: $video,
+    engine: (if (env.ENGINE // "") == "captions" then "captions" else (.engine // "ai") end),
+    enriched, count: (.sentences | length)}' out/lesson.json)
 title=$(jq -r '.title' out/lesson.json | cut -c1-120)
 
-assets=(out/media.mp4 out/lesson.json)
+assets=(out/lesson.json)
+[ -f out/media.mp4 ] && assets+=(out/media.mp4)   # captions-only lessons have no video
 if [ -d out/audio ] && [ -n "$(ls -A out/audio)" ]; then
   (cd out && zip -q -r audio.zip audio)
   assets+=(out/audio.zip)

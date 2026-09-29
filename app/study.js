@@ -203,7 +203,7 @@ function stRender() {
     let sub, dot = '';
     if (l.state === 'ready') {
       const mined = live.filter(c => c.lesson === l.id && c.kind !== 'word').length;
-      sub = `${m.engine === 'free' ? 'Free · ' : m.engine === 'ai' ? 'AI · ' : ''}${m.count || 0} sentences${mined ? ` · ${mined} mined` : ''}${m.duration ? ` · ${fmtDuration(m.duration)}` : ''}`;
+      sub = `${m.engine === 'free' ? 'Free · ' : m.engine === 'ai' ? 'AI · ' : m.engine === 'captions' ? 'Captions · ' : ''}${m.count || 0} sentences${mined ? ` · ${mined} mined` : ''}${m.duration ? ` · ${fmtDuration(m.duration)}` : ''}`;
       dot = 'ready';
     } else if (l.state === 'failed') {
       sub = 'Failed'; dot = 'failed';
@@ -291,10 +291,12 @@ const player = {
   setRate(r) { if (this.mode === 'youtube') this.yt?.setPlaybackRate?.(r); else this.video.playbackRate = r; },
   async open(l) {
     this.pause();
-    const id = prefs.player === 'youtube' ? youtubeId(l.url || lesson?.data.url) : null;
+    const noVideo = lesson?.data.video === false || l.meta?.video === false;
+    const id = prefs.player === 'youtube' || noVideo ? youtubeId(l.url || lesson?.data.url) : null;
     const box = $('#ls-yt');
     if (!id) {
-      if (prefs.player === 'youtube') toast('Not a YouTube video, so playing the downloaded copy');
+      if (noVideo) toast('This captions-only lesson has no downloaded video and isn’t a YouTube link');
+      else if (prefs.player === 'youtube') toast('Not a YouTube video, so playing the downloaded copy');
       this.mode = 'local';
       $('#screen-lesson .scrub').hidden = false;
       box.hidden = true;
@@ -902,18 +904,23 @@ async function reportMistake(i, k) {
 
 function lessonMenu() {
   const d = lesson.data;
-  const src = d.source === 'subtitles' ? 'the video’s own Russian subtitles' : 'Whisper speech recognition';
+  const src = {
+    subtitles: 'the video’s own Russian subtitles',
+    'creator-captions': 'the creator’s captions on YouTube (no audio downloaded)',
+    'auto-captions': 'YouTube’s automatic captions, cleaned up by Claude from the text alone (no audio downloaded or re-checked)',
+  }[d.source] || 'Whisper speech recognition';
   openSheet('Lesson', `
     <div class="group kv">
       <div class="cell"><div class="k">Title</div>${esc(d.title || '')}</div>
       <div class="cell"><div class="k">Transcript</div>From ${src} · ${d.sentences.length} sentences</div>
       ${d.checks ? `<div class="cell"><div class="k">Accuracy checks</div>${[
+        d.checks.captions_changed_words != null && `Claude corrected ${d.checks.captions_changed_words} word${d.checks.captions_changed_words === 1 ? '' : 's'} in the automatic captions`,
         d.checks.second && `Double-checked by a 2nd transcriber (${esc(d.checks.second)}): ${Math.round((d.checks.agreement || 0) * 100)}% agreement`,
         d.checks.proofread_fixed != null && (d.checks.proofread_fixed || d.checks.proofread_confirmed) && `Claude corrected ${d.checks.proofread_fixed} misheard sentence${d.checks.proofread_fixed === 1 ? '' : 's'} and confirmed ${d.checks.proofread_confirmed}`,
         d.checks.review_word_fixes != null && `Final review fixed ${d.checks.review_word_fixes} word${d.checks.review_word_fixes === 1 ? '' : 's'} and ${d.checks.review_translation_fixes} translation${d.checks.review_translation_fixes === 1 ? '' : 's'}`,
         `${d.checks.flagged_words || 0} word${d.checks.flagged_words === 1 ? '' : 's'} flagged as possibly inaccurate (dotted orange underline)`,
       ].filter(Boolean).join('<br>')}</div>` : ''}
-      <div class="cell"><div class="k">Meanings made with</div>${d.engine === 'free' ? 'Free tools' : 'AI'}${d.model ? ` · ${esc(d.model)}` : ''}</div>
+      <div class="cell"><div class="k">Meanings made with</div>${d.engine === 'free' ? 'Free tools' : d.engine === 'captions' ? 'Captions test · AI' : 'AI'}${d.model ? ` · ${esc(d.model)}` : ''}</div>
     </div>
     ${lesson.url ? `<a class="secondary-button" href="${esc(lesson.url)}" target="_blank" rel="noopener" style="margin-top:12px">Open Original Video</a>` : ''}
     ${d.audio ? '' : '<button class="secondary-button" data-s="add-voices">🎙️ Add Natural Voice</button>'}
@@ -1006,7 +1013,7 @@ function showCard() {
   const mode = MODES[(c.seen || 0) % MODES.length];
   const v = $('#rv-video');
   const src = `files/${c.lesson}/media.mp4`;
-  const hasVideo = lessons.some(l => l.id === c.lesson && l.state === 'ready');
+  const hasVideo = lessons.some(l => l.id === c.lesson && l.state === 'ready' && l.meta?.video !== false);
   v.hidden = !hasVideo;
   if (hasVideo && !v.src.endsWith(src)) v.src = src;
   $('#rv-count').textContent = `${qi + 1} of ${queue.length}`;
@@ -1284,6 +1291,7 @@ $('#ls-video').addEventListener('click', togglePlay);
 const ENGINE_HINTS = {
   free: 'Free: open-source tools add stress marks, dictionary meanings and a machine translation. Costs nothing; literal meanings are less precise.',
   ai: 'AI: Claude writes stress marks, in-context literal meanings and natural translations. Best quality; uses your Anthropic API credit (needs the ANTHROPIC_API_KEY secret).',
+  captions: 'Captions test: no video or audio is downloaded. The transcript comes from YouTube’s own captions (the creator’s if any, else YouTube’s automatic ones, cleaned up by Claude); the lesson plays through YouTube’s player. Every word Claude changed or doubts is flagged.',
 };
 function setEngine(e) {
   prefs.engine = e;
