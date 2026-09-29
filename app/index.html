@@ -188,6 +188,11 @@
       <div class="player">
         <video id="ls-video" playsinline webkit-playsinline preload="metadata"></video>
         <div id="ls-yt" class="yt-box" hidden></div>
+        <div class="scrub">
+          <span id="ls-cur">0:00</span>
+          <input type="range" id="ls-seek" min="0" max="1000" value="0" step="1" aria-label="Position in video">
+          <span id="ls-dur">0:00</span>
+        </div>
         <div class="player-controls">
           <button data-s="prev" aria-label="Previous sentence"><svg viewBox="0 0 24 24"><path d="M6 5v14M19 5l-9 7 9 7z"/></svg></button>
           <button data-s="toggle" class="big" aria-label="Play or pause"><svg id="ls-playicon" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg></button>

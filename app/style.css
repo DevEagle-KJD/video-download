@@ -571,3 +571,9 @@ body.in-page .tabbar { display: none; }
   border-radius: 12px; padding: 10px 12px; margin: 0 0 14px;
 }
 .wc-warn span { color: var(--secondary); font-size: 13px; }
+
+/* Scrub bar under the lesson video */
+.scrub { display: flex; align-items: center; gap: 10px; padding: 8px 14px 0; font-size: 12px; color: var(--secondary); font-variant-numeric: tabular-nums; }
+.scrub span { min-width: 38px; }
+.scrub span:last-child { text-align: right; }
+.scrub input[type=range] { flex: 1; height: 28px; margin: 0; accent-color: var(--blue); background: transparent; }

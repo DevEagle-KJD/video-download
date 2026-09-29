@@ -275,6 +275,10 @@ const player = {
   get video() { return $('#ls-video'); },
   get paused() { return this.mode === 'youtube' ? !this.want : this.video.paused; },
   get time() { return this.mode === 'youtube' ? (this.yt?.getCurrentTime?.() || 0) : this.video.currentTime; },
+  get duration() {
+    const d = this.mode === 'youtube' ? this.yt?.getDuration?.() : this.video.duration;
+    return isFinite(d) && d > 0 ? d : (lesson?.data.duration || 0);
+  },
   seek(t) { if (this.mode === 'youtube') this.yt?.seekTo?.(t, true); else this.video.currentTime = t; },
   play() {
     if (this.mode === 'youtube') { this.want = true; this.yt?.playVideo?.(); setPlayIcon(true); }
@@ -368,6 +372,7 @@ async function openLesson(l) {
   $('#ls-title').textContent = data.title || 'Lesson';
   renderTranscript();
   syncChips();
+  updateScrub(0);
   prevTab = 'study';
   stOpenPage('lesson');
   $('#screen-lesson').scrollTop = 0;
@@ -485,6 +490,7 @@ function setPlayIcon(playing) {
 function tick() {
   if (!lesson || player.paused) { rafId = 0; return; }
   const t = player.time;
+  updateScrub(t);
   // Replaying one sentence runs a moment past its end (so the last word isn't
   // clipped); don't let the next sentence steal the highlight meanwhile.
   if (stopAt == null) lockedIdx = null;   // plain playback again: follow the video
@@ -501,6 +507,32 @@ function tick() {
   }
   rafId = requestAnimationFrame(tick);
 }
+
+/* Scrub bar: drag to jump anywhere in the video. */
+let scrubbing = false;
+function updateScrub(t = player.time) {
+  if (scrubbing) return;
+  const d = player.duration;
+  $('#ls-seek').value = d ? Math.round((t / d) * 1000) : 0;
+  $('#ls-cur').textContent = fmtDuration(t) || '0:00';
+  $('#ls-dur').textContent = fmtDuration(d) || '0:00';
+}
+$('#ls-seek').addEventListener('input', () => {
+  scrubbing = true;
+  const t = ($('#ls-seek').value / 1000) * player.duration;
+  $('#ls-cur').textContent = fmtDuration(t) || '0:00';
+});
+$('#ls-seek').addEventListener('change', () => {
+  const t = ($('#ls-seek').value / 1000) * player.duration;
+  scrubbing = false;
+  // Jumping ends any single-sentence replay; carry on from the new spot.
+  stopAt = null; loopFrom = null; nextAfterStop = null; lockedIdx = null;
+  player.seek(t);
+  const i = sentenceAt(t);
+  if (i >= 0) setActive(i);
+  updateScrub(t);
+});
+['loadedmetadata', 'timeupdate', 'seeked'].forEach(ev => $('#ls-video').addEventListener(ev, () => updateScrub()));
 
 function startTick() { if (!rafId) rafId = requestAnimationFrame(tick); }
 function stop() { cancelAnimationFrame(rafId); rafId = 0; }
