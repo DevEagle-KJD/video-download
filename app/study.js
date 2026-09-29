@@ -176,6 +176,29 @@ async function stDeleteLesson(l) {
   }
 }
 
+// Cancels the GitHub run making a lesson, then drops it from the list.
+async function stStopLesson(l) {
+  if (!confirm('Stop making this lesson and remove it?')) return;
+  try {
+    let runId = l.runId;
+    if (!runId) {
+      const { workflow_runs: runs } = await gh(`/actions/workflows/${ST_WORKFLOW}/runs?per_page=30`);
+      runId = runs.find(r => r.display_title === `study ${l.id}` && r.status !== 'completed')?.id;
+    }
+    // 409: the run already finished.
+    if (runId) await gh(`/actions/runs/${runId}/cancel`, { method: 'POST' }).catch(e => { if (e.status !== 409) throw e; });
+    lessons = lessons.filter(x => x !== l);
+    deletedLessons.add(l.id);
+    store.set('deletedLessons', [...deletedLessons]);
+    saveLessons();
+    closeSheet();
+    stRender();
+    toast('Lesson stopped');
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
 /* ───────── Study home ───────── */
 function dueCards() {
   const now = Date.now();
@@ -360,7 +383,12 @@ async function openLesson(l) {
       <button class="secondary-button destructive" data-s="forget" data-id="${l.id}">Remove</button>`);
     return;
   }
-  if (l.state !== 'ready') { toast(`${l.stage || 'Still working'}… it’ll be ready soon`); return; }
+  if (l.state !== 'ready') {
+    openSheet('Lesson in progress', `<p style="font-size:15px;color:var(--secondary)">${esc(engineTag(l.meta?.engine))}${esc(l.stage || 'Still working')}… it’ll be ready soon.</p>
+      ${l.runUrl ? `<a class="secondary-button" href="${esc(l.runUrl)}" target="_blank" rel="noopener">View Progress on GitHub</a>` : ''}
+      <button class="secondary-button destructive" data-s="stop" data-id="${l.id}">Stop &amp; Remove</button>`);
+    return;
+  }
 
   let data;
   try {
@@ -1220,6 +1248,7 @@ document.addEventListener('click', e => {
   switch (el.dataset.s) {
     case 'open': { const l = lessons.find(x => x.id === id); if (l) openLesson(l); break; }
     case 'retry': { const l = lessons.find(x => x.id === id); closeSheet(); if (l) { lessons = lessons.filter(x => x !== l); stStart(l.url); } break; }
+    case 'stop': { const l = lessons.find(x => x.id === id); if (l) stStopLesson(l); break; }
     case 'forget':
       lessons = lessons.filter(x => x.id !== id);
       deletedLessons.add(id);
