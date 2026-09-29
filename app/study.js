@@ -498,6 +498,18 @@ function setActive(i, scroll = true) {
 // scroll pauses it for a few seconds so it doesn't fight your finger.
 let userScrolledAt = 0;
 ['touchmove', 'wheel'].forEach(ev => $('#screen-lesson').addEventListener(ev, () => { userScrolledAt = Date.now(); }, { passive: true }));
+// Pressing play (any way) jumps the transcript back to the sentence being
+// played, highlighted at the top: instantly (setting scrollTop also stops any
+// leftover finger-flick momentum), and resumes auto-follow straight away.
+function returnToSentence(i) {
+  const el = $(`#ls-transcript .sent[data-i="${i}"]`);
+  if (!el || !prefs.follow) return;
+  userScrolledAt = 0;
+  const scroller = $('#screen-lesson');
+  const playerBottom = $('#screen-lesson .player').getBoundingClientRect().bottom;
+  scroller.scrollTop += el.getBoundingClientRect().top - playerBottom - 12;
+}
+
 function followSentence(el, force = false) {
   if (!prefs.follow || (!force && Date.now() - userScrolledAt < 4000)) return;
   const playerBottom = $('#screen-lesson .player').getBoundingClientRect().bottom;
@@ -526,8 +538,7 @@ function tick() {
     // or YouTube's own play button): bring the sentence being spoken back into
     // view, even if you'd scrolled away or toggled Literal/English meanwhile.
     justStarted = false;
-    const el = $(`#ls-transcript .sent[data-i="${i}"]`);
-    if (el) followSentence(el, true);
+    returnToSentence(i);
   }
   if (stopAt != null && t >= stopAt) {
     if (prefs.loop && loopFrom != null) {
@@ -569,7 +580,8 @@ $('#ls-seek').addEventListener('change', () => {
 
 let justStarted = false;
 function startTick() {
-  if (!rafId) { justStarted = true; rafId = requestAnimationFrame(tick); }
+  justStarted = true;   // every start of playback re-finds the spoken sentence
+  if (!rafId) rafId = requestAnimationFrame(tick);
 }
 function stop() { cancelAnimationFrame(rafId); rafId = 0; }
 
@@ -605,7 +617,8 @@ function playSentence(i) {
   lockedIdx = i;
   [loopFrom, stopAt] = sentenceBounds(i);
   player.seek(loopFrom);
-  setActive(i);
+  setActive(i, false);
+  returnToSentence(i);
   player.play();
   startTick();
   store.set(`pos.${lesson.id}`, i);
@@ -617,6 +630,9 @@ function togglePlay() {
   if (prefs.autopause || prefs.loop) { playSentence(Math.max(0, cur)); return; }
   // Continuous play from the current sentence: the highlight follows the video.
   stopAt = null; loopFrom = null; lockedIdx = null;
+  const here = Math.max(0, cur >= 0 ? cur : sentenceAt(player.time));
+  setActive(here, false);
+  returnToSentence(here);
   if (cur >= 0 && Math.abs(player.time - lesson.data.sentences[cur].start) > 30) {
     player.seek(Math.max(0, lesson.data.sentences[cur].start - PAD_BEFORE));
   }

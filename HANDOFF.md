@@ -84,7 +84,7 @@ lessons first (newest first), then downloads, and skips videos over a ~900 MB bu
 `lesson.json` is always included.
 
 **Deploy note:** pushing anything under `app/` redeploys the site within about a minute. **Bump
-`CACHE` in `app/sw.js`** (currently `grab-v20`) whenever app files change. The service worker is
+`CACHE` in `app/sw.js`** (currently `grab-v22`) whenever app files change. The service worker is
 network-first, but the bump guarantees clean updates. Users must reload with **Safari's address-bar
 ↻**; the in-app ↻ only refreshes the lesson list.
 
@@ -261,9 +261,12 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
   plays the next one. Switching either **on while the video is playing takes effect immediately**
   (`armCurrentSentence()` arms a stop at the end of the sentence being spoken). Switching both off
   returns to plain playback.
-- **Whenever playback starts** (our ▶, a sentence tap, or YouTube's own play button), the sentence
-  being spoken is scrolled back to just under the video, even after a manual scroll
-  (`justStarted` in `tick()`, `followSentence(el, true)`).
+- **Whenever playback starts, however it's started** (our ▶ in Pause each or continuous mode, a
+  sentence tap, ⏮ ⏭, or YouTube's own play button), the transcript **jumps instantly** back to the
+  sentence being played, highlighted at the top just under the video, no matter where the learner
+  scrolled. Auto-follow resumes immediately (the 4 s manual-scroll pause is cleared). See
+  `returnToSentence(i)`; `startTick()` always sets `justStarted`. Setting `scrollTop` directly also
+  stops leftover iOS flick momentum.
 - Toggling **Literal/English** changes every sentence's height. `keepPlace()` then re-pins the
   current sentence just under the video (or keeps the top visible sentence in place).
 - The **scrub bar** only shows with the downloaded copy. It is **hidden in YouTube mode**, where
