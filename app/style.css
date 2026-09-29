@@ -577,3 +577,4 @@ body.in-page .tabbar { display: none; }
 .scrub span { min-width: 38px; }
 .scrub span:last-child { text-align: right; }
 .scrub input[type=range] { flex: 1; height: 28px; margin: 0; accent-color: var(--blue); background: transparent; }
+.scrub[hidden] { display: none; }

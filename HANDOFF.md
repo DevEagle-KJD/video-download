@@ -3,7 +3,7 @@
 Read this first in any new session. It describes what the app is, how every part works, the
 rules and decisions behind it, and exactly where things were left off.
 
-_Last updated: 2026-09-29 (after commit `67225fb`, "Study: scrub bar under the lesson video")._
+_Last updated: 2026-09-29 (Pause each/Loop act immediately, no sentence bleed, place kept on Literal/English toggle, scrub bar hidden in YouTube mode)._
 
 ---
 
@@ -84,7 +84,7 @@ lessons first (newest first), then downloads, and skips videos over a ~900 MB bu
 `lesson.json` is always included.
 
 **Deploy note:** pushing anything under `app/` redeploys the site within about a minute. **Bump
-`CACHE` in `app/sw.js`** (currently `grab-v17`) whenever app files change. The service worker is
+`CACHE` in `app/sw.js`** (currently `grab-v18`) whenever app files change. The service worker is
 network-first, but the bump guarantees clean updates. Users must reload with **Safari's address-bar
 ↻**; the in-app ↻ only refreshes the lesson list.
 
@@ -246,12 +246,21 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
 - **Highlighting: only the sentence**, never individual words (the owner found word-by-word
   highlighting hard to follow). **Auto-scroll** keeps the current sentence just under the video
   and pauses for 4 s after a manual scroll.
-- **Tapping a sentence** (or ▶ or its English line) replays exactly that sentence: from start
-  −0.15 s to end +0.25 s. While replaying one sentence, the **highlight is locked** to it, so the
+- **Tapping a sentence** (or ▶ or its English line) replays exactly that sentence, using
+  `sentenceBounds(i)`: it starts up to 0.15 s early but never before the previous sentence ends,
+  and stops up to 0.25 s late but never later than 0.08 s before the next sentence starts. In
+  YouTube mode it stops a further 0.1 s early, because YouTube reports its position late. This
+  prevents bleed into the next sentence. While replaying one sentence, the **highlight is locked** to it, so the
   next sentence can't steal it during the padding. The lock is released for continuous play or
   after a scrub.
 - **Loop** repeats the sentence until ▶ is tapped. **Pause each** stops after every sentence, and ▶
-  plays the next one.
+  plays the next one. Switching either **on while the video is playing takes effect immediately**
+  (`armCurrentSentence()` arms a stop at the end of the sentence being spoken). Switching both off
+  returns to plain playback.
+- Toggling **Literal/English** changes every sentence's height. `keepPlace()` then re-pins the
+  current sentence just under the video (or keeps the top visible sentence in place).
+- The **scrub bar** only shows with the downloaded copy. It is **hidden in YouTube mode**, where
+  YouTube's own bar is used; ours couldn't drive the YouTube player reliably.
 - **Tapping a word** opens the word card and **immediately speaks the word, normal then slow**:
   - the word split into **syllables** (the stressed one in orange), each lit up in time with the
     audio;

@@ -296,6 +296,7 @@ const player = {
     if (!id) {
       if (prefs.player === 'youtube') toast('Not a YouTube video, so playing the downloaded copy');
       this.mode = 'local';
+      $('#screen-lesson .scrub').hidden = false;
       box.hidden = true;
       this.video.hidden = false;
       this.video.src = `files/${l.id}/media.mp4`;
@@ -303,6 +304,7 @@ const player = {
       return;
     }
     this.mode = 'youtube';
+    $('#screen-lesson .scrub').hidden = true;   // YouTube has its own bar; ours can't drive it reliably
     this.video.removeAttribute('src');
     this.video.load();
     this.video.hidden = true;
@@ -437,6 +439,22 @@ function applyDisplayPrefs() {
   t.classList.toggle('hide-english', !prefs.english);
 }
 
+// Showing/hiding the literal or English lines changes every sentence's height.
+// Keep the current sentence pinned just under the video (or, if none is active
+// yet, keep whatever sentence was at the top where it was).
+function keepPlace(change) {
+  const scroller = $('#screen-lesson');
+  const playerBottom = () => $('#screen-lesson .player').getBoundingClientRect().bottom;
+  let anchor = cur >= 0 ? $(`#ls-transcript .sent[data-i="${cur}"]`) : null;
+  const pinCurrent = !!anchor;
+  if (!anchor) anchor = [...document.querySelectorAll('#ls-transcript .sent')].find(e => e.getBoundingClientRect().bottom > playerBottom());
+  const before = anchor ? anchor.getBoundingClientRect().top : 0;
+  change();
+  if (!anchor) return;
+  const target = pinCurrent ? playerBottom() + 12 : before;
+  scroller.scrollBy({ top: anchor.getBoundingClientRect().top - target, behavior: 'instant' });
+}
+
 function syncChips() {
   $('#ls-speed').textContent = `${prefs.speed}×`;
   $('#ls-speed').classList.toggle('on', prefs.speed !== 1);
@@ -537,14 +555,37 @@ $('#ls-seek').addEventListener('change', () => {
 function startTick() { if (!rafId) rafId = requestAnimationFrame(tick); }
 function stop() { cancelAnimationFrame(rafId); rafId = 0; }
 
+// Where replaying sentence i should start and stop: a little padding so the
+// first and last words aren't clipped, but never into the neighbouring
+// sentences (Easy Russian speakers often start right after each other).
+const YT_LAG = 0.1;   // YouTube reports its position slightly late
+function sentenceBounds(i) {
+  const ss = lesson.data.sentences, s = ss[i];
+  const prevEnd = i > 0 ? ss[i - 1].end : 0;
+  const nextStart = i + 1 < ss.length ? ss[i + 1].start : Infinity;
+  const from = Math.max(0, Math.min(s.start, Math.max(s.start - PAD_BEFORE, prevEnd)));
+  let to = Math.min(s.end + PAD_AFTER, Math.max(s.end + 0.02, nextStart - 0.08));
+  if (player.mode === 'youtube') to -= YT_LAG;
+  return [from, Math.max(to, s.start + 0.3)];
+}
+
+// Pause each / Loop switched on while the video is already playing: stop (or
+// loop) at the end of the sentence being spoken right now.
+function armCurrentSentence() {
+  if (!lesson || player.paused) return;
+  const i = Math.max(0, lockedIdx != null ? lockedIdx : sentenceAt(player.time));
+  [loopFrom, stopAt] = sentenceBounds(i);
+  lockedIdx = i;
+  nextAfterStop = null;
+  setActive(i);
+}
+
 function playSentence(i) {
   const ss = lesson.data.sentences;
   if (i < 0 || i >= ss.length) return;
-  const s = ss[i];
   nextAfterStop = null;
   lockedIdx = i;
-  loopFrom = Math.max(0, s.start - PAD_BEFORE);
-  stopAt = s.end + PAD_AFTER;
+  [loopFrom, stopAt] = sentenceBounds(i);
   player.seek(loopFrom);
   setActive(i);
   player.play();
@@ -1171,8 +1212,16 @@ document.addEventListener('click', e => {
       player.setRate(prefs.speed);
       savePrefs(); syncChips(); break;
     }
-    case 'loop': prefs.loop = !prefs.loop; savePrefs(); syncChips(); break;
-    case 'autopause': prefs.autopause = !prefs.autopause; nextAfterStop = null; savePrefs(); syncChips(); break;
+    case 'loop':
+    case 'autopause':
+      if (el.dataset.s === 'loop') prefs.loop = !prefs.loop; else prefs.autopause = !prefs.autopause;
+      nextAfterStop = null;
+      savePrefs(); syncChips();
+      if (!player.paused) {
+        if (prefs.loop || prefs.autopause) armCurrentSentence();       // takes effect right now
+        else { stopAt = null; loopFrom = null; lockedIdx = null; }    // back to plain playback
+      }
+      break;
     case 'show-literal':
     case 'show-english':
       if (!lesson?.data.enriched) {
@@ -1180,7 +1229,9 @@ document.addEventListener('click', e => {
         break;
       }
       if (el.dataset.s === 'show-literal') prefs.literal = !prefs.literal; else prefs.english = !prefs.english;
-      savePrefs(); syncChips(); applyDisplayPrefs(); break;
+      savePrefs(); syncChips();
+      keepPlace(applyDisplayPrefs);
+      break;
     case 'show-follow': prefs.follow = !prefs.follow; savePrefs(); syncChips(); break;
     case 'lesson-menu': lessonMenu(); break;
     case 'lesson-help': closeSheet(); setTimeout(helpSheet, 350); break;
