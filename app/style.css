@@ -609,3 +609,5 @@ body.in-page .tabbar { display: none; }
 .sv-empty { padding: 28px 16px; text-align: center; color: var(--secondary); }
 
 .navbar-text-action { position: absolute; right: 16px; bottom: 10px; color: var(--blue); font-size: 17px; }
+.sv-voice { display: contents; }
+.chip.record-chip { background: var(--blue); color: #fff; }

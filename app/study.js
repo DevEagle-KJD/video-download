@@ -897,14 +897,13 @@ const RATE_NORMAL = 0.9, RATE_SLOW = 0.4;
 // Records the natural voice for a lesson's words and sentences on GitHub
 // (Add voices workflow), keeping any recordings it already has.
 const voicesRequested = new Set(store.get('voicesRequested', []));
-function addVoices(lessonId) {
+function addVoices(lessonId, close = true) {
   return defaultBranch()
     .then(ref => gh('/actions/workflows/voices.yml/dispatches', { method: 'POST', body: { ref, inputs: { job_id: lessonId } } }))
     .then(() => {
       voicesRequested.add(lessonId);
       store.set('voicesRequested', [...voicesRequested]);
-      delete audioMaps[lessonId]; delete audioLoads[lessonId];   // reload them next time
-      closeSheet();
+      if (close) closeSheet();
       toast('Recording the natural voice for this lesson. Ready in about 10 minutes.');
     })
     .catch(e => toast(e.status === 404 ? 'The Add voices workflow isn’t on GitHub yet' : e.message));
@@ -918,8 +917,9 @@ function saySentence(c, rate = RATE_NORMAL, fallback = null) {
     if (voicesRequested.has(c.lesson)) {
       delete audioMaps[c.lesson]; delete audioLoads[c.lesson];   // check again next tap
       toast('The natural voice for this lesson is still being recorded. Try again in a few minutes.');
-    } else if (confirm('This lesson doesn’t have the natural voice for whole sentences yet. Record it now? It takes about 10 minutes.')) {
-      addVoices(c.lesson);
+    } else {
+      toast('This sentence has no natural voice yet. Tap 🎙️ Record Natural Voice.');
+      refreshVoiceButtons();
     }
   }));
 }
@@ -1217,11 +1217,38 @@ function showCard() {
 }
 
 function sentenceTools(hasVideo) {
-  return `<div class="rv-tools">
-      <button class="chip" data-s="rv-say-sent" data-rate="${RATE_NORMAL}">🔊 Normal</button>
-      <button class="chip" data-s="rv-say-sent" data-rate="${RATE_SLOW}">🐢 Slowly</button>
+  return `<div class="rv-tools">${sentenceVoiceButtons(queue[qi], 'rv-say-sent')}
       ${hasVideo ? '<button class="chip" data-s="rv-play">🎬 Video</button>' : ''}
     </div>`;
+}
+
+// 🔊 Normal / 🐢 Slowly for a sentence, or, when its lesson has no sentence
+// recordings yet, a 🎙️ button that records them right there. Updates itself
+// once the lesson's recordings list has loaded.
+function sentenceVoiceButtons(c, action) {
+  const map = audioMaps[c.lesson];
+  if (!map) ensureAudio(c.lesson)?.then(() => {
+    document.querySelectorAll(`.sv-voice[data-card="${CSS.escape(c.id)}"]`).forEach(el => { el.outerHTML = sentenceVoiceButtons(c, action); });
+  });
+  let inner;
+  if (!map || map[speakable(c.ru)]) {
+    inner = `<button class="chip" data-s="${action}" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+      <button class="chip" data-s="${action}" data-rate="${RATE_SLOW}">🐢 Slowly</button>`;
+  } else if (voicesRequested.has(c.lesson)) {
+    inner = `<button class="chip" data-s="voice-check" data-lesson="${esc(c.lesson)}">⏳ Recording the voice… tap to check</button>`;
+  } else {
+    inner = `<button class="chip record-chip" data-s="voice-record" data-lesson="${esc(c.lesson)}">🎙️ Record Natural Voice</button>`;
+  }
+  return `<span class="sv-voice" data-card="${esc(c.id)}">${inner}</span>`;
+}
+
+function refreshVoiceButtons() {
+  const inReview = $('#screen-review').classList.contains('active') && !$('#sheet').classList.contains('open');
+  const c = inReview ? queue[qi] : svOpen;
+  if (!c) return;
+  document.querySelectorAll('.sv-voice').forEach(el => {
+    el.outerHTML = sentenceVoiceButtons(c, inReview ? 'rv-say-sent' : 'sv-say-sent');
+  });
 }
 
 function revealCard() {
@@ -1391,8 +1418,7 @@ function openSavedCard(id) {
     openSheet('Saved sentence', `
       <div class="word-card">
         <div class="wc-audio" style="margin-bottom:12px">
-          <button class="chip" data-s="sv-say-sent" data-rate="${RATE_NORMAL}">🔊 Normal</button>
-          <button class="chip" data-s="sv-say-sent" data-rate="${RATE_SLOW}">🐢 Slowly</button>
+          ${sentenceVoiceButtons(c, 'sv-say-sent')}
         </div>
         <div class="il">${tokensHTML(c.tokens, true)}</div>
         ${c.en ? `<p class="en">${esc(c.en)}</p>` : ''}
@@ -1614,6 +1640,22 @@ document.addEventListener('click', e => {
     case 'rv-play': voicePlayer.pause(); playClip(queue[qi]); break;
     case 'rv-say-sent': $('#rv-video').pause(); saySentence(queue[qi], Number(el.dataset.rate)); break;
     case 'sv-say-sent': saySentence(svOpen, Number(el.dataset.rate)); break;
+    case 'voice-record': {
+      const id = el.dataset.lesson;
+      if (!confirm('Record the natural voice for every sentence in this lesson? It’s free and takes about 10 minutes; you can keep studying meanwhile.')) break;
+      addVoices(id, false).then(() => refreshVoiceButtons());
+      break;
+    }
+    case 'voice-check': {
+      const id = el.dataset.lesson;
+      delete audioMaps[id]; delete audioLoads[id];
+      ensureAudio(id).then(() => {
+        const c = $('#screen-review').classList.contains('active') && !$('#sheet').classList.contains('open') ? queue[qi] : svOpen;
+        if (audioMaps[id]?.[speakable(c?.ru)]) { toast('The natural voice is ready 🎉'); } else toast('Still recording. Try again in a few minutes.');
+        refreshVoiceButtons();
+      });
+      break;
+    }
     case 'rv-slow': playClip(queue[qi], 0.6); break;
     case 'grade': grade(el.dataset.g); break;
   }
