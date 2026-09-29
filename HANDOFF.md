@@ -278,6 +278,13 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
 ### Study home
 - **Review card** (gradient): "N cards to review · X sentences mined · Y words saved"; the
   **Review** button is disabled when nothing is due. The tab badge shows the due count.
+  **See All** opens the **Saved** page (`#screen-saved`, `openSaved`/`renderSaved`): Words /
+  Sentences switch, search (Russian ignoring stress marks, or English), each row shows when it's
+  due; tapping one opens a sheet (word: syllables, 🔊 Normal/🐢 Slowly, dictionary form, the
+  sentence; sentence: interlinear + English) with **Open in Lesson** (jumps to that sentence),
+  **Review It Now** (due = now) and **Remove**. **Review All N** reviews every saved word (or
+  sentence) regardless of due date; back from that review returns to Saved. Added because the owner
+  saw "1 of 2" in review with no way to see all saved words (review shows one card at a time).
 - **New lesson:** URL box, **Free / AI (best) / Captions (test)** switch (saved as `prefs.engine`,
   default `free`; **the owner uses AI**; note that clearing storage resets it to Free, which once
   started a Free lesson by mistake), **Check Captions First** (Captions only, see §5), **Make Lesson**.

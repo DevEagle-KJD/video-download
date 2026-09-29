@@ -216,6 +216,32 @@
       <div class="transcript" id="ls-transcript"></div>
     </section>
 
+    <!-- ───────── Saved words & sentences ───────── -->
+    <section class="screen page" id="screen-saved">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Study</span>
+        </button>
+        <span class="navbar-title page-title">Saved</span>
+        <span style="width:60px"></span>
+      </header>
+      <div class="content saved-content">
+        <div class="segmented two" id="sv-kind" role="radiogroup" style="margin-top:4px">
+          <span class="seg-thumb"></span>
+          <button role="radio" data-kind="word" aria-checked="true">Words</button>
+          <button role="radio" data-kind="sentence" aria-checked="false">Sentences</button>
+        </div>
+        <div class="group" style="margin-top:12px">
+          <div class="cell input-cell">
+            <svg class="cell-icon" viewBox="0 0 24 24" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="sv-search" type="search" placeholder="Search Russian or English" autocomplete="off" autocapitalize="off" spellcheck="false">
+          </div>
+        </div>
+        <button class="primary-button" data-s="sv-review-all" id="sv-review-all" style="margin-top:12px"></button>
+        <div class="group sv-list" id="sv-list"></div>
+      </div>
+    </section>
+
     <!-- ───────── Review ───────── -->
     <section class="screen page" id="screen-review">
       <header class="navbar page-bar">

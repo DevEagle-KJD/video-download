@@ -215,7 +215,8 @@ function stRender() {
   $('#st-review-card').innerHTML = live.length
     ? `<div class="rc-text"><b>${due ? `${plural(due, 'card')} to review` : 'All caught up'}</b>
          <span>${[nSent && `${plural(nSent, 'sentence')} mined`, nWords && `${plural(nWords, 'word')} saved`].filter(Boolean).join(' · ')}</span></div>
-       <button class="rc-btn" data-s="review" ${due ? '' : 'disabled'}>Review</button>`
+       <div class="rc-btns"><button class="rc-btn ghost" data-s="saved">See All</button>
+       <button class="rc-btn" data-s="review" ${due ? '' : 'disabled'}>Review</button></div>`
     : `<div class="rc-text"><b>Mine your first sentence</b>
          <span>Open a lesson and tap ☆ on sentences you want to learn.</span></div>`;
   const badge = $('#st-badge');
@@ -267,6 +268,12 @@ function stBack() {
   player.close();
   $('#rv-video').pause();
   stop();
+  if (prevTab === 'saved') {       // review started from the Saved list: go back there
+    prevTab = 'study';
+    stOpenPage('saved');
+    renderSaved();
+    return;
+  }
   document.body.classList.remove('in-page');
   showScreen(prevTab);
   stRender();
@@ -996,12 +1003,12 @@ function helpSheet() {
 const MODES = ['read', 'listen', 'say'];
 let queue = [], qi = 0, revealed = false, reviewed = 0;
 
-function startReview() {
-  queue = dueCards().slice(0, 50);
+function startReview(list = dueCards().slice(0, 50), from = 'study') {
+  queue = list;
   [...new Set(queue.map(c => c.lesson))].forEach(ensureAudio);
   if (!queue.length) { toast('Nothing due right now'); return; }
   qi = 0; reviewed = 0;
-  prevTab = 'study';
+  prevTab = from;
   stOpenPage('review');
   showCard();
 }
@@ -1163,6 +1170,120 @@ function reviewDone() {
     ${left ? '<button class="primary-button" data-s="review">Keep Going</button>' : ''}
     <button class="secondary-button" data-s="back">Back to Study</button>`;
 }
+
+/* ───────── Saved: every saved word and sentence in one list ───────── */
+let svKind = 'word';
+const liveCards = kind => Object.values(cards)
+  .filter(c => !c.deleted && (kind === 'word') === (c.kind === 'word'))
+  .sort((a, b) => (b.created || 0) - (a.created || 0));
+
+function openSaved() {
+  prevTab = 'study';
+  stOpenPage('saved');
+  [...new Set(Object.values(cards).map(c => c.lesson))].forEach(ensureAudio);
+  renderSaved();
+}
+
+function dueText(c) {
+  const days = (c.due - Date.now()) / DAY;
+  if (days <= 0) return '<span class="sv-due now">Due</span>';
+  return `<span class="sv-due">in ${days < 1 ? `${Math.max(1, Math.round(days * 24))}h` : fmtIvl(Math.round(days))}</span>`;
+}
+
+function renderSaved() {
+  const btns = [...document.querySelectorAll('#sv-kind button')];
+  btns.forEach(b => b.setAttribute('aria-checked', String(b.dataset.kind === svKind)));
+  $('#sv-kind .seg-thumb').style.transform = `translateX(${svKind === 'word' ? 0 : 100}%)`;
+  const all = liveCards(svKind);
+  const q = speakable($('#sv-search').value);
+  const qEn = $('#sv-search').value.trim().toLowerCase();
+  const list = !q && !qEn ? all : all.filter(c => {
+    const ru = speakable(svKind === 'word' ? `${c.w} ${c.b}` : c.ru);
+    const en = `${c.g || ''} ${c.m || ''} ${c.en || ''}`.toLowerCase();
+    return (q && ru.includes(q)) || (qEn && en.includes(qEn));
+  });
+  const noun = svKind === 'word' ? 'word' : 'sentence';
+  $('#sv-review-all').textContent = `Review All ${all.length} ${noun}${all.length === 1 ? '' : 's'}`;
+  $('#sv-review-all').hidden = !all.length;
+  $('#sv-list').innerHTML = list.length ? list.map(c => svKind === 'word'
+    ? `<button class="cell sv-row" data-s="sv-open" data-id="${esc(c.id)}">
+        <div class="sv-main"><span class="sv-word">${esc(c.w)}</span>${c.g ? `<span class="sv-gloss">${esc(c.g)}</span>` : ''}
+          <div class="sv-sub">${esc([c.b, c.m].filter(Boolean).join(' · ') || c.ru || '')}</div></div>
+        ${dueText(c)}</button>`
+    : `<button class="cell sv-row" data-s="sv-open" data-id="${esc(c.id)}">
+        <div class="sv-main"><div class="sv-ru">${esc(c.ru)}</div>${c.en ? `<div class="sv-sub">${esc(c.en)}</div>` : ''}</div>
+        ${dueText(c)}</button>`).join('')
+    : `<div class="sv-empty">${all.length ? 'Nothing matches your search.'
+      : svKind === 'word' ? 'No saved words yet. In a lesson, tap a word, then ☆ Save Word.'
+        : 'No saved sentences yet. In a lesson, tap ☆ next to a sentence.'}</div>`;
+}
+
+let svOpen = null;
+function openSavedCard(id) {
+  const c = cards[id];
+  if (!c) return;
+  svOpen = c;
+  const hasLesson = lessons.some(l => l.id === c.lesson && l.state === 'ready');
+  const actions = `
+    ${hasLesson ? '<button class="primary-button" data-s="sv-lesson">Open in Lesson</button>' : ''}
+    <button class="secondary-button" data-s="sv-now">Review It Now</button>
+    <button class="secondary-button destructive" data-s="sv-remove">Remove</button>`;
+  if (c.kind === 'word') {
+    openSheet('Saved word', `
+      <div class="word-card">
+        <div class="wc-word" id="sv-word">${syllablesHTML(c.w)}</div>
+        ${c.g ? `<div class="wc-here">${esc(c.g)}</div>` : ''}
+        <div class="wc-audio">
+          <button class="chip" data-s="sv-say" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+          <button class="chip" data-s="sv-say" data-rate="${RATE_SLOW}">🐢 Slowly</button>
+        </div>
+        ${c.b || c.m ? `<p class="wc-dictline">${c.b ? `<b>${esc(c.b)}</b>` : ''}${c.b && c.m ? ' · ' : ''}${esc(c.m)}</p>` : ''}
+        <div class="wc-sentence">
+          <div class="k">In this sentence</div>
+          <div class="il">${tokensHTML(c.tokens, true, { hl: c.k })}</div>
+          ${c.en ? `<p class="en">${esc(c.en)}</p>` : ''}
+          <p class="rv-src">${esc(c.title || '')}</p>
+        </div>
+        ${actions}
+      </div>`);
+  } else {
+    openSheet('Saved sentence', `
+      <div class="word-card">
+        <div class="il">${tokensHTML(c.tokens, true)}</div>
+        ${c.en ? `<p class="en">${esc(c.en)}</p>` : ''}
+        <p class="rv-src">${esc(c.title || '')}</p>
+        ${actions}
+      </div>`);
+  }
+}
+
+function svAction(what) {
+  const c = svOpen;
+  if (!c) return;
+  if (what === 'remove') {
+    if (!confirm(c.kind === 'word' ? 'Remove this word from your saved words?' : 'Remove this sentence from your saved sentences?')) return;
+    c.deleted = true;
+  } else if (what === 'now') {
+    c.due = Date.now();
+    toast('It’s in your next review');
+  }
+  c.updated = Date.now();
+  cardsChanged();
+  closeSheet();
+  renderSaved();
+}
+
+async function svOpenLesson() {
+  const c = svOpen, l = lessons.find(x => x.id === c.lesson);
+  if (!l) return;
+  store.set(`pos.${l.id}`, c.i);
+  closeSheet();
+  prevTab = 'study';
+  await openLesson(l);
+}
+
+$('#sv-kind').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { svKind = b.dataset.kind; renderSaved(); } });
+$('#sv-search').addEventListener('input', renderSaved);
 
 /* ───────── Card sync (repo branch "study-data", file cards.json) ───────── */
 const SYNC_BRANCH = 'study-data', SYNC_PATH = 'cards.json';
@@ -1330,6 +1451,13 @@ document.addEventListener('click', e => {
     case 'lesson-help': closeSheet(); setTimeout(helpSheet, 350); break;
     case 'delete-lesson': { const l = lessons.find(x => x.id === lesson?.id); if (l) stDeleteLesson(l); break; }
     case 'review': startReview(); break;
+    case 'saved': openSaved(); break;
+    case 'sv-open': openSavedCard(el.dataset.id); break;
+    case 'sv-say': speak(svOpen.w, Number(el.dataset.rate), $('#sv-word'), svOpen.lesson); break;
+    case 'sv-now': svAction('now'); break;
+    case 'sv-remove': svAction('remove'); break;
+    case 'sv-lesson': svOpenLesson(); break;
+    case 'sv-review-all': startReview(liveCards(svKind).sort((a, b) => a.due - b.due), 'saved'); break;
     case 'rv-show': revealCard(); break;
     case 'rv-play': playClip(queue[qi]); break;
     case 'rv-slow': playClip(queue[qi], 0.6); break;
