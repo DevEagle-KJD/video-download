@@ -397,8 +397,11 @@ Voices** once.
   through learning steps **1 min → 10 min** (Hard on the first step = 6 min), then graduate to
   **1 d**; Easy graduates straight to **3 d**. Review cards: Hard = ivl×1.2 (ease −0.15), Good =
   ivl×ease, Easy = ivl×ease×1.3 (ease +0.15), always Hard < Good < Easy and at least +1 d; Again
-  = lapse (ease −0.2) → relearn 10 min → back at 1 d. Any card due again within 20 min is
-  re-queued in the same session (Anki's learn-ahead). Cards saved before this change have no
+  = lapse (ease −0.2) → relearn 10 min → back at 1 d. A card due again within 20 min goes into
+  the session's `learning` list and is shown **only once it's due** (the owner thought the app was
+  stuck when the same card came straight back). When only waiting learning cards are left, a
+  "Next card in m:ss" screen counts down (auto-shows it), with **Show It Now** / **Stop for Now**.
+  The title shows "N left" (queue + learning), not "x of y". Cards saved before this change have no
   `state`: `cardState()` treats reps 0 as learning.
 - **Undo** (top right of the review page, after the first grade): restores the last graded card
   exactly (snapshot of the card, queue length, position), any number of times back.

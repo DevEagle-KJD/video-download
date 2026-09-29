@@ -268,6 +268,7 @@ function stOpenPage(name) {
   showScreen(name);
 }
 function stBack() {
+  clearTimeout(waitTimer);
   player.close();
   $('#rv-video').pause();
   stop();
@@ -1060,12 +1061,18 @@ function helpSheet() {
 /* ───────── Review (spaced repetition) ───────── */
 const MODES = ['read', 'listen', 'say'];
 let queue = [], qi = 0, revealed = false, reviewed = 0;
+// Cards you're still learning come back after a few minutes (Anki's learning
+// steps). They wait here and are shown once they're due, not straight away.
+let learning = [], waitTimer = 0;
+const cardsLeft = () => queue.length - qi + learning.length;
 
 function startReview(list = dueCards().slice(0, 50), from = 'study') {
   queue = list;
   [...new Set(queue.map(c => c.lesson))].forEach(ensureAudio);
   if (!queue.length) { toast('Nothing due right now'); return; }
   qi = 0; reviewed = 0;
+  learning = [];
+  clearTimeout(waitTimer);
   undoStack = [];
   $('#rv-undo').hidden = true;
   prevTab = from;
@@ -1177,8 +1184,12 @@ function playClip(c, rate = 1, word = false) {
 }
 
 function showCard() {
+  clearTimeout(waitTimer);
+  // A learning card that's due now goes next.
+  learning.sort((a, b) => a.due - b.due);
+  if (learning[0] && learning[0].due <= Date.now()) queue.splice(qi, 0, learning.shift());
   const c = queue[qi];
-  if (!c) { reviewDone(); return; }
+  if (!c) { learning.length ? waitForLearning() : reviewDone(); return; }
   ensureAudio(c.lesson);
   if (queue[qi + 1]) ensureAudio(queue[qi + 1].lesson);
   revealed = false;
@@ -1188,7 +1199,7 @@ function showCard() {
   const hasVideo = lessons.some(l => l.id === c.lesson && l.state === 'ready' && l.meta?.video !== false);
   v.hidden = !hasVideo;
   if (hasVideo && !v.src.endsWith(src)) v.src = src;
-  $('#rv-count').textContent = `${qi + 1} of ${queue.length}`;
+  $('#rv-count').textContent = `${cardsLeft()} left`;
 
   if (c.kind === 'word') {
     const listen = (c.seen || 0) % 2 === 1;
@@ -1297,12 +1308,12 @@ function revealCard() {
 let undoStack = [];
 function grade(g) {
   const c = queue[qi];
-  undoStack.push({ card: JSON.parse(JSON.stringify(c)), qlen: queue.length, qi, reviewed });
+  undoStack.push({ card: JSON.parse(JSON.stringify(c)), qlen: queue.length, qi, reviewed, learning: learning.map(x => x.id) });
   $('#rv-undo').hidden = false;
   schedule(c, g);
   cards[c.id] = c;
-  // Still learning (back in minutes): see it again later in this session, like Anki.
-  if (c.due - Date.now() < 20 * MIN) queue.push(c);
+  // Still learning (back in minutes): it comes back later in this session, like Anki.
+  if (c.due - Date.now() < 20 * MIN) learning.push(c);
   reviewed++;
   qi++;
   cardsChanged();
@@ -1317,11 +1328,37 @@ function undoGrade() {
   Object.assign(c, u.card, { updated: Date.now() });
   queue.length = u.qlen;
   qi = u.qi;
+  learning = u.learning.map(id => cards[id]).filter(Boolean);
   reviewed = u.reviewed;
   $('#rv-undo').hidden = !undoStack.length;
   cardsChanged();
   showCard();
   toast('Undone');
+}
+
+// Only cards you're still learning are left, and none is due yet: wait for the
+// next one (like Anki), with the option to see it now or stop here.
+function waitForLearning() {
+  $('#rv-video').pause();
+  const next = learning[0];
+  const tick = () => {
+    const ms = next.due - Date.now();
+    if (ms <= 0) { showCard(); return; }
+    const sec = Math.ceil(ms / 1000);
+    const el = $('#rv-wait');
+    if (el) el.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+    waitTimer = setTimeout(tick, 1000);
+  };
+  $('#rv-count').textContent = `${cardsLeft()} left`;
+  $('#rv-body').innerHTML = `
+    <div class="empty" style="padding-top:24px">
+      <div style="font-size:44px">⏳</div>
+      <p style="font-size:20px;font-weight:600;color:var(--label);margin:8px 0">Next card in <span id="rv-wait"></span></p>
+      <p>You're still learning ${learning.length === 1 ? 'this card' : `these ${learning.length} cards`}, so ${learning.length === 1 ? 'it comes' : 'they come'} back after a short break. That spacing is what makes it stick.</p>
+    </div>
+    <button class="primary-button" data-s="rv-now">Show It Now</button>
+    <button class="secondary-button" data-s="back">Stop for Now</button>`;
+  tick();
 }
 
 function reviewDone() {
@@ -1634,6 +1671,7 @@ document.addEventListener('click', e => {
     case 'sv-remove': svAction('remove'); break;
     case 'sv-reset': svAction('reset'); break;
     case 'rv-undo': undoGrade(); break;
+    case 'rv-now': clearTimeout(waitTimer); if (learning[0]) { learning[0].due = Date.now(); showCard(); } break;
     case 'sv-lesson': svOpenLesson(); break;
     case 'sv-review-all': startReview(liveCards(svKind).sort((a, b) => a.due - b.due), 'saved'); break;
     case 'rv-show': revealCard(); break;
