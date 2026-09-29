@@ -366,8 +366,15 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
 - **Word cards** alternate read / listen (the voice speaks the word).
 - **Show** reveals all three lines (words get syllables and a timed highlight) and replays the
   clip or voice. Tools: ▶ Replay, 🐢 Slow; for words, 🔊 Normal / 🐢 Slowly / 🎬 Word / ▶ Sentence.
-- **Grades:** Again (10 min, ease −0.2, re-queued this session), Good (1 d → 3 d → ivl×ease),
-  Easy (3 d or ivl×ease×1.3, ease +0.15). Interval labels are shown on the buttons.
+- **Grades (Anki-style, owner asked to match their Anki decks):** **Again / Hard / Good / Easy**
+  with the wait shown above each label like Anki ("<1m", "<6m", "<10m", "3d"). Card fields
+  `state` (`learn` | `review` | `relearn`), `step`, `ivl` (days), `ease`, `due`. New cards go
+  through learning steps **1 min → 10 min** (Hard on the first step = 6 min), then graduate to
+  **1 d**; Easy graduates straight to **3 d**. Review cards: Hard = ivl×1.2 (ease −0.15), Good =
+  ivl×ease, Easy = ivl×ease×1.3 (ease +0.15), always Hard < Good < Easy and at least +1 d; Again
+  = lapse (ease −0.2) → relearn 10 min → back at 1 d. Any card due again within 20 min is
+  re-queued in the same session (Anki's learn-ahead). Cards saved before this change have no
+  `state`: `cardState()` treats reps 0 as learning.
 - **Card sync:** cards live in localStorage (`cards`) **and** are synced to the repo, in branch
   **`study-data`**, file **`cards.json`** `{version:1, cards:{id: card}}`, via the Contents API.
   Saves are debounced (4 s) and flushed when the app is hidden. Merges are last-write-wins per

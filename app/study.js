@@ -1013,35 +1013,89 @@ function startReview(list = dueCards().slice(0, 50), from = 'study') {
   showCard();
 }
 
+/* Anki-style scheduling (Anki's default settings):
+   new cards go through learning steps of 1 min and 10 min before they
+   "graduate" to days; Easy graduates straight away. A forgotten card
+   (Again on a review card) relearns for 10 min, then comes back after a day. */
+const MIN = 60e3;
+const LEARN_STEPS = [1, 10];          // minutes
+const RELEARN_STEPS = [10];           // minutes
+const GRADUATE_DAYS = 1, EASY_DAYS = 3;
+
+function cardState(c) {
+  if (c.state) return c.state;
+  return (c.reps || 0) > 0 && (c.ivl || 0) >= 1 ? 'review' : 'learn';   // cards saved before this change
+}
+
 function nextIntervals(c) {
   const out = {};
-  for (const g of ['again', 'good', 'easy']) out[g] = schedule({ ...c }, g).ivl;
+  for (const g of ['again', 'hard', 'good', 'easy']) out[g] = schedule({ ...c }, g).due - Date.now();
   return out;
 }
 
 function schedule(c, grade) {
   const now = Date.now();
+  const state = cardState(c);
   c.seen = (c.seen || 0) + 1;
-  if (grade === 'again') {
-    c.lapses = (c.lapses || 0) + 1;
-    c.ease = Math.max(1.3, c.ease - 0.2);
-    c.ivl = 0;
-    c.due = now + 10 * 60e3;
+  c.ease = c.ease || 2.5;
+  const inSteps = (steps, onGraduate) => {
+    const step = Math.min(c.step || 0, steps.length - 1);
+    if (grade === 'again') { c.step = 0; c.due = now + steps[0] * MIN; }
+    else if (grade === 'hard') {
+      // Anki: on the first step, halfway between the first two steps; otherwise repeat the step.
+      const m = step === 0 && steps.length > 1 ? (steps[0] + steps[1]) / 2 : steps[step] * (steps.length > 1 ? 1 : 1.5);
+      c.step = step; c.due = now + m * MIN;
+    } else if (grade === 'good' && step + 1 < steps.length) { c.step = step + 1; c.due = now + steps[step + 1] * MIN; }
+    else onGraduate(grade === 'easy');
+  };
+  if (state === 'learn') {
+    inSteps(LEARN_STEPS, easy => {
+      c.state = 'review'; c.step = 0;
+      c.ivl = easy ? EASY_DAYS : GRADUATE_DAYS;
+      c.due = now + c.ivl * DAY;
+    });
+    if (c.state !== 'review') c.state = 'learn';
+  } else if (state === 'relearn') {
+    inSteps(RELEARN_STEPS, easy => {
+      c.state = 'review'; c.step = 0;
+      c.ivl = Math.max(1, c.ivl || 1) + (easy ? 1 : 0);
+      c.due = now + c.ivl * DAY;
+    });
+    if (c.state !== 'review') c.state = 'relearn';
   } else {
-    if (grade === 'good') c.ivl = c.ivl < 1 ? 1 : c.ivl < 3 ? 3 : Math.round(c.ivl * c.ease);
-    else { c.ivl = c.ivl < 1 ? 3 : Math.round(Math.max(c.ivl, 1) * c.ease * 1.3); c.ease += 0.15; }
-    c.reps = (c.reps || 0) + 1;
-    c.due = now + c.ivl * DAY;
+    const ivl = Math.max(1, c.ivl || 1);
+    if (grade === 'again') {
+      c.lapses = (c.lapses || 0) + 1;
+      c.ease = Math.max(1.3, c.ease - 0.2);
+      c.state = 'relearn'; c.step = 0;
+      c.ivl = 1;
+      c.due = now + RELEARN_STEPS[0] * MIN;
+    } else {
+      // Like Anki, Hard < Good < Easy always, and each is at least a day more than before.
+      const hard = Math.max(ivl + 1, Math.round(ivl * 1.2));
+      const good = Math.max(hard + 1, Math.round(ivl * c.ease));
+      const easy = Math.max(good + 1, Math.round(ivl * c.ease * 1.3));
+      if (grade === 'hard') c.ease = Math.max(1.3, c.ease - 0.15);
+      if (grade === 'easy') c.ease += 0.15;
+      c.ivl = { hard, good, easy }[grade];
+      c.state = 'review';
+      c.due = now + c.ivl * DAY;
+    }
   }
+  if (grade !== 'again') c.reps = (c.reps || 0) + 1;
   c.updated = now;
   return c;
 }
 
-function fmtIvl(days) {
-  if (days < 1) return '10m';
-  if (days < 30) return `${days}d`;
-  if (days < 365) return `${Math.round(days / 30)}mo`;
-  return `${(days / 365).toFixed(1)}y`;
+// How long until a card comes back, Anki style: "<1m", "<10m", "1d", "3.2mo".
+function fmtIvl(ms) {
+  const m = ms / MIN;
+  if (m < 60) return `<${Math.max(1, Math.round(m))}m`;
+  if (m < 60 * 24) return `${Math.round(m / 60)}h`;
+  const d = Math.round(ms / DAY);
+  if (d < 30) return `${d}d`;
+  if (d < 365) return `${(d / 30).toFixed(1).replace(/\.0$/, '')}mo`;
+  return `${(d / 365).toFixed(1).replace(/\.0$/, '')}y`;
 }
 
 let rvStopAt = null, rvRaf = 0;
@@ -1110,9 +1164,10 @@ function revealCard() {
   const iv = nextIntervals(c);
   const hasVideo = !$('#rv-video').hidden;
   const grades = `<div class="grades">
-      <button class="grade again" data-s="grade" data-g="again"><b>Again</b><span>${fmtIvl(iv.again)}</span></button>
-      <button class="grade good" data-s="grade" data-g="good"><b>Good</b><span>${fmtIvl(iv.good)}</span></button>
-      <button class="grade easy" data-s="grade" data-g="easy"><b>Easy</b><span>${fmtIvl(iv.easy)}</span></button>
+      <button class="grade again" data-s="grade" data-g="again"><span>${fmtIvl(iv.again)}</span><b>Again</b></button>
+      <button class="grade hard" data-s="grade" data-g="hard"><span>${fmtIvl(iv.hard)}</span><b>Hard</b></button>
+      <button class="grade good" data-s="grade" data-g="good"><span>${fmtIvl(iv.good)}</span><b>Good</b></button>
+      <button class="grade easy" data-s="grade" data-g="easy"><span>${fmtIvl(iv.easy)}</span><b>Easy</b></button>
     </div>`;
   if (c.kind === 'word') {
     $('#rv-body').innerHTML = `
@@ -1150,7 +1205,8 @@ function grade(g) {
   const c = queue[qi];
   schedule(c, g);
   cards[c.id] = c;
-  if (g === 'again') queue.push(c);       // see it again this session
+  // Still learning (back in minutes): see it again later in this session, like Anki.
+  if (c.due - Date.now() < 20 * MIN) queue.push(c);
   reviewed++;
   qi++;
   cardsChanged();
@@ -1187,7 +1243,7 @@ function openSaved() {
 function dueText(c) {
   const days = (c.due - Date.now()) / DAY;
   if (days <= 0) return '<span class="sv-due now">Due</span>';
-  return `<span class="sv-due">in ${days < 1 ? `${Math.max(1, Math.round(days * 24))}h` : fmtIvl(Math.round(days))}</span>`;
+  return `<span class="sv-due">in ${fmtIvl(c.due - Date.now()).replace('<', '')}</span>`;
 }
 
 function renderSaved() {

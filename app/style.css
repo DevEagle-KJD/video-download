@@ -499,14 +499,15 @@ body.in-page .tabbar { display: none; }
 .rv-back .en { font-size: 17px; color: var(--label); }
 .rv-src { margin: 12px 0 0; font-size: 12px; color: var(--secondary); }
 .rv-tools { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; min-height: 32px; }
-.grades { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.grades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .grade {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 12px 0; border-radius: 14px; color: #fff;
 }
-.grade b { font-size: 17px; }
-.grade span { font-size: 12px; opacity: .85; }
+.grade b { font-size: 16px; }
+.grade span { font-size: 15px; opacity: .9; }
 .grade.again { background: var(--red); }
+.grade.hard { background: var(--orange); }
 .grade.good { background: var(--green); }
 .grade.easy { background: var(--blue); }
 .grade:active { transform: scale(.97); }
