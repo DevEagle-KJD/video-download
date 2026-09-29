@@ -278,8 +278,9 @@ sentence** at both speeds (key = `speakable(ru)`, the spoken text keeps punctuat
 intonation, stress marks removed) and sets `lesson.audio.sentences = true`. Sentence review now
 plays the natural voice automatically (listen mode on the front, and on Show), with 🔊 Normal /
 🐢 Slowly / 🎬 Video buttons; the Saved sheet for sentences has 🔊/🐢 too. `saySentence()` never
-uses the robotic phone voice: without a recording it plays the video clip, or shows a hint to add
-sentence voices. Lessons made before this (4g592n9bv0ta, o1qa70gkuyaq) need **Add Sentence
+uses the robotic phone voice: without a recording it plays the video clip, or asks to record the
+lesson's voices right there (`addVoices()` dispatches voices.yml; the id is remembered in
+`grab.voicesRequested` so later taps say "still being recorded" and re-check). Lessons made before this (4g592n9bv0ta, o1qa70gkuyaq) need **Add Sentence
 Voices** once.
 
 ---

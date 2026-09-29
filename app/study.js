@@ -894,12 +894,34 @@ function speakWithPhone(text, rates = [0.5], sylRoot = null) {
 
 const RATE_NORMAL = 0.9, RATE_SLOW = 0.4;
 
+// Records the natural voice for a lesson's words and sentences on GitHub
+// (Add voices workflow), keeping any recordings it already has.
+const voicesRequested = new Set(store.get('voicesRequested', []));
+function addVoices(lessonId) {
+  return defaultBranch()
+    .then(ref => gh('/actions/workflows/voices.yml/dispatches', { method: 'POST', body: { ref, inputs: { job_id: lessonId } } }))
+    .then(() => {
+      voicesRequested.add(lessonId);
+      store.set('voicesRequested', [...voicesRequested]);
+      delete audioMaps[lessonId]; delete audioLoads[lessonId];   // reload them next time
+      closeSheet();
+      toast('Recording the natural voice for this lesson. Ready in about 10 minutes.');
+    })
+    .catch(e => toast(e.status === 404 ? 'The Add voices workflow isn’t on GitHub yet' : e.message));
+}
+
 // A whole sentence in the natural voice (recorded per lesson by voices.py).
 // Never the robotic phone voice: without a recording, `fallback` runs instead
-// (e.g. the clip from the video), or a hint on how to add sentence voices.
+// (e.g. the clip from the video), or it offers to record the lesson's sentences.
 function saySentence(c, rate = RATE_NORMAL, fallback = null) {
-  speak(c.ru, [rate], null, c.lesson, fallback || (() =>
-    toast('No natural voice for this sentence yet. Open its lesson → ••• → Add Sentence Voices')));
+  speak(c.ru, [rate], null, c.lesson, fallback || (() => {
+    if (voicesRequested.has(c.lesson)) {
+      delete audioMaps[c.lesson]; delete audioLoads[c.lesson];   // check again next tap
+      toast('The natural voice for this lesson is still being recorded. Try again in a few minutes.');
+    } else if (confirm('This lesson doesn’t have the natural voice for whole sentences yet. Record it now? It takes about 10 minutes.')) {
+      addVoices(c.lesson);
+    }
+  }));
 }
 
 // Plays just one word from the lesson video.
@@ -1541,11 +1563,7 @@ document.addEventListener('click', e => {
     case 'w-video': playWord(wordOpen.i, wordOpen.k); break;
     case 'w-save': toggleWord(); break;
     case 'w-report': reportMistake(wordOpen.i, wordOpen.k); break;
-    case 'add-voices':
-      defaultBranch().then(ref => gh('/actions/workflows/voices.yml/dispatches', { method: 'POST', body: { ref, inputs: { job_id: lesson.id } } }))
-        .then(() => { closeSheet(); toast('Recording a natural voice for every word. Reopen this lesson in about 10 minutes.'); })
-        .catch(e => toast(e.status === 404 ? 'The Add voices workflow isn’t on GitHub yet' : e.message));
-      break;
+    case 'add-voices': addVoices(lesson.id); break;
     case 'rv-say': speak(queue[qi].w, Number(el.dataset.rate) || RATE_SLOW, $('#rv-word'), queue[qi].lesson); break;
     case 'rv-word': playClip(queue[qi], 1, true); break;
     case 'star': e.stopPropagation(); toggleStar(i); break;
