@@ -202,7 +202,11 @@ has a third option, **Captions (test)**.
   → cues merged into sentences, used as-is. **Automatic captions** → per-word start times (the
   word length is estimated so pauses show), sentences split at 0.8 s pauses / 20 words; there's
   no punctuation. `source` = `creator-captions` | `auto-captions`.
-- `clean_captions.py` (automatic captions only, needs the key): Claude restores punctuation and
+- `clean_captions.py` (automatic captions only, needs the key): the caption words are sent as one
+  numbered stream (chunks of ~150 words cut at pauses > 1 s, 4 in parallel) and Claude **re-splits
+  them into real sentences** (`from`/`to` word numbers, must cover every word once, else that chunk
+  falls back to the pause-based split uncleaned), aiming for ≤ ~12 words. Timings come from the
+  caption words. It also restores punctuation and
   capitals and fixes **clearly** misrecognised words from text + context (no audio). It returns
   `changed` + `unsure` words, which **all become flags** (a changed word shows the original caption
   word). Guard rail: a cleanup that rewrites more than ~40% of a sentence is rejected.
@@ -212,10 +216,16 @@ has a third option, **Captions (test)**.
 - App: captions lessons **always play through the YouTube player** (even if "Downloaded" is
   selected). Review has no video clips for them (the voice still works). The list shows
   "Captions · …", and the ••• menu explains the source and the number of corrected words.
-- **Status:** built and tested locally with sample caption data and a stand-in Claude reply. **Not
-  yet run for real.** Next step: the owner makes the breakfast video as a Captions lesson and
-  compares it with the full AI lesson (that video has only automatic captions, so it's the worst
-  case), ideally also a video with creator captions.
+- **First real run (study-o1qa70gkuyaq, breakfast video, automatic captions, ~25 min):** 218
+  sentences (median 12 words vs 5 in the AI lesson), 64 words corrected, 22 sentences rejected by
+  the guard rail, 77 flags. **~93% of words match the AI lesson** (ignoring е/ё). Problems seen:
+  words stuck in the wrong sentence ("…пахнет" / "Вкусно, сначала…" instead of "Пахнет вкусно."),
+  over-eager fixes (Шишки → Сушки), wrong endings, misheard short words. Fixed afterwards: Claude
+  now re-splits sentences (above) and is told to leave words that make sense; empty literal
+  meanings on common words ("это") get a fallback from `enrich_free.COMMON`. Not yet re-run.
+- YouTube playback on iPhone: `playVideo()` right after `seekTo()` is often dropped (YouTube's
+  big ▶ stays). `player.play()` retries until state 1, a pause event within 1.5 s of a play request
+  is ignored, and `playSentence` skips the seek when already within 0.6 s before the sentence.
 
 ### `lesson.json` shape
 ```json

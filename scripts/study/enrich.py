@@ -415,6 +415,12 @@ def main():
     checks = dict(data.get("checks") or {})
     if enriched:
         checks.update(review(client, lesson["sentences"]))
+    # Claude occasionally leaves a very common word ("это") without a literal meaning.
+    from enrich_free import COMMON
+    for s in lesson["sentences"]:
+        for t in s["tokens"]:
+            if not t.get("g") and COMMON.get(norm(t["w"])):
+                t["g"] = COMMON[norm(t["w"])]
     checks["flagged_words"] = sum("u" in t for s in lesson["sentences"] for t in s["tokens"])
     lesson["checks"] = checks
 
