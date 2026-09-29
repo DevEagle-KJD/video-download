@@ -305,7 +305,8 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
   sentence being played, highlighted at the top just under the video, no matter where the learner
   scrolled. Auto-follow resumes immediately (the 4 s manual-scroll pause is cleared). See
   `returnToSentence(i)`; `startTick()` always sets `justStarted`. Setting `scrollTop` directly also
-  stops leftover iOS flick momentum.
+  stops leftover iOS flick momentum. This happens **even with Follow off** (Follow only controls
+  scrolling along during playback).
 - Toggling **Literal/English** changes every sentence's height. `keepPlace()` then re-pins the
   current sentence just under the video (or keeps the top visible sentence in place).
 - The **scrub bar** only shows with the downloaded copy. It is **hidden in YouTube mode**, where

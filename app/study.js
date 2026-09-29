@@ -549,9 +549,11 @@ let userScrolledAt = 0;
 // Pressing play (any way) jumps the transcript back to the sentence being
 // played, highlighted at the top: instantly (setting scrollTop also stops any
 // leftover finger-flick momentum), and resumes auto-follow straight away.
+// This happens even with Follow off (Follow only controls scrolling along
+// while the video plays).
 function returnToSentence(i) {
   const el = $(`#ls-transcript .sent[data-i="${i}"]`);
-  if (!el || !prefs.follow) return;
+  if (!el) return;
   userScrolledAt = 0;
   const scroller = $('#screen-lesson');
   const playerBottom = $('#screen-lesson .player').getBoundingClientRect().bottom;
