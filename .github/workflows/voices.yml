@@ -1,45 +1,81 @@
 name: Add voices
 
-# Records natural word (and sentence) audio for a lesson that was made without
-# it, keeping clips it already has, then republishes the site. Started from the
-# lesson's ••• menu in the app ("Add Natural Voice" / "Add Sentence Voices").
-run-name: "voices ${{ inputs.job_id }}"
+# Records natural word and sentence audio for lessons, keeping clips they
+# already have, then republishes the site.
+#  - With a lesson id: that lesson (from the app's ••• menu or 🎙️ button).
+#  - Without one (daily, or when .github/voices-backfill changes): every
+#    lesson that's still missing word or sentence recordings.
+run-name: "voices ${{ inputs.job_id || 'all lessons' }}"
 
 on:
   workflow_dispatch:
     inputs:
       job_id:
-        description: Lesson id (the part after "study-")
-        required: true
+        description: Lesson id (the part after "study-"); leave empty for all lessons missing voices
+        required: false
+  push:
+    paths:
+      - .github/voices-backfill
+  schedule:
+    - cron: "41 7 * * *"
 
 permissions:
   contents: write
 
+# One at a time, so a lesson is never recorded twice at once.
+concurrency:
+  group: voices
+
 jobs:
   voices:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      changed: ${{ steps.record.outputs.changed }}
     env:
       JOB_ID: ${{ inputs.job_id }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - name: Record words and sentences
+        id: record
         run: |
-          [[ "$JOB_ID" =~ ^[a-z0-9]{6,32}$ ]] || { echo "::error::bad job id"; exit 1; }
           python3 -m pip install -q edge-tts
-          mkdir -p out
-          gh release download "study-$JOB_ID" -p lesson.json -D out
-          # Keep the clips already recorded; only new ones (e.g. sentences) are made.
-          if gh release download "study-$JOB_ID" -p audio.zip -D out 2>/dev/null; then
-            (cd out && unzip -q -o audio.zip && rm audio.zip)
+          if [ -n "$JOB_ID" ]; then
+            [[ "$JOB_ID" =~ ^[a-z0-9]{6,32}$ ]] || { echo "::error::bad job id"; exit 1; }
+            ids="$JOB_ID"
+          else
+            ids=$(gh release list -R "$GITHUB_REPOSITORY" --limit 200 --json tagName \
+              --jq '.[].tagName | select(startswith("study-")) | ltrimstr("study-")')
           fi
-          python3 scripts/study/voices.py
-          [ -d out/audio ] || { echo "::error::No audio was recorded"; exit 1; }
-          (cd out && zip -q -r audio.zip audio)
-          gh release upload "study-$JOB_ID" out/audio.zip out/lesson.json --clobber
+          changed=false
+          for id in $ids; do
+            rm -rf out && mkdir -p out
+            gh release download "study-$id" -p lesson.json -D out 2>/dev/null || continue
+            if [ -z "$JOB_ID" ] && jq -e '.audio.sentences == true' out/lesson.json > /dev/null; then
+              echo "study-$id already has word and sentence voices"
+              continue
+            fi
+            echo "::group::study-$id"
+            # Keep the clips already recorded; only missing ones (e.g. sentences) are made.
+            if gh release download "study-$id" -p audio.zip -D out 2>/dev/null; then
+              (cd out && unzip -q -o audio.zip && rm audio.zip)
+            fi
+            python3 scripts/study/voices.py
+            if [ -d out/audio ]; then
+              (cd out && zip -q -r audio.zip audio)
+              gh release upload "study-$id" out/audio.zip out/lesson.json --clobber
+              changed=true
+            else
+              echo "::warning::No audio was recorded for study-$id"
+            fi
+            echo "::endgroup::"
+          done
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
 
   publish-site:
     needs: voices
+    if: needs.voices.outputs.changed == 'true'
     permissions:
       contents: read
       pages: write

@@ -267,6 +267,12 @@ has a third option, **Captions (test)**.
 ```
 
 ### `voices.yml` ("Add voices")
+**Runs by itself too:** with no lesson id (daily at 07:41 UTC, or when `.github/voices-backfill` is
+changed and pushed; that's how Claude sessions can start it, since the MCP token can't dispatch)
+it goes through every `study-*` release and records whatever is missing for lessons whose
+`lesson.json` lacks `audio.sentences`. `concurrency: voices` keeps runs one at a time; the site is
+only republished when something changed. First breakfast-lesson run: ~3 min recording, ~4 min
+total, 1,595 clip pairs.
 For lessons made without audio (or without sentence audio): downloads `lesson.json` **and the
 existing `audio.zip`** (so existing clips are kept) from `study-<id>`, runs `voices.py`, uploads
 `audio.zip` + `lesson.json` (`--clobber`), and rebuilds the site. Triggered from a lesson's •••
