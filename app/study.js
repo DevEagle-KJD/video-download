@@ -30,7 +30,7 @@ const PAD_BEFORE = 0.15, PAD_AFTER = 0.25;
 let lessons = store.get('lessons', []);
 const deletedLessons = new Set(store.get('deletedLessons', []));   // never show these again
 let cards = store.get('cards', {});                 // id → card (deleted ones kept as tombstones)
-const prefs = Object.assign({ player: 'local', engine: 'free', literal: true, english: true, follow: true, loop: false, autopause: false, speed: 1 },
+const prefs = Object.assign({ player: 'local', engine: 'free', literal: true, english: true, follow: true, loop: false, autopause: true, speed: 1 },
   store.get('studyPrefs', {}));
 const saveLessons = () => store.set('lessons', lessons);
 const savePrefs = () => store.set('studyPrefs', prefs);
@@ -369,7 +369,11 @@ async function openLesson(l) {
   lesson = { id: l.id, data, meta: l.meta || {}, url: l.url };
   audioMaps[l.id] = data.audio?.clips || {};
   cur = -1;
-  stopAt = null; loopFrom = null; nextAfterStop = null;
+  stopAt = null; loopFrom = null; nextAfterStop = null; lockedIdx = null;
+  // Every lesson starts in "Pause each": the first play stops at the end of the
+  // first sentence. The learner can switch it off for continuous playback.
+  prefs.autopause = true;
+  savePrefs();
   player.open(l);
   $('#ls-title').textContent = data.title || 'Lesson';
   renderTranscript();
@@ -514,6 +518,9 @@ function tick() {
   if (stopAt == null) lockedIdx = null;   // plain playback again: follow the video
   const i = lockedIdx != null ? lockedIdx : sentenceAt(t);
   if (i >= 0) setActive(i);
+  // Playback started some other way (e.g. YouTube's own play button) while
+  // Pause each / Loop is on: stop at the end of the sentence being spoken.
+  if (justStarted && stopAt == null && (prefs.autopause || prefs.loop)) armCurrentSentence();
   if (justStarted && i >= 0) {
     // Playback just (re)started, however it was started (our ▶, a sentence tap,
     // or YouTube's own play button): bring the sentence being spoken back into

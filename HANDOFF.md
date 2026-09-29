@@ -84,7 +84,7 @@ lessons first (newest first), then downloads, and skips videos over a ~900 MB bu
 `lesson.json` is always included.
 
 **Deploy note:** pushing anything under `app/` redeploys the site within about a minute. **Bump
-`CACHE` in `app/sw.js`** (currently `grab-v19`) whenever app files change. The service worker is
+`CACHE` in `app/sw.js`** (currently `grab-v20`) whenever app files change. The service worker is
 network-first, but the bump guarantees clean updates. Users must reload with **Safari's address-bar
 ↻**; the in-app ↻ only refreshes the lesson list.
 
@@ -253,6 +253,10 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
   prevents bleed into the next sentence. While replaying one sentence, the **highlight is locked** to it, so the
   next sentence can't steal it during the padding. The lock is released for continuous play or
   after a scrub.
+- **Pause each is ON by default every time a lesson opens** (both Downloaded and YouTube modes), so
+  the first play stops at the end of the first sentence. If playback starts some other way (e.g.
+  YouTube's own play button) while Pause each/Loop is on, `tick()` arms the stop at the end of the
+  sentence being spoken.
 - **Loop** repeats the sentence until ▶ is tapped. **Pause each** stops after every sentence, and ▶
   plays the next one. Switching either **on while the video is playing takes effect immediately**
   (`armCurrentSentence()` arms a stop at the end of the sentence being spoken). Switching both off
@@ -306,7 +310,7 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
 ### Browser storage keys (localStorage, prefix `grab.`)
 `cfg` (owner, repo, token, branch), `jobs`, `current`, `quality`, `tab`, `lessons`,
 `deletedLessons`, `cards`, `studyPrefs` (engine, player, literal, english, follow, loop,
-autopause, speed), `pos.<lessonId>` (last sentence).
+autopause (reset to on per lesson), speed), `pos.<lessonId>` (last sentence).
 
 ---
 
