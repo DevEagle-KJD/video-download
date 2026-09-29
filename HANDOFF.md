@@ -267,9 +267,20 @@ has a third option, **Captions (test)**.
 ```
 
 ### `voices.yml` ("Add voices")
-For lessons made without audio: downloads `lesson.json` from `study-<id>`, runs `voices.py`, uploads
+For lessons made without audio (or without sentence audio): downloads `lesson.json` **and the
+existing `audio.zip`** (so existing clips are kept) from `study-<id>`, runs `voices.py`, uploads
 `audio.zip` + `lesson.json` (`--clobber`), and rebuilds the site. Triggered from a lesson's •••
-menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missing).
+menu → **🎙️ Add Natural Voice** (no `lesson.audio`) or **🎙️ Add Sentence Voices** (`audio`
+without `audio.sentences`).
+
+**Sentence voices (added 2026-09-29, owner request):** `voices.py` also records **every whole
+sentence** at both speeds (key = `speakable(ru)`, the spoken text keeps punctuation for natural
+intonation, stress marks removed) and sets `lesson.audio.sentences = true`. Sentence review now
+plays the natural voice automatically (listen mode on the front, and on Show), with 🔊 Normal /
+🐢 Slowly / 🎬 Video buttons; the Saved sheet for sentences has 🔊/🐢 too. `saySentence()` never
+uses the robotic phone voice: without a recording it plays the video clip, or shows a hint to add
+sentence voices. Lessons made before this (4g592n9bv0ta, o1qa70gkuyaq) need **Add Sentence
+Voices** once.
 
 ---
 

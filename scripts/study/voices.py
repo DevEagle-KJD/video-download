@@ -1,8 +1,8 @@
 """Natural-sounding word audio for a lesson (Microsoft Edge neural voices via
 edge-tts, the same voices and speeds as the russian-study Anki decks).
 
-Every distinct word and phrase in the lesson, plus each word's dictionary form,
-is recorded at two speeds: a comfortable learner pace, then a slower repeat.
+Every distinct word and phrase in the lesson, each word's dictionary form, and
+every whole sentence (for sentence review) is recorded at two speeds: a comfortable learner pace, then a slower repeat.
 Clips go to out/audio/<hash>.mp3, and lesson.json gets an "audio" map
 {text: [clip at normal pace, clip slow]} that the app plays when a word is tapped.
 
@@ -33,6 +33,11 @@ def speakable(text):
     return " ".join(t.split()).lower()
 
 
+def unaccented(text):
+    t = unicodedata.normalize("NFD", text or "").replace("\u0301", "")
+    return unicodedata.normalize("NFC", t)
+
+
 def clip_name(text, rate):
     return hashlib.sha1(f"{VOICE}|{rate}|{text}".encode("utf-8")).hexdigest()[:12] + ".mp3"
 
@@ -59,14 +64,20 @@ def main(lesson_path=OUT / "lesson.json", audio_dir=OUT / "audio"):
     lesson_path, audio_dir = Path(lesson_path), Path(audio_dir)
     lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
 
-    texts = []
+    # key (what the app looks up) → what the voice says. Words are said as
+    # plain words; whole sentences keep their punctuation for natural intonation.
+    say = {}
     for s in lesson["sentences"]:
         for tok in s["tokens"]:
             for t in (tok.get("w"), tok.get("b")):
                 t = speakable(t)
                 if t and re.search(r"\w", t):
-                    texts.append(t)
-    texts = list(dict.fromkeys(texts))
+                    say.setdefault(t, t)
+    for s in lesson["sentences"]:
+        key = speakable(s.get("ru"))
+        if key and re.search(r"\w", key):
+            say.setdefault(key, " ".join(unaccented(s["ru"]).split()))
+    texts = list(say)
     if not texts:
         return
 
@@ -82,7 +93,7 @@ def main(lesson_path=OUT / "lesson.json", audio_dir=OUT / "audio"):
 
     async def run():
         sem = asyncio.Semaphore(CONCURRENCY)
-        return await asyncio.gather(*(synthesize(edge_tts, t, r, audio_dir / clip_name(t, r), sem) for t, r in todo))
+        return await asyncio.gather(*(synthesize(edge_tts, say[t], r, audio_dir / clip_name(t, r), sem) for t, r in todo))
 
     t0 = time.time()
     results = asyncio.run(run())
@@ -97,9 +108,9 @@ def main(lesson_path=OUT / "lesson.json", audio_dir=OUT / "audio"):
     if not clips:
         print("::warning::The voice service returned no audio; the app will use the iPhone voice")
         return
-    lesson["audio"] = {"voice": VOICE, "rates": RATES, "clips": clips}
+    lesson["audio"] = {"voice": VOICE, "rates": RATES, "clips": clips, "sentences": True}
     lesson_path.write_text(json.dumps(lesson, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Natural voice for {len(clips)} of {len(texts)} words/phrases")
+    print(f"Natural voice for {len(clips)} of {len(texts)} words, phrases and sentences")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 name: Add voices
 
-# Records natural word audio for a lesson that was made without it, then
-# republishes the site. Started from the lesson's ••• menu in the app.
+# Records natural word (and sentence) audio for a lesson that was made without
+# it, keeping clips it already has, then republishes the site. Started from the
+# lesson's ••• menu in the app ("Add Natural Voice" / "Add Sentence Voices").
 run-name: "voices ${{ inputs.job_id }}"
 
 on:
@@ -22,12 +23,16 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Record words
+      - name: Record words and sentences
         run: |
           [[ "$JOB_ID" =~ ^[a-z0-9]{6,32}$ ]] || { echo "::error::bad job id"; exit 1; }
           python3 -m pip install -q edge-tts
           mkdir -p out
           gh release download "study-$JOB_ID" -p lesson.json -D out
+          # Keep the clips already recorded; only new ones (e.g. sentences) are made.
+          if gh release download "study-$JOB_ID" -p audio.zip -D out 2>/dev/null; then
+            (cd out && unzip -q -o audio.zip && rm audio.zip)
+          fi
           python3 scripts/study/voices.py
           [ -d out/audio ] || { echo "::error::No audio was recorded"; exit 1; }
           (cd out && zip -q -r audio.zip audio)

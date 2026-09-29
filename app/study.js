@@ -825,7 +825,7 @@ function speakable(text) {
 }
 function ensureAudio(lessonId) {
   if (!lessonId || audioMaps[lessonId] || audioLoads[lessonId]) return audioLoads[lessonId];
-  audioLoads[lessonId] = fetch(`files/${lessonId}/lesson.json`)
+  audioLoads[lessonId] = fetch(`files/${lessonId}/lesson.json`, { cache: 'no-cache' })
     .then(r => (r.ok ? r.json() : null))
     .then(d => { audioMaps[lessonId] = d?.audio?.clips || {}; })
     .catch(() => { delete audioLoads[lessonId]; });
@@ -868,10 +868,11 @@ function silentWav() {
 // Uses the lesson's natural-voice recordings. If they're still loading (e.g.
 // the first card of a review), waits for them instead of falling back to the
 // phone's robotic voice; that's only used when a word has no recording.
-function speak(text, rates = [0.5], sylRoot = null, lessonId = lesson?.id) {
+function speak(text, rates = [0.5], sylRoot = null, lessonId = lesson?.id, onMissing = null) {
   const play = () => {
     const clips = audioMaps[lessonId]?.[speakable(text)];
     if (clips) playClips([].concat(rates).map(r => `files/${lessonId}/audio/${clips[r <= RATE_SLOW ? 1 : 0]}`), sylRoot);
+    else if (onMissing) onMissing();
     else speakWithPhone(text, rates, sylRoot);
   };
   if (!lessonId || audioMaps[lessonId]) { play(); return; }
@@ -892,6 +893,14 @@ function speakWithPhone(text, rates = [0.5], sylRoot = null) {
 }
 
 const RATE_NORMAL = 0.9, RATE_SLOW = 0.4;
+
+// A whole sentence in the natural voice (recorded per lesson by voices.py).
+// Never the robotic phone voice: without a recording, `fallback` runs instead
+// (e.g. the clip from the video), or a hint on how to add sentence voices.
+function saySentence(c, rate = RATE_NORMAL, fallback = null) {
+  speak(c.ru, [rate], null, c.lesson, fallback || (() =>
+    toast('No natural voice for this sentence yet. Open its lesson → ••• → Add Sentence Voices')));
+}
 
 // Plays just one word from the lesson video.
 function playWord(i, k) {
@@ -1007,7 +1016,8 @@ function lessonMenu() {
       <div class="cell"><div class="k">Meanings made with</div>${d.engine === 'free' ? 'Free tools' : d.engine === 'captions' ? 'Captions test · AI' : 'AI'}${d.model ? ` · ${esc(d.model)}` : ''}</div>
     </div>
     ${lesson.url ? `<a class="secondary-button" href="${esc(lesson.url)}" target="_blank" rel="noopener" style="margin-top:12px">Open Original Video</a>` : ''}
-    ${d.audio ? '' : '<button class="secondary-button" data-s="add-voices">🎙️ Add Natural Voice</button>'}
+    ${!d.audio ? '<button class="secondary-button" data-s="add-voices">🎙️ Add Natural Voice</button>'
+      : !d.audio.sentences ? '<button class="secondary-button" data-s="add-voices">🎙️ Add Sentence Voices <span style="font-weight:400;opacity:.7">(for sentence review)</span></button>' : ''}
     <button class="secondary-button" data-s="lesson-help">How to use this page</button>
     <button class="secondary-button destructive" data-s="delete-lesson">Delete Lesson</button>`);
 }
@@ -1171,19 +1181,25 @@ function showCard() {
 
   const prompt = {
     read: { hint: 'Read it. What does it mean?', body: `<div class="il big">${tokensHTML(c.tokens, false)}</div>` },
-    listen: { hint: hasVideo ? 'Listen. What did they say?' : 'Read it. What does it mean?',
-      body: hasVideo ? '<div class="listen-icon">🎧</div>' : `<div class="il big">${tokensHTML(c.tokens, false)}</div>` },
+    listen: { hint: 'Listen. What did they say?', body: '<div class="listen-icon">🎧</div>' },
     say: { hint: 'Say it in Russian, out loud.', body: `<p class="en big">${esc(c.en || '')}</p>` },
   }[mode === 'say' && !c.en ? 'read' : mode];
 
   $('#rv-body').innerHTML = `
     <p class="rv-hint">${prompt.hint}</p>
     <div class="rv-front">${prompt.body}</div>
-    <div class="rv-tools">
-      ${hasVideo ? `<button class="chip" data-s="rv-play">▶ Replay</button><button class="chip" data-s="rv-slow">🐢 Slow</button>` : ''}
-    </div>
+    ${mode === 'listen' ? sentenceTools(hasVideo) : ''}
     <button class="primary-button" data-s="rv-show">Show</button>`;
-  if (hasVideo && mode === 'listen') playClip(c);
+  // Listening: the natural voice says it right away (or the video, if there's no recording).
+  if (mode === 'listen') saySentence(c, RATE_NORMAL, hasVideo ? () => playClip(c) : null);
+}
+
+function sentenceTools(hasVideo) {
+  return `<div class="rv-tools">
+      <button class="chip" data-s="rv-say-sent" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+      <button class="chip" data-s="rv-say-sent" data-rate="${RATE_SLOW}">🐢 Slowly</button>
+      ${hasVideo ? '<button class="chip" data-s="rv-play">🎬 Video</button>' : ''}
+    </div>`;
 }
 
 function revealCard() {
@@ -1222,11 +1238,10 @@ function revealCard() {
       ${c.en ? `<p class="en">${esc(c.en)}</p>` : ''}
       <p class="rv-src">${esc(c.title || '')}</p>
     </div>
-    <div class="rv-tools">
-      ${hasVideo ? `<button class="chip" data-s="rv-play">▶ Replay</button><button class="chip" data-s="rv-slow">🐢 Slow</button>` : ''}
-    </div>
+    ${sentenceTools(hasVideo)}
     ${grades}`;
-  if (hasVideo) playClip(c);
+  // The natural voice says the sentence (the video clip if there's no recording).
+  saySentence(c, RATE_NORMAL, hasVideo ? () => playClip(c) : () => {});
 }
 
 // Undo, like Anki's: puts the last graded card back exactly as it was.
@@ -1353,6 +1368,10 @@ function openSavedCard(id) {
   } else {
     openSheet('Saved sentence', `
       <div class="word-card">
+        <div class="wc-audio" style="margin-bottom:12px">
+          <button class="chip" data-s="sv-say-sent" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+          <button class="chip" data-s="sv-say-sent" data-rate="${RATE_SLOW}">🐢 Slowly</button>
+        </div>
         <div class="il">${tokensHTML(c.tokens, true)}</div>
         ${c.en ? `<p class="en">${esc(c.en)}</p>` : ''}
         <p class="rv-src">${esc(c.title || '')}</p>
@@ -1574,7 +1593,9 @@ document.addEventListener('click', e => {
     case 'sv-lesson': svOpenLesson(); break;
     case 'sv-review-all': startReview(liveCards(svKind).sort((a, b) => a.due - b.due), 'saved'); break;
     case 'rv-show': revealCard(); break;
-    case 'rv-play': playClip(queue[qi]); break;
+    case 'rv-play': voicePlayer.pause(); playClip(queue[qi]); break;
+    case 'rv-say-sent': $('#rv-video').pause(); saySentence(queue[qi], Number(el.dataset.rate)); break;
+    case 'sv-say-sent': saySentence(svOpen, Number(el.dataset.rate)); break;
     case 'rv-slow': playClip(queue[qi], 0.6); break;
     case 'grade': grade(el.dataset.g); break;
   }
