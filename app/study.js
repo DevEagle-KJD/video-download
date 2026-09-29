@@ -1034,6 +1034,8 @@ function startReview(list = dueCards().slice(0, 50), from = 'study') {
   [...new Set(queue.map(c => c.lesson))].forEach(ensureAudio);
   if (!queue.length) { toast('Nothing due right now'); return; }
   qi = 0; reviewed = 0;
+  undoStack = [];
+  $('#rv-undo').hidden = true;
   prevTab = from;
   stOpenPage('review');
   showCard();
@@ -1227,8 +1229,12 @@ function revealCard() {
   if (hasVideo) playClip(c);
 }
 
+// Undo, like Anki's: puts the last graded card back exactly as it was.
+let undoStack = [];
 function grade(g) {
   const c = queue[qi];
+  undoStack.push({ card: JSON.parse(JSON.stringify(c)), qlen: queue.length, qi, reviewed });
+  $('#rv-undo').hidden = false;
   schedule(c, g);
   cards[c.id] = c;
   // Still learning (back in minutes): see it again later in this session, like Anki.
@@ -1237,6 +1243,21 @@ function grade(g) {
   qi++;
   cardsChanged();
   showCard();
+}
+
+function undoGrade() {
+  const u = undoStack.pop();
+  if (!u) return;
+  const c = cards[u.card.id] || queue[u.qi];
+  Object.keys(c).forEach(k => delete c[k]);
+  Object.assign(c, u.card, { updated: Date.now() });
+  queue.length = u.qlen;
+  qi = u.qi;
+  reviewed = u.reviewed;
+  $('#rv-undo').hidden = !undoStack.length;
+  cardsChanged();
+  showCard();
+  toast('Undone');
 }
 
 function reviewDone() {
@@ -1309,6 +1330,7 @@ function openSavedCard(id) {
   const actions = `
     ${hasLesson ? '<button class="primary-button" data-s="sv-lesson">Open in Lesson</button>' : ''}
     <button class="secondary-button" data-s="sv-now">Review It Now</button>
+    ${cardState(c) !== 'learn' || (c.step || 0) > 0 ? `<button class="secondary-button" data-s="sv-reset">Start Over <span style="font-weight:400;opacity:.7">(show it often again)</span></button>` : ''}
     <button class="secondary-button destructive" data-s="sv-remove">Remove</button>`;
   if (c.kind === 'word') {
     openSheet('Saved word', `
@@ -1342,7 +1364,11 @@ function openSavedCard(id) {
 function svAction(what) {
   const c = svOpen;
   if (!c) return;
-  if (what === 'remove') {
+  if (what === 'reset') {
+    if (!confirm('Start this card over? It will come back often again, like a new card (next review: now).')) return;
+    Object.assign(c, { state: 'learn', step: 0, ivl: 0, ease: 2.5, reps: 0, due: Date.now() });
+    toast('Starting over: it’s due now');
+  } else if (what === 'remove') {
     if (!confirm(c.kind === 'word' ? 'Remove this word from your saved words?' : 'Remove this sentence from your saved sentences?')) return;
     c.deleted = true;
   }
@@ -1543,6 +1569,8 @@ document.addEventListener('click', e => {
     case 'sv-say': speak(svOpen.w, Number(el.dataset.rate), $('#sv-word'), svOpen.lesson); break;
     case 'sv-now': svReviewNow(); break;
     case 'sv-remove': svAction('remove'); break;
+    case 'sv-reset': svAction('reset'); break;
+    case 'rv-undo': undoGrade(); break;
     case 'sv-lesson': svOpenLesson(); break;
     case 'sv-review-all': startReview(liveCards(svKind).sort((a, b) => a.due - b.due), 'saved'); break;
     case 'rv-show': revealCard(); break;

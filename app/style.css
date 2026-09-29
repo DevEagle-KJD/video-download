@@ -607,3 +607,5 @@ body.in-page .tabbar { display: none; }
 .sv-due { flex: none; font-size: 12px; color: var(--secondary); }
 .sv-due.now { color: var(--orange); font-weight: 600; }
 .sv-empty { padding: 28px 16px; text-align: center; color: var(--secondary); }
+
+.navbar-text-action { position: absolute; right: 16px; bottom: 10px; color: var(--blue); font-size: 17px; }

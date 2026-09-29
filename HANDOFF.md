@@ -379,6 +379,11 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
   = lapse (ease −0.2) → relearn 10 min → back at 1 d. Any card due again within 20 min is
   re-queued in the same session (Anki's learn-ahead). Cards saved before this change have no
   `state`: `cardState()` treats reps 0 as learning.
+- **Undo** (top right of the review page, after the first grade): restores the last graded card
+  exactly (snapshot of the card, queue length, position), any number of times back.
+- **Start Over** (Saved → tap a card, shown once it has progressed): resets it to a new learning
+  card (`state:'learn', step 0, ivl 0, ease 2.5, reps 0`, due now), for a card graded too
+  generously. The owner asked for both ("revert the card if I hit a longer period").
 - **Card sync:** cards live in localStorage (`cards`) **and** are synced to the repo, in branch
   **`study-data`**, file **`cards.json`** `{version:1, cards:{id: card}}`, via the Contents API.
   Saves are debounced (4 s) and flushed when the app is hidden. Merges are last-write-wins per
