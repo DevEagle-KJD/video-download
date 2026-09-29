@@ -307,11 +307,23 @@ const player = {
   },
   seek(t) { if (this.mode === 'youtube') this.yt?.seekTo?.(t, true); else this.video.currentTime = t; },
   play() {
-    if (this.mode === 'youtube') { this.want = true; this.yt?.playVideo?.(); setPlayIcon(true); }
-    else this.video.play().catch(() => {});
+    if (this.mode === 'youtube') {
+      this.want = true; this.playAt = Date.now();
+      this.yt?.playVideo?.(); setPlayIcon(true);
+      // On iPhone, YouTube often drops a play request that arrives while it's
+      // still seeking, leaving its big ▶ on screen. Ask again until it plays.
+      clearTimeout(this.retry);
+      const again = n => { this.retry = setTimeout(() => {
+        const st = this.yt?.getPlayerState?.();
+        if (!this.want || st === 1) return;
+        if (st !== 3) this.yt?.playVideo?.();
+        if (n) again(n - 1);
+      }, 700); };
+      again(3);
+    } else this.video.play().catch(() => {});
   },
   pause() {
-    if (this.mode === 'youtube') { this.want = false; this.yt?.pauseVideo?.(); setPlayIcon(false); }
+    if (this.mode === 'youtube') { this.want = false; clearTimeout(this.retry); this.yt?.pauseVideo?.(); setPlayIcon(false); }
     else this.video.pause();
   },
   setRate(r) { if (this.mode === 'youtube') this.yt?.setPlaybackRate?.(r); else this.video.playbackRate = r; },
@@ -349,7 +361,10 @@ const player = {
           onStateChange: e => {
             // 1 playing, 3 buffering, 2 paused, 0 ended
             if (e.data === 1) { this.want = true; setPlayIcon(true); startTick(); }
-            if (e.data === 2 || e.data === 0) { this.want = false; setPlayIcon(false); }
+            // A pause right after we asked to play is YouTube dropping the
+            // request (see play()), not you pausing: keep trying.
+            if (e.data === 2 && this.want && Date.now() - this.playAt < 1500) return;
+            if (e.data === 2 || e.data === 0) { this.want = false; clearTimeout(this.retry); setPlayIcon(false); }
           },
           onError: e => toast(e.data === 101 || e.data === 150
             ? 'This video’s owner doesn’t allow playing it in other apps. Switch Study → Play from: Downloaded.'
@@ -649,7 +664,10 @@ function playSentence(i) {
   nextAfterStop = null;
   lockedIdx = i;
   [loopFrom, stopAt] = sentenceBounds(i);
-  player.seek(loopFrom);
+  // Already there (Pause each stopped right before this sentence): don't seek.
+  // A seek makes YouTube re-buffer, which is slow and can swallow the play.
+  const t = player.time;
+  if (!(player.mode === 'youtube' && t >= loopFrom - 0.6 && t <= loopFrom + 0.1)) player.seek(loopFrom);
   setActive(i, false);
   returnToSentence(i);
   player.play();
