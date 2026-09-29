@@ -182,6 +182,8 @@ function dueCards() {
   return Object.values(cards).filter(c => !c.deleted && c.due <= now).sort((a, b) => a.due - b.due);
 }
 
+const engineTag = e => ({ free: 'Free · ', ai: 'AI · ', captions: 'Captions · ' })[e] || '';
+
 function stRender() {
   const live = Object.values(cards).filter(c => !c.deleted);
   const due = dueCards().length;
@@ -203,12 +205,13 @@ function stRender() {
     let sub, dot = '';
     if (l.state === 'ready') {
       const mined = live.filter(c => c.lesson === l.id && c.kind !== 'word').length;
-      sub = `${m.engine === 'free' ? 'Free · ' : m.engine === 'ai' ? 'AI · ' : m.engine === 'captions' ? 'Captions · ' : ''}${m.count || 0} sentences${mined ? ` · ${mined} mined` : ''}${m.duration ? ` · ${fmtDuration(m.duration)}` : ''}`;
+      sub = `${engineTag(m.engine)}${m.count || 0} sentences${mined ? ` · ${mined} mined` : ''}${m.duration ? ` · ${fmtDuration(m.duration)}` : ''}`;
       dot = 'ready';
     } else if (l.state === 'failed') {
       sub = 'Failed'; dot = 'failed';
     } else {
-      sub = l.state === 'starting' ? 'Sending to GitHub…' : `${l.stage || 'Waiting for GitHub'}…`;
+      sub = engineTag(m.engine) + (l.state === 'starting' ? 'Sending to GitHub…'
+        : `${m.engine === 'captions' && l.stage === 'Transcribing speech' ? 'Reading captions' : l.stage || 'Waiting for GitHub'}…`);
       dot = 'running';
     }
     const thumb = m.thumbnail
