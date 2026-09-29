@@ -401,7 +401,8 @@ Voices** once.
   the session's `learning` list and is shown **only once it's due** (the owner thought the app was
   stuck when the same card came straight back). When only waiting learning cards are left, a
   "Next card in m:ss" screen counts down (auto-shows it), with **Show It Now** / **Stop for Now**.
-  The title shows "N left" (queue + learning), not "x of y". Cards saved before this change have no
+  The title shows "N left" (queue + learning), not "x of y". When the queue runs out, `showCard()` first pulls in any other
+  cards that are due now (so "Review It Now" on one card carries on with the rest). Cards saved before this change have no
   `state`: `cardState()` treats reps 0 as learning.
 - **Undo** (top right of the review page, after the first grade): restores the last graded card
   exactly (snapshot of the card, queue length, position), any number of times back.

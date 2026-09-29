@@ -1188,6 +1188,14 @@ function showCard() {
   // A learning card that's due now goes next.
   learning.sort((a, b) => a.due - b.due);
   if (learning[0] && learning[0].due <= Date.now()) queue.splice(qi, 0, learning.shift());
+  if (!queue[qi]) {
+    // Out of cards: carry on with anything else that's due now (e.g. after
+    // "Review It Now" on one card, or cards that became due meanwhile).
+    const inSession = new Set([...queue.slice(qi), ...learning].map(x => x.id));
+    const more = dueCards().filter(x => !inSession.has(x.id)).slice(0, 50);
+    more.forEach(x => ensureAudio(x.lesson));
+    queue.push(...more);
+  }
   const c = queue[qi];
   if (!c) { learning.length ? waitForLearning() : reviewDone(); return; }
   ensureAudio(c.lesson);
