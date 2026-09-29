@@ -1352,6 +1352,8 @@ function setEngine(e) {
   btns.forEach(b => b.setAttribute('aria-checked', String(b.dataset.engine === e)));
   $('#st-engine .seg-thumb').style.transform = `translateX(${btns.findIndex(b => b.dataset.engine === e) * 100}%)`;
   $('#st-engine-hint').textContent = ENGINE_HINTS[e];
+  $('#st-check').hidden = e !== 'captions';
+  $('#st-check-result').hidden = e !== 'captions' || !$('#st-check-result').innerHTML;
 }
 $('#st-engine').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setEngine(b.dataset.engine); });
 setEngine(prefs.engine);
@@ -1369,7 +1371,77 @@ function setPlayerPref(p) {
 $('#st-player').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setPlayerPref(b.dataset.player); });
 setPlayerPref(prefs.player);
 
-$('#st-make').addEventListener('click', () => stStart($('#st-url').value));
+/* ───────── Caption check: which captions does a YouTube video have? ─────────
+   Runs the small "Caption check" workflow (no download) and reads its answer
+   from release check-<id>, then deletes that release. */
+let checking = null;
+const checkResults = new Map();   // video id → 'creator' | 'auto' | 'none'
+function showCheck(kind, title, text = '', videoTitle = '') {
+  const box = $('#st-check-result');
+  box.className = `check-result ${kind}`;
+  box.innerHTML = `<b>${esc(title)}</b>${esc(text)}${videoTitle ? `<span class="ct">${esc(videoTitle)}</span>` : ''}`;
+  box.hidden = false;
+}
+async function stCheckCaptions() {
+  if (!configured()) { toast('Add your GitHub token in Settings first'); showScreen('settings'); return; }
+  const m = String($('#st-url').value || '').match(/https?:\/\/\S+/i);
+  if (!m) { toast('Paste a video link first'); $('#st-url').focus(); return; }
+  const vid = youtubeId(m[0]);
+  if (!vid) { showCheck('bad', 'Not a YouTube link', 'Captions can only be checked for YouTube videos.'); return; }
+  if (checking) return;
+  const id = randomId();
+  checking = id;
+  showCheck('busy', 'Checking captions…', 'Asking YouTube which captions this video has. About a minute.');
+  try {
+    await gh('/actions/workflows/captions-check.yml/dispatches', {
+      method: 'POST', body: { ref: await defaultBranch(), inputs: { url: m[0], job_id: id } },
+    });
+  } catch (e) {
+    checking = null;
+    showCheck('bad', 'Couldn’t start the check', e.status === 404 ? 'The Caption check workflow isn’t on GitHub yet.' : e.message);
+    return;
+  }
+  const started = Date.now();
+  while (checking === id && Date.now() - started < 6 * 60e3) {
+    await new Promise(r => setTimeout(r, 5000));
+    let rel = null;
+    try { rel = await gh(`/releases/tags/check-${id}`); } catch (e) { if (e.status !== 404) continue; }
+    if (!rel) continue;
+    checking = null;
+    let meta = {};
+    try { meta = JSON.parse(rel.body || '{}'); } catch { /* ignore */ }
+    gh(`/releases/${rel.id}`, { method: 'DELETE' })
+      .then(() => gh(`/git/refs/tags/check-${id}`, { method: 'DELETE' })).catch(() => {});
+    if (meta.ok === false) {
+      showCheck('bad', 'The check failed', String(meta.error || 'Open the Caption check run on GitHub for details.').split('\n')[0]);
+    } else if (meta.creator?.length) {
+      checkResults.set(vid, 'creator');
+      showCheck('good', '✓ The creator’s own Russian captions',
+        'Written by the channel, so a Captions lesson should be accurate.', meta.title);
+    } else if (meta.auto) {
+      checkResults.set(vid, 'auto');
+      showCheck('warn', '⚠ Only YouTube’s automatic captions',
+        'Made by YouTube’s computer: about 93% accurate in our test, with some wrong or extra words. For an accurate lesson, choose AI (best).', meta.title);
+    } else {
+      checkResults.set(vid, 'none');
+      showCheck('bad', '✗ No Russian captions',
+        'This video has no Russian captions on YouTube, so a Captions lesson can’t be made. Choose AI (best).', meta.title);
+    }
+    return;
+  }
+  if (checking === id) { checking = null; showCheck('bad', 'The check took too long', 'Try again in a minute.'); }
+}
+$('#st-check').addEventListener('click', stCheckCaptions);
+$('#st-url').addEventListener('input', () => { checking = null; $('#st-check-result').hidden = true; $('#st-check-result').innerHTML = ''; });
+
+$('#st-make').addEventListener('click', () => {
+  // A Captions lesson for a video the check found wanting: say so first.
+  const vid = youtubeId(($('#st-url').value.match(/https?:\/\/\S+/i) || [''])[0]);
+  const found = prefs.engine === 'captions' && vid && checkResults.get(vid);
+  if (found === 'none') { toast('This video has no Russian captions. Choose AI (best) instead.'); return; }
+  if (found === 'auto' && !confirm('This video only has YouTube’s automatic captions (about 93% accurate). Make a Captions lesson anyway?')) return;
+  stStart($('#st-url').value);
+});
 $('#st-url').addEventListener('keydown', e => { if (e.key === 'Enter') stStart($('#st-url').value); });
 $('#st-refresh').addEventListener('click', () => { stRefresh(); syncLoad(); });
 

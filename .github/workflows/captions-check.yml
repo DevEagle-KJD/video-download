@@ -1,0 +1,67 @@
+name: Caption check
+
+# Triggered by the Grab app (Study tab, "Check captions"): looks up which
+# Russian captions a YouTube video has, without downloading anything. The
+# answer is left as release "check-<id>", which the app reads and deletes.
+run-name: "check ${{ inputs.job_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Video page URL
+        required: true
+      job_id:
+        description: Unique id chosen by the app (used for the release tag)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      pot:
+        image: brainicism/bgutil-ytdlp-pot-provider
+        ports:
+          - 4416:4416
+    env:
+      URL: ${{ inputs.url }}
+      QUALITY: check
+      JOB_ID: ${{ inputs.job_id }}
+      TAG_PREFIX: check
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate input
+        run: |
+          [[ "$JOB_ID" =~ ^[a-z0-9]{6,32}$ ]] || { echo "::error::bad job id"; exit 1; }
+          [[ "$URL" =~ ^https?:// ]] || { echo "::error::URL must start with http(s)://"; exit 1; }
+
+      - name: Install tools
+        run: |
+          python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
+          yt-dlp --version
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Look up captions
+        env:
+          COOKIES: ${{ secrets.YTDLP_COOKIES }}
+        run: bash scripts/download.sh
+
+      - name: Report
+        run: |
+          notes=$(python3 scripts/study/check_captions.py)
+          echo "$notes"
+          gh release create "check-$JOB_ID" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Caption check" --notes "$notes"
+
+      - name: Report failure
+        if: failure()
+        run: bash scripts/report-failure.sh

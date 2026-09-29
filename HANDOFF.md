@@ -3,7 +3,7 @@
 Read this first in any new session. It describes what the app is, how every part works, the
 rules and decisions behind it, and exactly where things were left off.
 
-_Last updated: 2026-09-29 (Pause each/Loop act immediately, no sentence bleed, place kept on Literal/English toggle, scrub bar hidden in YouTube mode)._
+_Last updated: 2026-09-29, late evening (Captions test run and verdict, Caption check, Stop & Remove, YouTube play fixes, reload fix)._
 
 ---
 
@@ -34,7 +34,7 @@ step-by-step explanations. This GitHub version is a **trial run**. The long-term
 | Live app | **https://deveagle-kjd.github.io/video-download/** |
 | Pages source | Settings → Pages → Source: **GitHub Actions** (set by the owner) |
 | Related repo | `DevEagle-KJD/russian-study` (private). The owner's Anki-deck builder; its voice setup (`anki/tts.py`, edge-tts Svetlana/Dmitry at -25%/-40%) was copied for Grab's word audio. |
-| Owner's device | iPhone, Safari. The app is used in Safari (tab) and/or added to the Home Screen. **Safari and Home-Screen copies have separate storage**, so the token must be entered in the one they use. |
+| Owner's device | iPhone, Safari. The app is used in Safari (tab) and/or added to the Home Screen. **Safari and Home-Screen copies have separate storage**, so the token must be entered in the one they use. **Clearing Safari history or closing a Private tab wipes the token and local lists** (it happened twice on 2026-09-29); everything real is on GitHub and comes back once the token is re-entered. Recommended: use the Home-Screen copy. |
 
 ### Secrets and variables (repo Settings → Secrets and variables → Actions)
 | Name | Kind | Status | Used for |
@@ -223,6 +223,25 @@ has a third option, **Captions (test)**.
   over-eager fixes (Шишки → Сушки), wrong endings, misheard short words. Fixed afterwards: Claude
   now re-splits sentences (above) and is told to leave words that make sense; empty literal
   meanings on common words ("это") get a fallback from `enrich_free.COMMON`. Not yet re-run.
+- **Owner's verdict after comparing on the phone:** "too far off": the words don't match the
+  creator's captions burned into the video picture, and some words are there that shouldn't be.
+  Conclusion: **YouTube's automatic captions are not accurate enough** for the owner's standard, even
+  after Claude's cleanup (Claude can't hear the audio). Burned-in subtitles are exact but are pixels
+  (only reachable by downloading the video); they're also lightly edited (fillers dropped), so a
+  few "extra" words are really spoken. Captions lessons are only promising for videos with a
+  **creator-uploaded CC track**. Accurate lessons otherwise need the audio (AI engine).
+- **Caption check** (`captions-check.yml`, "Check Captions First" button, shown when Captions (test)
+  is selected): `download.sh` QUALITY=check (`--skip-download`, info.json only, WARP fallback),
+  then `scripts/study/check_captions.py` summarises it into release `check-<id>`:
+  `{ok, kind:"check", creator:[ru tracks from info.subtitles], auto: bool, language, title}`.
+  `auto` is only true when the *original* language is Russian (the `-orig` auto track, or
+  info.language), because `automatic_captions` also lists machine translations into every
+  language. The app polls `releases/tags/check-<id>` every 5 s (up to 6 min), shows ✓ creator
+  captions / ⚠ automatic only (~93%) / ✗ none, then deletes the release and tag; `cleanup.yml`
+  also deletes leftover `check-*` after 24 h. Make Lesson (Captions engine) then refuses a video
+  with no Russian captions and asks for confirmation when only automatic ones exist
+  (`checkResults` map, per video id, this session only). Tested with mocked API; **not yet run
+  for real** (the owner should try it on a video they think has CC).
 - YouTube playback on iPhone: `playVideo()` right after `seekTo()` is often dropped (YouTube's
   big ▶ stays). `player.play()` retries until state 1, a pause event within 1.5 s of a play request
   is ignored, and `playSentence` skips the seek when already within 0.6 s before the sentence.
@@ -259,8 +278,9 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
 ### Study home
 - **Review card** (gradient): "N cards to review · X sentences mined · Y words saved"; the
   **Review** button is disabled when nothing is due. The tab badge shows the due count.
-- **New lesson:** URL box, **Free / AI (best)** switch (saved as `prefs.engine`, default `free`;
-  the owner uses **AI**), **Make Lesson**.
+- **New lesson:** URL box, **Free / AI (best) / Captions (test)** switch (saved as `prefs.engine`,
+  default `free`; **the owner uses AI**; note that clearing storage resets it to Free, which once
+  started a Free lesson by mistake), **Check Captions First** (Captions only, see §5), **Make Lesson**.
 - **Play lessons from:** **Downloaded** (our `media.mp4`) or **YouTube (test)** (the YouTube IFrame
   player; see §7). Saved as `prefs.player`.
 - **Lessons list**, built from `study-*` releases plus in-progress `study.yml` runs. It shows the
@@ -422,15 +442,30 @@ The owner was asked to check platform.claude.com → Usage. Rough estimate: a fe
   **Add Natural Voice**). Remake the lesson to get meanings, word timings and checks.
 - Syllable splitting is rule-based (`syllables()` in study.js; one vowel per syllable, sonorant/й
   cluster rule, soft/hard sign stays with its consonant). Tested on common words.
-- The in-app ↻ refreshes the lesson list only. App updates need **Safari's ↻**.
+- The in-app ↻ refreshes the lesson list only. App updates need **Safari's ↻**. GitHub Pages sends
+  `cache-control: max-age=600`, and the service worker used to fetch through that HTTP cache, so
+  reloads showed the old app for up to 10 min. Since `grab-v26` it fetches with
+  `cache: 'no-cache'` (and installs with `cache: 'reload'`), so one reload is enough.
+- **Pressing play always returns the transcript to the sentence being played**, by any play button
+  (ours, a sentence tap, or YouTube's own), even with **Follow** off; Follow only controls
+  scrolling along during playback. The owner cares a lot about this.
+- Library/download history is **local only** (`grab.jobs`); after storage loss, only downloads
+  from the last 24 h come back (`syncRemote` lists `download.yml` runs). Lessons always come back
+  (they're rebuilt from releases).
 - iOS needs a user tap before audio or video can play (all speak/play calls happen inside taps).
 - **Testing locally:** Playwright + the pre-installed Chromium at
   `/opt/pw-browsers/chromium-*/chrome-linux*/chrome` (pass `executablePath`). Serve a copy of
   `app/` with a fake `files/<id>/lesson.json`, mock `api.github.com` (and
   `youtube.com/iframe_api`) with `page.route`. The sandbox proxy blocks the browser from opening
   github.io directly. Don't `pkill -f` a pattern that matches your own shell command.
-- The GitHub MCP token **cannot dispatch workflows** (403). Pushing to `app/**` triggers
-  `pages.yml`; otherwise ask the owner to tap buttons in the app.
+- The GitHub MCP token **cannot dispatch, re-run or cancel workflows** (403). Pushing to `app/**`
+  triggers `pages.yml`; otherwise ask the owner to tap buttons in the app (Stop & Remove cancels a
+  lesson), or to use github.com → Actions → run → ••• → Cancel workflow. Warn them **not to
+  re-run old "Deploy app" runs**: that redeploys an older commit (it happened once; fixed by
+  pushing a new app change).
+- Public release/asset info can be read without auth via `curl https://api.github.com/repos/...`
+  and `https://github.com/<repo>/releases/download/<tag>/lesson.json` from the sandbox (useful to
+  inspect lessons).
 
 ---
 
@@ -457,16 +492,30 @@ The owner was asked to check platform.claude.com → Usage. Rough estimate: a fe
 13. The first full AI lesson ran successfully (see §8). The old keyless lesson was deleted.
 14. Fixed the ghost "Publishing lesson…" row, the loop highlight jumping to the next sentence,
     and added the scrub bar.
+15. Playback polish: Pause each on by default and immediate, no bleed into the next sentence,
+    place kept on Literal/English toggles, scrub bar hidden in YouTube mode, play jumps back to the
+    spoken sentence.
+16. **Captions (test)** engine built (no download). First real run on the breakfast video
+    (`study-o1qa70gkuyaq`): ~93% word match with the AI lesson; the owner judged it too inaccurate.
+    Afterwards: Claude re-splits caption words into real sentences, fewer over-eager fixes,
+    fallback glosses for common words (not yet re-run).
+17. Engine label on in-progress lessons; **Stop & Remove** for lessons being made; the reload
+    (HTTP cache) fix; YouTube first-tap play fix; play returns to the sentence even with Follow
+    off; **Caption check**.
 
 ---
 
 ## 12. Where things were left off and what's next
 
 ### Immediately pending (owner's side)
-1. Study with lesson `4g592n9bv0ta`. Check Literal/English, the Svetlana voice, loop, scrub, and
-   **whether the 45 flagged words were really wrong** (accuracy evaluation).
-2. **Check the real cost** in platform.claude.com → Usage.
-3. **Evaluate YouTube (test) playback** on the phone (timing, ads, feel).
+1. Study with lesson `4g592n9bv0ta` (AI). Check **whether the 45 flagged words were really wrong**.
+2. **Check the real cost** in platform.claude.com → Usage (still unknown; needed for pricing).
+3. Keep reporting YouTube-mode bugs from the Captions lesson (`o1qa70gkuyaq`). Fixed so far: first
+   tap of ▶ not playing; play not returning to the sentence with Follow off. Ask for screenshots.
+4. Try **Check Captions First** on a video that has a creator CC track; if it has one, make a
+   Captions lesson and compare accuracy. Optionally remake the breakfast Captions lesson to see
+   the re-split sentences (it will still be ~93% on words).
+5. Add Grab to the Home Screen so storage survives (••• → Share → Add to Home Screen).
 
 ### Suggested next engineering steps (discussed, not built)
 - Log the Claude `usage` (tokens → $) per lesson and show it in the ••• menu.
@@ -475,6 +524,17 @@ The owner was asked to check platform.claude.com → Usage. Rough estimate: a fe
 - "Download for offline" lessons.
 - Speed: move Whisper/GigaAM to a **serverless GPU** (Modal / RunPod Serverless / Replicate). The
   owner will create the account and add the key as a secret. That cuts ~20 min to ~1 min.
+
+### Monetization (discussed 2026-09-29; owner wants money without many hoops, but very accurate)
+Recommendation given: a **subscription** (≈ $9.99/month or $59/year; Apple takes 15% on the small
+business program; RevenueCat) with three lesson sources: (1) **"Import your own"** video/audio
+(the user supplies content they have rights to; full accurate pipeline; monthly cap, e.g. 10),
+(2) an **owned library** (paid native-speaker recordings + Creative Commons), made once and shared,
+(3) **YouTube captions mode** as the free hook, but only where a creator CC track exists (see the
+verdict in §5). Creator permission by email helps only if the creator **sends the files**
+(YouTube's terms still forbid downloading from YouTube); playback stays on YouTube. A lawyer
+should review the terms of use and any creator license. Pricing depends on the real per-lesson
+cost (item 2 above).
 
 ### The public version (owner's stated goal: Vercel + Supabase, many languages)
 - **Frontend** on Vercel. **Supabase:** auth, a **shared lesson library keyed by video ID** (each
@@ -506,7 +566,8 @@ app/                       static PWA (deployed to Pages)
   sw.js                    service worker (network-first; bump CACHE on every app change; /files/ not cached)
   manifest.webmanifest, icons/
 scripts/
-  download.sh              yt-dlp with impersonation, PO tokens, WARP + client fallbacks; study=480p+subs
+  download.sh              yt-dlp with impersonation, PO tokens, WARP + client fallbacks;
+                           study=480p+subs, captions=json3 captions only, check=info.json only
   iphone-compat.sh         ffmpeg → iPhone-friendly MP4
   publish.sh               dl-<id> release;  report-failure.sh: error release (TAG_PREFIX aware)
   build-site.sh            app + all release files → site/ (unzips audio.zip), 1 GB budget
@@ -517,9 +578,12 @@ scripts/
   study/enrich.py          AI meanings/translations (Sonnet 5) + Check 3 review + RUAccent; shared helpers
   study/enrich_free.py     free meanings/translations (RUAccent, pymorphy3, OpenRussian, Argos)
   study/voices.py          edge-tts neural word audio (normal + slow)
+  study/clean_captions.py  Captions test: Claude re-splits + cleans automatic captions → flags
+  study/check_captions.py  Caption check: info.json → {creator tracks, auto} summary
   study/publish.sh         study-<id> release (media.mp4, lesson.json, audio.zip)
 .github/workflows/
-  download.yml, study.yml, voices.yml, cleanup.yml, pages.yml (reusable + push-triggered)
+  download.yml, study.yml, voices.yml, captions-check.yml, cleanup.yml (dl-*/check-* > 24 h),
+  pages.yml (reusable + push-triggered)
 README.md                  user-facing setup and feature docs
 HANDOFF.md                 this file
 CLAUDE.md                  points new sessions here

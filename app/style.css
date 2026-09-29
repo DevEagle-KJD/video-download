@@ -583,3 +583,12 @@ body.in-page .tabbar { display: none; }
 .segmented.three { grid-template-columns: repeat(3, 1fr); margin-top: 10px; }
 .segmented.three .seg-thumb { width: calc((100% - 4px) / 3); }
 .segmented.three button { font-size: 13px; }
+
+/* Caption check result (Study → Captions test) */
+.check-result { border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; font-size: 15px; line-height: 1.35; background: var(--fill); }
+.check-result b { display: block; font-size: 16px; margin-bottom: 2px; }
+.check-result .ct { display: block; font-size: 13px; color: var(--secondary); margin-top: 6px; }
+.check-result.good b { color: var(--green); }
+.check-result.warn b { color: var(--orange); }
+.check-result.bad b { color: var(--red); }
+.check-result.busy b { color: var(--secondary); }

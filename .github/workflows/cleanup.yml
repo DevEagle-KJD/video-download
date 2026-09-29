@@ -1,6 +1,7 @@
 name: Cleanup
 
-# Deletes finished downloads (dl-* releases) older than 24 hours so the
+# Deletes finished downloads (dl-* releases) and leftover caption checks
+# (check-*) older than 24 hours so the
 # repo doesn't fill up. The app also deletes each one after you save it.
 on:
   schedule:
@@ -20,7 +21,7 @@ jobs:
         run: |
           cutoff=$(date -u -d '24 hours ago' +%s)
           gh release list -R "$GITHUB_REPOSITORY" --limit 500 --json tagName,createdAt \
-            --jq '.[] | select(.tagName | startswith("dl-")) | "\(.tagName) \(.createdAt)"' |
+            --jq '.[] | select(.tagName | startswith("dl-") or startswith("check-")) | "\(.tagName) \(.createdAt)"' |
           while read -r tag created; do
             if [ "$(date -u -d "$created" +%s)" -lt "$cutoff" ]; then
               echo "Deleting $tag"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Downloads $URL at $QUALITY (best | 1080 | 720 | audio) into out/media.<ext>
+# Downloads $URL at $QUALITY (best | 1080 | 720 | audio | study | captions | check) into out/media.<ext>
 set -euo pipefail
 mkdir -p out
 
@@ -34,6 +34,8 @@ case "$QUALITY" in
   # Captions-only test: no video or audio at all, just YouTube's captions
   # (the creator's if any, else the automatic ones) and the video's details.
   captions) args+=(--skip-download --write-subs --write-auto-subs --sub-langs "ru,ru-orig" --sub-format json3) ;;
+  # Caption check: only the video's details (which caption tracks it has).
+  check) args+=(--skip-download) ;;
 esac
 
 run() {
