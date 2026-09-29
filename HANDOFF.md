@@ -256,7 +256,10 @@ menu → **🎙️ Add Natural Voice** (shown only when `lesson.audio` is missin
 - **Lessons list**, built from `study-*` releases plus in-progress `study.yml` runs. It shows the
   stage ("Downloading video / Transcribing speech / Double-checking with a 2nd transcriber /
   Proofreading doubtful words / Adding meanings, translations & final check / Publishing lesson"),
-  "AI · 423 sentences · 28:05", or Failed (a sheet with Try Again / View Log / Remove).
+  "AI · 423 sentences · 28:05", or Failed (a sheet with Try Again / View Log / Remove). Rows in
+  progress are prefixed with the engine ("Free · Transcribing speech…", "Captions · Reading
+  captions…"); tapping one opens a sheet with View Progress on GitHub and **Stop & Remove**
+  (`stStopLesson`: cancels the run via the API, then adds the id to `deletedLessons`).
   **Deleted lesson ids are remembered** (`deletedLessons`), and finished runs older than 10 min with
   no release are ignored, which fixed a "ghost Publishing lesson" bug.
 
