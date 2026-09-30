@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Clipling</title>
+  <meta name="description" content="Learn languages from real videos: exact transcripts, word-by-word meanings, natural voices and flashcards.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Clipling">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="web.css">
+</head>
+<body class="signed-out">
+  <main id="screens">
+
+    <!-- ───────── Sign in ───────── -->
+    <section class="screen" id="screen-signin">
+      <div class="content signin">
+        <div class="si-logo">▶︎</div>
+        <h1 class="large-title app-name">Clipling</h1>
+        <p class="si-tag">Learn languages from real videos: every word, its meaning, and how it sounds.</p>
+        <div id="si-step1">
+          <div class="group">
+            <div class="cell input-cell">
+              <input id="si-email" type="email" inputmode="email" placeholder="Your email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send">
+            </div>
+          </div>
+          <button class="primary-button" id="si-send">Email Me a Sign-in Code</button>
+          <p class="section-footer">No password needed. We’ll email you a 6-digit code.</p>
+        </div>
+        <div id="si-step2" hidden>
+          <p class="section-footer" style="margin:0 0 10px">We sent a code to <b id="si-sent-to"></b>. Type it here:</p>
+          <div class="group">
+            <div class="cell input-cell">
+              <input id="si-code" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" maxlength="10" enterkeyhint="go">
+            </div>
+          </div>
+          <button class="primary-button" id="si-verify">Sign In</button>
+          <button class="text-button" id="si-back">Use a different email</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── Learn (my lessons) ───────── -->
+    <section class="screen" id="screen-study">
+      <header class="navbar">
+        <span class="navbar-title">Learn</span>
+        <button class="navbar-action" id="st-refresh" aria-label="Refresh">
+          <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>
+        </button>
+      </header>
+      <div class="content">
+        <h1 class="large-title">Learn</h1>
+        <div class="review-card" id="st-review-card"></div>
+
+        <p class="section-header">Add a video</p>
+        <div class="group">
+          <div class="cell input-cell">
+            <svg class="cell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
+            <input id="st-url" type="url" inputmode="url" placeholder="Paste a YouTube link" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+          </div>
+        </div>
+        <button class="primary-button" id="st-make">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H19v-3"/></svg>
+          <span>Add Lesson</span>
+        </button>
+        <p class="section-footer" style="margin-top:-12px">Russian videos from channels in our library (see Explore). A video that’s already a lesson is added instantly.</p>
+
+        <p class="section-header">My lessons</p>
+        <div class="group list" id="st-lessons"></div>
+      </div>
+    </section>
+
+    <!-- ───────── Explore ───────── -->
+    <section class="screen" id="screen-explore">
+      <header class="navbar"><span class="navbar-title">Explore</span></header>
+      <div class="content">
+        <h1 class="large-title">Explore</h1>
+        <p class="section-header">Ready-made lessons</p>
+        <div class="group list" id="ex-lessons"></div>
+        <p class="section-header">Channels in our library</p>
+        <div class="group list" id="ex-channels"></div>
+      </div>
+    </section>
+
+    <!-- ───────── Account ───────── -->
+    <section class="screen" id="screen-account">
+      <header class="navbar"><span class="navbar-title">Account</span></header>
+      <div class="content">
+        <h1 class="large-title">Account</h1>
+        <div class="group kv">
+          <div class="cell"><div class="k">Signed in as</div><span id="ac-email"></span></div>
+          <div class="cell"><div class="k">Plan</div><b id="ac-plan">Free</b><div class="row-sub" id="ac-plan-note"></div></div>
+        </div>
+        <p class="section-footer">Add this app to your Home Screen: in Safari tap Share → Add to Home Screen.</p>
+        <button class="secondary-button destructive" id="ac-signout">Sign Out</button>
+      </div>
+    </section>
+
+    <!-- ───────── Lesson player ───────── -->
+    <section class="screen page" id="screen-lesson">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
+        </button>
+        <span class="navbar-title page-title" id="ls-title"></span>
+        <button class="navbar-action" data-s="lesson-menu" aria-label="More">
+          <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>
+        </button>
+      </header>
+      <div class="player">
+        <video id="ls-video" playsinline webkit-playsinline preload="metadata"></video>
+        <div id="ls-yt" class="yt-box" hidden></div>
+        <div class="scrub">
+          <span id="ls-cur">0:00</span>
+          <input type="range" id="ls-seek" min="0" max="1000" value="0" step="1" aria-label="Position in video">
+          <span id="ls-dur">0:00</span>
+        </div>
+        <div class="player-controls">
+          <button data-s="prev" aria-label="Previous sentence"><svg viewBox="0 0 24 24"><path d="M6 5v14M19 5l-9 7 9 7z"/></svg></button>
+          <button data-s="toggle" class="big" aria-label="Play or pause"><svg id="ls-playicon" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg></button>
+          <button data-s="next" aria-label="Next sentence"><svg viewBox="0 0 24 24"><path d="M18 5v14M5 5l9 7-9 7z"/></svg></button>
+          <button data-s="speed" class="chip" id="ls-speed">1×</button>
+          <button data-s="loop" class="chip" id="ls-loop">Loop</button>
+          <button data-s="autopause" class="chip" id="ls-autopause">Pause each</button>
+        </div>
+        <div class="player-options">
+          <button data-s="show-literal" class="chip small" id="ls-literal">Literal</button>
+          <button data-s="show-english" class="chip small" id="ls-english">English</button>
+          <button data-s="show-follow" class="chip small" id="ls-follow">Follow</button>
+        </div>
+      </div>
+      <div class="transcript" id="ls-transcript"></div>
+    </section>
+
+    <!-- ───────── Saved words & sentences ───────── -->
+    <section class="screen page" id="screen-saved">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
+        </button>
+        <span class="navbar-title page-title">Saved</span>
+        <span style="width:60px"></span>
+      </header>
+      <div class="content saved-content">
+        <div class="segmented two" id="sv-kind" role="radiogroup" style="margin-top:4px">
+          <span class="seg-thumb"></span>
+          <button role="radio" data-kind="word" aria-checked="true">Words</button>
+          <button role="radio" data-kind="sentence" aria-checked="false">Sentences</button>
+        </div>
+        <div class="group" style="margin-top:12px">
+          <div class="cell input-cell">
+            <svg class="cell-icon" viewBox="0 0 24 24" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="sv-search" type="search" placeholder="Search Russian or English" autocomplete="off" autocapitalize="off" spellcheck="false">
+          </div>
+        </div>
+        <button class="primary-button" data-s="sv-review-all" id="sv-review-all" style="margin-top:12px"></button>
+        <div class="group sv-list" id="sv-list"></div>
+      </div>
+    </section>
+
+    <!-- ───────── Review ───────── -->
+    <section class="screen page" id="screen-review">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
+        </button>
+        <span class="navbar-title page-title" id="rv-count"></span>
+        <button class="navbar-text-action" data-s="rv-undo" id="rv-undo" hidden>Undo</button>
+      </header>
+      <div class="player review-player">
+        <video id="rv-video" playsinline webkit-playsinline preload="auto"></video>
+      </div>
+      <div class="review-body" id="rv-body"></div>
+    </section>
+  </main>
+
+  <!-- Tab bar -->
+  <nav class="tabbar" role="tablist">
+    <button class="tab" data-screen="study" role="tab">
+      <svg viewBox="0 0 24 24"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 6v13.5"/></svg>
+      <span>Learn</span>
+      <i class="badge" id="st-badge" hidden></i>
+    </button>
+    <button class="tab" data-screen="explore" role="tab">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>
+      <span>Explore</span>
+    </button>
+    <button class="tab" data-screen="account" role="tab">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+      <span>Account</span>
+    </button>
+  </nav>
+
+  <!-- Bottom sheet -->
+  <div class="sheet-backdrop" id="sheet-backdrop"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-grabber"></div>
+    <header class="sheet-header">
+      <span class="sheet-title" id="sheet-title"></span>
+      <button class="text-button" id="sheet-done">Done</button>
+    </header>
+    <div class="sheet-body" id="sheet-body"></div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="core.js"></script>
+  <script src="study.js"></script>
+</body>
+</html>

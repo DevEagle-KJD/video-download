@@ -1,0 +1,13 @@
+/* Additions for the web app (style.css is shared with Grab). */
+body.signed-out .tabbar { display: none; }
+.signin { padding-top: calc(var(--safe-top, 0px) + 48px); text-align: center; }
+.signin .group, .signin .section-footer { text-align: left; }
+.si-logo {
+  width: 72px; height: 72px; margin: 0 auto 8px; border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #5e5ce6, #bf5af2); color: #fff; font-size: 34px;
+}
+.si-tag { color: var(--secondary); font-size: 17px; margin: 0 8px 24px; }
+.signin .text-button { margin: 8px auto 0; display: block; }
+.ex-add { flex: none; }
+.ex-added { flex: none; color: var(--secondary); font-size: 14px; padding: 0 6px; }

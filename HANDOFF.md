@@ -3,7 +3,7 @@
 Read this first in any new session. It describes what the app is, how every part works, the
 rules and decisions behind it, and exactly where things were left off.
 
-_Last updated: 2026-09-29, late evening (Captions test run and verdict, Caption check, Stop & Remove, YouTube play fixes, reload fix)._
+_Last updated: 2026-09-30 (public web app started in `web/`; Saved page, Anki-style review, sentence voices)._
 
 ---
 
@@ -631,8 +631,47 @@ scripts/
   study/publish.sh         study-<id> release (media.mp4, lesson.json, audio.zip)
 .github/workflows/
   download.yml, study.yml, voices.yml, captions-check.yml, cleanup.yml (dl-*/check-* > 24 h),
-  pages.yml (reusable + push-triggered)
+  pages.yml (reusable + push-triggered), web-lesson.yml (public app's lesson maker)
+web/                       the public web app (see §14 and web/README.md)
 README.md                  user-facing setup and feature docs
 HANDOFF.md                 this file
 CLAUDE.md                  points new sessions here
 ```
+
+---
+
+## 14. The public web app (`web/`, started 2026-09-30)
+
+The owner decided on a **web app (installable on the Home Screen, no App Store)**, monetized with a
+free tier + Pro subscription. Working name **Clipling** (not final; `APP_NAME` env + a few strings in
+`web/public/index.html` and `manifest.webmanifest`). Launch languages: **Russian, then Spanish**
+(Spanish needs pipeline work: no GigaAM/RUAccent; the enrich prompt is Russian-specific), later
+French/German/Italian/Portuguese, English, then Japanese/Korean/Chinese.
+
+**Content model (owner's decision after long discussion):** creators give **permission** (email /
+one-page agreement) but do **not** send files; approved channels are listed in the `channels` table.
+Lessons play **live through the YouTube embed** (creators keep views/ads). Each video is processed
+**once**, downloading its audio from YouTube behind the scenes (this still breaks YouTube's terms and
+can be blocked: queue + retries; suggested fallbacks: creators add us in **YouTube Studio →
+Permissions**, or share a folder). Claude declined to build rotating-VPN evasion for unapproved
+content and to write marketing meant to hide the method from YouTube; honest marketing of results
+is fine (don't claim "we never download"). Free tier idea: 3 new lessons/week, review unlimited;
+Pro ≈ $7.99/mo or $49.99/yr, 7-day trial, founding-member price.
+
+**Built so far (stage 1, tested locally with mocked Supabase/YouTube; not deployed yet):**
+- `web/supabase/schema.sql`: profiles (plan), channels (approved), channel_requests, lessons
+  (one per video: status/stage/error), user_lessons, cards (jsonb per card), reports; RLS; public
+  storage bucket `lessons`.
+- `web/api/config.js`, `web/api/lessons.js` (Vercel functions; env vars in `web/README.md`).
+  Admins (`ADMIN_EMAILS`) can add any video; others only approved channels (requests logged).
+- `web/public/`: sign-in by **6-digit email code** (Supabase GoTrue REST; magic links would open in
+  Safari, not the Home Screen app), Learn (my lessons + add a video), Explore (ready lessons +
+  channels), Account (plan, sign out), and the Grab Study lesson/saved/review code adapted
+  (`study.js`: YouTube-only player, files from `fileUrl()`, cards synced per card to the `cards`
+  table with a `dirty` set, reports to `reports`, no engine switch/captions check/voices button).
+- `.github/workflows/web-lesson.yml` + `scripts/web/{supa,publish}.py`: the AI pipeline for one
+  video, reporting `lessons.stage` as it goes, uploading lesson.json + clips to storage.
+
+**Owner's next steps:** create Supabase + Vercel accounts and follow `web/README.md` (never paste
+keys into chat). **Next engineering:** Stripe (Pro), Spanish pipeline, Modal GPU worker, custom
+SMTP for sign-in emails (Supabase's built-in email is rate-limited), admin page for channels.
