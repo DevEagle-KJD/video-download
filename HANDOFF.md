@@ -678,6 +678,15 @@ Learn = slim review bar, a big **Continue** hero (last opened lesson, `app.lastL
 "Paste a YouTube link [Add]" row, and a 2-column **poster grid** (16:9 YouTube thumbnails; lessons
 being made show a spinner + stage over a dimmed poster). Explore = the same posters with a +/✓ badge,
 channels as pills. Keep new UI to this style: few words, no explanatory footers.
+**Accent changed to warm amber** (`#ffb020`→`#ff7a3d`, dark text on it via `--on-accent`); the owner
+didn't like the purple. **Habit loop (owner: "make it addictive, really draw them in")** in
+`web/public/engage.js`: XP (+1 new sentence heard, +3 save, +2 review card, +20 lesson finished at
+90% heard), daily goal 10/30/50 XP, 🔥 streak (days meeting the goal), goal ring next to the Learn
+title, progress sheet (streak, words learned = graduated word cards, sentences heard, 7-day bars,
+goal picker), confetti + "Daily goal reached / Lesson complete" celebrations, a progress bar on each
+poster. Stored in `app.stats` and the Supabase table `user_stats` (merge: max per day, union of heard
+sentences). Ideas not built yet: reminders (web push on Home Screen apps), weekly recap, streak
+freeze, leagues/friends.
 
 **Owner's next steps:** create Supabase + Vercel accounts and follow `web/README.md` (never paste
 keys into chat). **Next engineering:** Stripe (Pro), Spanish pipeline, Modal GPU worker, custom

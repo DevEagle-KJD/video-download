@@ -125,6 +125,7 @@ function stRender() {
   badge.hidden = !due;
   badge.textContent = due > 99 ? '99+' : due;
 
+  window.engage?.render();
   // Continue: the lesson you opened last.
   const last = lessons.find(l => l.id === store.get('lastLesson') && l.state === 'ready');
   $('#st-continue').innerHTML = last ? `
@@ -141,7 +142,7 @@ function stRender() {
       : l.state === 'failed' ? '<span class="poster-state failed">Couldn’t be made</span>'
         : `<span class="poster-state"><span class="spinner"></span>${esc(l.stage || 'Waiting to start')}…</span>`;
     return `<button class="poster${l.state === 'ready' ? '' : ' busy'}" data-s="open" data-id="${esc(l.id)}">
-      <span class="poster-img">${posterImg(l.id, m)}${over}${m.duration && l.state === 'ready' ? `<span class="poster-time">${fmtDuration(m.duration)}</span>` : ''}</span>
+      <span class="poster-img">${posterImg(l.id, m)}${over}${m.duration && l.state === 'ready' ? `<span class="poster-time">${fmtDuration(m.duration)}</span>` : ''}${window.engage ? engage.progressBar(l.id) : ''}</span>
       <span class="poster-title">${esc(m.title || 'New lesson')}</span>
       <span class="poster-sub">${esc(m.channel || '')}</span>
     </button>`;
@@ -149,6 +150,7 @@ function stRender() {
 }
 
 function studyShow() {
+  window.engage?.pull();
   // Load the word recordings for every lesson with saved cards, so review
   // never has to wait for them.
   [...new Set(Object.values(cards).filter(c => !c.deleted).map(c => c.lesson))].forEach(ensureAudio);
@@ -474,7 +476,7 @@ function tick() {
   // clipped); don't let the next sentence steal the highlight meanwhile.
   if (stopAt == null) lockedIdx = null;   // plain playback again: follow the video
   const i = lockedIdx != null ? lockedIdx : sentenceAt(t);
-  if (i >= 0) setActive(i);
+  if (i >= 0) { setActive(i); window.engage?.heard(lesson.id, i, lesson.data.sentences.length); }
   // Playback started some other way (e.g. YouTube's own play button) while
   // Pause each / Loop is on: stop at the end of the sentence being spoken.
   if (justStarted && stopAt == null && (prefs.autopause || prefs.loop)) armCurrentSentence();
@@ -612,6 +614,7 @@ function toggleStar(i) {
     };
     el?.classList.add('starred');
     toast('Saved for review ⭐');
+    window.engage?.xp(3);
   }
   cardsChanged(id);
 }
@@ -849,6 +852,7 @@ function toggleWord() {
       created: now, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
     };
     toast('Word saved ⭐');
+    window.engage?.xp(3);
   }
   cardsChanged(id);
   $(`#ls-transcript .tok[data-i="${i}"][data-k="${k}"]`)?.classList.toggle('saved', isSaved(id));
@@ -1150,6 +1154,7 @@ function grade(g) {
   $('#rv-undo').hidden = false;
   schedule(c, g);
   cards[c.id] = c;
+  window.engage?.xp(2);
   // Still learning (back in minutes): it comes back later in this session, like Anki.
   if (c.due - Date.now() < 20 * MIN) learning.push(c);
   reviewed++;

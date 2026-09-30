@@ -1,5 +1,7 @@
 /* The web app's look: always dark, cinematic and uncluttered: black, big
-   video posters, one violet accent. (style.css is shared with Grab.) */
+   video posters, one warm amber accent (like a lit screen in a dark room).
+   Change the accent in one place: --blue / --accent-2 below.
+   (style.css is shared with Grab.) */
 :root, :root:not([data-theme]) {
   --bg: #000;
   --cell: #141416;
@@ -10,8 +12,9 @@
   --separator: rgba(255, 255, 255, 0.08);
   --fill: rgba(255, 255, 255, 0.08);
   --seg-thumb: #3a3a3e;
-  --blue: #8b7bff;              /* the accent (buttons, links, highlights) */
-  --accent-2: #c86bff;
+  --blue: #ffb020;              /* the accent (buttons, links, highlights) */
+  --accent-2: #ff7a3d;
+  --on-accent: #1a1000;         /* text on accent-coloured buttons */
   --bar: rgba(0, 0, 0, 0.78);
   --sheet: #121214;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -20,7 +23,7 @@
 .sheet .group { --cell: #1d1d20; }
 body { background: #000; }
 .large-title { font-size: 32px; letter-spacing: -0.5px; }
-.primary-button { background: linear-gradient(135deg, var(--blue), var(--accent-2)); }
+.primary-button { background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent); }
 body.signed-out .tabbar { display: none; }
 .tabbar { background: rgba(0, 0, 0, 0.85); border-top-color: rgba(255, 255, 255, 0.06); }
 
@@ -30,8 +33,8 @@ body.signed-out .tabbar { display: none; }
 .si-logo {
   width: 76px; height: 76px; margin: 0 auto 10px; border-radius: 20px;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: #fff; font-size: 34px;
-  box-shadow: 0 10px 40px rgba(139, 123, 255, 0.35);
+  background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent); font-size: 34px;
+  box-shadow: 0 10px 40px rgba(255, 150, 40, 0.35);
 }
 .si-tag { color: var(--secondary); font-size: 17px; margin: 0 12px 28px; }
 .signin .text-button { margin: 10px auto 0; display: block; color: var(--secondary); }
@@ -46,7 +49,7 @@ body.signed-out .tabbar { display: none; }
   display: flex; align-items: center; justify-content: center;
   background: var(--fill); font-weight: 700; font-size: 16px;
 }
-.rv-bar.due .rv-bar-n { background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: #fff; }
+.rv-bar.due .rv-bar-n { background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent); }
 .rv-bar-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .rv-bar-t b { font-size: 16px; }
 .rv-bar-t i { font-style: normal; font-size: 13px; color: var(--secondary); }
@@ -79,7 +82,7 @@ body.signed-out .tabbar { display: none; }
 }
 .add-row input::placeholder { color: var(--tertiary); }
 .add-row button {
-  flex: none; height: 38px; padding: 0 16px; border-radius: 11px; font-weight: 600; color: #fff;
+  flex: none; height: 38px; padding: 0 16px; border-radius: 11px; font-weight: 700; color: var(--on-accent);
   background: linear-gradient(135deg, var(--blue), var(--accent-2));
 }
 .add-row button:disabled { opacity: .5; }
@@ -116,7 +119,7 @@ body.signed-out .tabbar { display: none; }
   display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; line-height: 1;
   background: rgba(0, 0, 0, 0.65); color: #fff; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
-.poster-add.added { background: var(--blue); font-size: 15px; }
+.poster-add.added { background: var(--blue); color: var(--on-accent); font-size: 15px; }
 .spinner {
   width: 14px; height: 14px; flex: none; border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, .25); border-top-color: #fff; animation: spin .8s linear infinite;
@@ -127,3 +130,77 @@ body.signed-out .tabbar { display: none; }
   padding: 8px 14px; border-radius: 18px; background: var(--cell); color: var(--label);
   text-decoration: none; font-size: 14px; font-weight: 500;
 }
+
+/* Streak + daily goal */
+.learn-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.learn-top .large-title { margin-bottom: 8px; }
+#st-streak { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.streak {
+  display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 12px; border-radius: 19px;
+  background: var(--cell); font-size: 16px;
+}
+.streak .flame { filter: grayscale(1) brightness(.8); transition: filter .3s; }
+.streak.lit .flame { filter: none; }
+.streak b { font-size: 17px; }
+.streak-l { color: var(--secondary); font-size: 13px; }
+.goal { position: relative; width: 44px; height: 44px; }
+.goal svg { width: 44px; height: 44px; transform: rotate(-90deg); }
+.goal circle { fill: none; stroke-width: 3.5; }
+.goal-bg { stroke: rgba(255, 255, 255, .1); }
+.goal-fg { stroke: var(--blue); stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+.goal span {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--secondary); letter-spacing: 0;
+}
+.goal span b { color: var(--label); font-size: 12px; }
+
+/* Lesson progress on posters */
+.poster-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255, 255, 255, .15); }
+.poster-progress i { display: block; height: 100%; background: var(--blue); }
+.poster-time { bottom: 10px; }
+
+/* Progress sheet */
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
+.stat-row div { background: var(--cell); border-radius: 14px; padding: 12px 8px; text-align: center; display: flex; flex-direction: column; }
+.stat-row b { font-size: 22px; }
+.stat-row span { font-size: 12px; color: var(--secondary); }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 110px; margin-bottom: 18px; align-items: end; }
+.wk { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 6px; }
+.wk i { display: block; width: 100%; min-height: 4px; border-radius: 6px; background: rgba(255, 255, 255, .14); }
+.wk.met i { background: linear-gradient(var(--blue), var(--accent-2)); }
+.wk span { font-size: 11px; color: var(--secondary); }
+.sheet-label { font-size: 13px; color: var(--secondary); text-transform: uppercase; letter-spacing: .5px; margin: 0 4px 8px; }
+.goal-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.goal-pick button { background: var(--cell); border-radius: 14px; padding: 12px 6px; display: flex; flex-direction: column; border: 2px solid transparent; }
+.goal-pick button.on { border-color: var(--blue); }
+.goal-pick span { font-size: 12px; color: var(--secondary); }
+
+/* Celebrations */
+.celebrate {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; opacity: 0; transition: opacity .3s;
+}
+.celebrate.show { opacity: 1; }
+.cel-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 28px; border-radius: 22px;
+  background: rgba(20, 20, 22, .92); box-shadow: 0 20px 60px rgba(0, 0, 0, .6); transform: scale(.9); transition: transform .35s cubic-bezier(.2, 1.4, .4, 1);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+}
+.celebrate.show .cel-card { transform: scale(1); }
+.cel-card b { font-size: 22px; }
+.cel-card span { color: var(--blue); font-weight: 600; }
+.confetti { position: fixed; inset: 0; z-index: 59; pointer-events: none; overflow: hidden; }
+.confetti i {
+  position: absolute; top: -12px; width: 8px; height: 12px; border-radius: 2px;
+  animation: fall linear forwards;
+}
+@keyframes fall { to { transform: translate(var(--x), 105vh) rotate(var(--r)); } }
+
+/* Lesson page and review in the accent */
+.sent.now { box-shadow: inset 3px 0 0 var(--blue); }
+.grade.easy { background: var(--blue); color: var(--on-accent); }
+.chip.on { color: var(--on-accent); }
+.sent.now { background: rgba(255, 176, 32, 0.10); }
+.wc-word .syl.on { background: rgba(255, 176, 32, .22); }
+.review-card { background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent); }
+.rc-btn { color: var(--accent-2); }

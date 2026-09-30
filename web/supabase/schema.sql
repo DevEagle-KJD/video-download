@@ -79,6 +79,13 @@ create table if not exists public.cards (
   primary key (user_id, id)
 );
 
+-- Streak, daily goal, XP and which sentences each user has heard (one row per user).
+create table if not exists public.user_stats (
+  user_id uuid primary key references auth.users on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
 -- "Report a mistake" from the word card.
 create table if not exists public.reports (
   id bigserial primary key,
@@ -99,6 +106,7 @@ alter table public.lessons enable row level security;
 alter table public.user_lessons enable row level security;
 alter table public.cards enable row level security;
 alter table public.reports enable row level security;
+alter table public.user_stats enable row level security;
 
 drop policy if exists "own profile" on public.profiles;
 create policy "own profile" on public.profiles for select using (auth.uid() = id);
@@ -117,6 +125,9 @@ create policy "own lesson list" on public.user_lessons for all using (auth.uid()
 
 drop policy if exists "own cards" on public.cards;
 create policy "own cards" on public.cards for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "own stats" on public.user_stats;
+create policy "own stats" on public.user_stats for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "send reports" on public.reports;
 create policy "send reports" on public.reports for insert with check (auth.uid() = user_id);
