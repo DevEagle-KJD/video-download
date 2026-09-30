@@ -674,10 +674,11 @@ learn languages from **real YouTube videos** with the exact transcript (stress m
 a literal word-by-word line, plain English, a natural voice for every word and sentence (normal +
 slow, syllables lit), and Anki-style flashcards. **The core promise: whatever language you learn,
 you'll sound like a native, from near-perfect transcripts.** **Front page (sign-in), owner approved:** headline
-**"Any language. Sound native."**, sub-line **"Real sentences from real videos. Every word
-triple-checked, so you learn exactly what natives say."**, badges **✓ Real sentences ·
-✓ Triple-checked · ✓ Word by word · ✓ Native voice** (owner: it must say it's sentence learning
-from real videos, not vocabulary lists). Keep
+**"Any language. Sound native."**, sub-line **"Real sentences from real videos. Every word is heard
+by two speech engines, then verified by an AI language expert, so you learn exactly what natives
+say."**, badges **✓ Real sentences · ✓ 3-layer verified · ✓ Word by word · ✓ Native voice**
+(owner: must say sentence learning from real videos, and show how deep the checking goes;
+"triple-checked" was too vague). Keep
 accuracy claims factual (triple-checked, doubtful words flagged); avoid unprovable superlatives
 ("most accurate", "100%") until measured. Other lines the owner liked: "Speak it like you were
 born with it." Short tagline for ads/logo: **"Nativski: Sound native."**
