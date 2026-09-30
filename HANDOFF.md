@@ -672,6 +672,13 @@ Pro ≈ $7.99/mo or $49.99/yr, 7-day trial, founding-member price.
 - `.github/workflows/web-lesson.yml` + `scripts/web/{supa,publish}.py`: the AI pipeline for one
   video, reporting `lessons.stage` as it goes, uploading lesson.json + clips to storage.
 
+**Design (owner's request): SIMPLE, uncluttered, always dark, "like a movie app without the theater
+look".** `web/public/web.css` forces dark tokens (black, violet accent `#8b7bff`→`#c86bff`),
+Learn = slim review bar, a big **Continue** hero (last opened lesson, `app.lastLesson`), one-line
+"Paste a YouTube link [Add]" row, and a 2-column **poster grid** (16:9 YouTube thumbnails; lessons
+being made show a spinner + stage over a dimmed poster). Explore = the same posters with a +/✓ badge,
+channels as pills. Keep new UI to this style: few words, no explanatory footers.
+
 **Owner's next steps:** create Supabase + Vercel accounts and follow `web/README.md` (never paste
 keys into chat). **Next engineering:** Stripe (Pro), Spanish pipeline, Modal GPU worker, custom
 SMTP for sign-in emails (Supabase's built-in email is rate-limited), admin page for channels.

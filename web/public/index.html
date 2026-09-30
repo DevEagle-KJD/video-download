@@ -9,8 +9,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Clipling">
-  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
   <meta name="format-detection" content="telephone=no">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -34,8 +34,7 @@
             </div>
           </div>
           <button class="primary-button" id="si-send">Email Me a Sign-in Code</button>
-          <p class="section-footer">No password needed. We’ll email you a 6-digit code.</p>
-        </div>
+          </div>
         <div id="si-step2" hidden>
           <p class="section-footer" style="margin:0 0 10px">We sent a code to <b id="si-sent-to"></b>. Type it here:</p>
           <div class="group">
@@ -59,23 +58,14 @@
       </header>
       <div class="content">
         <h1 class="large-title">Learn</h1>
-        <div class="review-card" id="st-review-card"></div>
-
-        <p class="section-header">Add a video</p>
-        <div class="group">
-          <div class="cell input-cell">
-            <svg class="cell-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
-            <input id="st-url" type="url" inputmode="url" placeholder="Paste a YouTube link" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
-          </div>
+        <div id="st-review-card"></div>
+        <div id="st-continue"></div>
+        <div class="add-row">
+          <input id="st-url" type="url" inputmode="url" placeholder="Paste a YouTube link" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+          <button id="st-make" aria-label="Add lesson">Add</button>
         </div>
-        <button class="primary-button" id="st-make">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H19v-3"/></svg>
-          <span>Add Lesson</span>
-        </button>
-        <p class="section-footer" style="margin-top:-12px">Russian videos from channels in our library (see Explore). A video that’s already a lesson is added instantly.</p>
-
-        <p class="section-header">My lessons</p>
-        <div class="group list" id="st-lessons"></div>
+        <h2 class="shelf-title">My lessons</h2>
+        <div class="poster-grid" id="st-lessons"></div>
       </div>
     </section>
 
@@ -84,10 +74,9 @@
       <header class="navbar"><span class="navbar-title">Explore</span></header>
       <div class="content">
         <h1 class="large-title">Explore</h1>
-        <p class="section-header">Ready-made lessons</p>
-        <div class="group list" id="ex-lessons"></div>
-        <p class="section-header">Channels in our library</p>
-        <div class="group list" id="ex-channels"></div>
+        <div class="poster-grid" id="ex-lessons"></div>
+        <h2 class="shelf-title">Channels</h2>
+        <div class="channel-list" id="ex-channels"></div>
       </div>
     </section>
 
@@ -100,7 +89,6 @@
           <div class="cell"><div class="k">Signed in as</div><span id="ac-email"></span></div>
           <div class="cell"><div class="k">Plan</div><b id="ac-plan">Free</b><div class="row-sub" id="ac-plan-note"></div></div>
         </div>
-        <p class="section-footer">Add this app to your Home Screen: in Safari tap Share → Add to Home Screen.</p>
         <button class="secondary-button destructive" id="ac-signout">Sign Out</button>
       </div>
     </section>

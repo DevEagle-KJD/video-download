@@ -107,47 +107,45 @@ function dueCards() {
   return Object.values(cards).filter(c => !c.deleted && c.due <= now).sort((a, b) => a.due - b.due);
 }
 
+const thumbOf = (id, m = {}) => m.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+const posterImg = (id, m) => `<img src="${esc(thumbOf(id, m))}" referrerpolicy="no-referrer" alt="" loading="lazy" onerror="this.remove()">`;
+
 function stRender() {
   const live = Object.values(cards).filter(c => !c.deleted);
   const due = dueCards().length;
-  const nWords = live.filter(c => c.kind === 'word').length, nSent = live.length - nWords;
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  // Review: one slim bar, only once something is saved.
   $('#st-review-card').innerHTML = live.length
-    ? `<div class="rc-text"><b>${due ? `${plural(due, 'card')} to review` : 'All caught up'}</b>
-         <span>${[nSent && `${plural(nSent, 'sentence')} mined`, nWords && `${plural(nWords, 'word')} saved`].filter(Boolean).join(' · ')}</span></div>
-       <div class="rc-btns"><button class="rc-btn ghost" data-s="saved">See All</button>
-       <button class="rc-btn" data-s="review" ${due ? '' : 'disabled'}>Review</button></div>`
-    : `<div class="rc-text"><b>Mine your first sentence</b>
-         <span>Open a lesson and tap ☆ on sentences you want to learn.</span></div>`;
+    ? `<button class="rv-bar${due ? ' due' : ''}" data-s="${due ? 'review' : 'saved'}">
+         <span class="rv-bar-n">${due || '✓'}</span>
+         <span class="rv-bar-t"><b>${due ? `${plural(due, 'card')} to review` : 'All caught up'}</b><i>${plural(live.length, 'saved card')}</i></span>
+         <span class="rv-bar-go">${due ? 'Review' : 'See all'}</span>
+       </button>` : '';
   const badge = $('#st-badge');
   badge.hidden = !due;
   badge.textContent = due > 99 ? '99+' : due;
 
+  // Continue: the lesson you opened last.
+  const last = lessons.find(l => l.id === store.get('lastLesson') && l.state === 'ready');
+  $('#st-continue').innerHTML = last ? `
+    <button class="hero" data-s="open" data-id="${esc(last.id)}">
+      ${posterImg(last.id, last.meta)}
+      <span class="hero-shade"></span>
+      <span class="hero-text"><i>Continue</i><b>${esc(last.meta?.title || 'Lesson')}</b></span>
+      <span class="hero-play"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+    </button>` : '';
+
   $('#st-lessons').innerHTML = lessons.length ? lessons.map(l => {
     const m = l.meta || {};
-    const title = m.title || hostOf(l.url) || 'New lesson';
-    let sub, dot = '';
-    if (l.state === 'ready') {
-      const mined = live.filter(c => c.lesson === l.id && c.kind !== 'word').length;
-      sub = `${m.channel ? `${m.channel} · ` : ''}${m.count || 0} sentences${mined ? ` · ${mined} mined` : ''}${m.duration ? ` · ${fmtDuration(m.duration)}` : ''}`;
-      dot = 'ready';
-    } else if (l.state === 'failed') {
-      sub = 'Failed'; dot = 'failed';
-    } else {
-      sub = `${l.stage || 'Waiting to start'}…`;
-      dot = 'running';
-    }
-    const thumb = m.thumbnail
-      ? `<img src="${esc(m.thumbnail)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">` : '';
-    return `<button class="cell row" data-s="open" data-id="${l.id}">
-      <div class="row-thumb" style="position:relative;overflow:hidden">${ICON.film}${thumb}</div>
-      <div class="row-text">
-        <div class="row-title">${esc(title)}</div>
-        <div class="row-sub"><i class="dot ${dot}"></i>${esc(sub)}</div>
-      </div>
-      <svg class="chevron" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+    const over = l.state === 'ready' ? ''
+      : l.state === 'failed' ? '<span class="poster-state failed">Couldn’t be made</span>'
+        : `<span class="poster-state"><span class="spinner"></span>${esc(l.stage || 'Waiting to start')}…</span>`;
+    return `<button class="poster${l.state === 'ready' ? '' : ' busy'}" data-s="open" data-id="${esc(l.id)}">
+      <span class="poster-img">${posterImg(l.id, m)}${over}${m.duration && l.state === 'ready' ? `<span class="poster-time">${fmtDuration(m.duration)}</span>` : ''}</span>
+      <span class="poster-title">${esc(m.title || 'New lesson')}</span>
+      <span class="poster-sub">${esc(m.channel || '')}</span>
     </button>`;
-  }).join('') : `<div class="empty">${ICON.empty}<div>No lessons yet. Paste a YouTube link above, or pick one in Explore.</div></div>`;
+  }).join('') : `<p class="empty-note">Paste a YouTube link above, or pick a lesson in Explore.</p>`;
 }
 
 function studyShow() {
@@ -311,6 +309,7 @@ async function openLesson(l) {
     return;
   }
   lesson = { id: l.id, data, meta: l.meta || {}, url: l.url };
+  store.set('lastLesson', l.id);
   audioMaps[l.id] = data.audio?.clips || {};
   cur = -1;
   stopAt = null; loopFrom = null; nextAfterStop = null; lockedIdx = null;
@@ -1495,22 +1494,21 @@ async function exploreShow() {
       db('channels?select=name,author_url&order=name'),
     ]);
     const mine = new Set(lessons.map(l => l.id));
-    list.innerHTML = rows.length ? rows.map(r => `
-      <div class="cell row">
-        <div class="row-thumb" style="position:relative;overflow:hidden">${ICON.film}${r.thumbnail ? `<img src="${esc(r.thumbnail)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">` : ''}</div>
-        <div class="row-text">
-          <div class="row-title">${esc(r.title || 'Lesson')}</div>
-          <div class="row-sub">${esc([r.channel, r.sentence_count && `${r.sentence_count} sentences`, fmtDuration(r.duration)].filter(Boolean).join(' · '))}</div>
-        </div>
-        ${mine.has(r.video_id) ? '<span class="ex-added">Added</span>'
-          : `<button class="chip ex-add" data-s="ex-add" data-id="${esc(r.video_id)}">＋ Add</button>`}
-      </div>`).join('')
-      : `<div class="empty">${ICON.empty}<div>No lessons in the library yet.</div></div>`;
+    list.innerHTML = rows.length ? rows.map(r => {
+      const m = { thumbnail: r.thumbnail };
+      const added = mine.has(r.video_id);
+      return `<button class="poster" data-s="${added ? 'open' : 'ex-add'}" data-id="${esc(r.video_id)}">
+        <span class="poster-img">${posterImg(r.video_id, m)}${r.duration ? `<span class="poster-time">${fmtDuration(r.duration)}</span>` : ''}
+          <span class="poster-add${added ? ' added' : ''}">${added ? '✓' : '+'}</span></span>
+        <span class="poster-title">${esc(r.title || 'Lesson')}</span>
+        <span class="poster-sub">${esc(r.channel || '')}</span>
+      </button>`;
+    }).join('') : '<p class="empty-note">No lessons in the library yet.</p>';
     $('#ex-channels').innerHTML = channels.length
-      ? channels.map(c => `<a class="cell row" href="${esc(c.author_url)}" target="_blank" rel="noopener"><div class="row-text"><div class="row-title">${esc(c.name || c.author_url)}</div><div class="row-sub">Open on YouTube, copy a video link, and paste it on the Learn tab</div></div></a>`).join('')
-      : '<div class="empty"><div>No channels yet.</div></div>';
+      ? channels.map(c => `<a class="channel-pill" href="${esc(c.author_url)}" target="_blank" rel="noopener">${esc(c.name || c.author_url)}</a>`).join('')
+      : '<p class="empty-note">No channels yet.</p>';
   } catch (e) {
-    list.innerHTML = `<div class="empty"><div>${esc(e.message)}</div></div>`;
+    list.innerHTML = `<p class="empty-note">${esc(e.message)}</p>`;
   }
 }
 window.exploreShow = exploreShow;
