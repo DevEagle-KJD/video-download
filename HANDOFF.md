@@ -673,7 +673,7 @@ CLAUDE.md                  points new sessions here
 learn languages from **real YouTube videos** with the exact transcript (stress marks for Russian),
 a literal word-by-word line, plain English, a natural voice for every word and sentence (normal +
 slow, syllables lit), and Anki-style flashcards. **The core promise: whatever language you learn,
-you'll sound like a native, from near-perfect transcripts.** **Front page (sign-in), owner approved:** headline
+you'll sound like a native, from near-perfect transcripts.** **Front page (sign-in), LOCKED IN (owner: "the best so far"; don't change without asking):** headline
 **"Any language. Sound native."**, sub-line **"Real sentences from real videos. Every word is heard
 by two speech engines, then verified by an AI language expert, so you learn exactly what natives
 say."**, badges **✓ Real sentences · ✓ Word by word · ✓ Native voice**
