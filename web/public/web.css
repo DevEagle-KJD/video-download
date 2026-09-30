@@ -39,7 +39,7 @@ body.signed-out .tabbar { display: none; }
   font-size: 30px; font-weight: 800; line-height: 1.15; letter-spacing: -0.6px; margin: 4px 16px 10px;
   background: linear-gradient(90deg, var(--blue), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.si-tag { color: var(--secondary); font-size: 16px; margin: 0 16px 14px; }
+.si-tag { color: var(--secondary); font-size: 17px; line-height: 1.4; margin: 0 16px 32px; }
 .si-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 0 30px; }
 .si-badges span {
   padding: 5px 10px; border-radius: 12px; background: rgba(255, 176, 32, .12);
