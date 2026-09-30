@@ -676,9 +676,9 @@ slow, syllables lit), and Anki-style flashcards. **The core promise: whatever la
 you'll sound like a native, from near-perfect transcripts.** **Front page (sign-in), owner approved:** headline
 **"Any language. Sound native."**, sub-line **"Real sentences from real videos. Every word is heard
 by two speech engines, then verified by an AI language expert, so you learn exactly what natives
-say."**, badges **✓ Real sentences · ✓ 3-layer verified · ✓ Word by word · ✓ Native voice**
+say."**, badges **✓ Real sentences · ✓ Word by word · ✓ Native voice**
 (owner: must say sentence learning from real videos, and show how deep the checking goes;
-"triple-checked" was too vague). Keep
+"triple-checked" / "3-layer verified" sound tacky, so don't use them). Keep
 accuracy claims factual (triple-checked, doubtful words flagged); avoid unprovable superlatives
 ("most accurate", "100%") until measured. Other lines the owner liked: "Speak it like you were
 born with it." Short tagline for ads/logo: **"Nativski: Sound native."**
