@@ -36,10 +36,15 @@ body.signed-out .tabbar { display: none; }
 }
 .si-logo img { width: 100%; height: 100%; display: block; }
 .si-headline {
-  font-size: 24px; font-weight: 700; line-height: 1.2; letter-spacing: -0.4px; margin: 4px 16px 8px;
+  font-size: 30px; font-weight: 800; line-height: 1.15; letter-spacing: -0.6px; margin: 4px 16px 10px;
   background: linear-gradient(90deg, var(--blue), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.si-tag { color: var(--secondary); font-size: 16px; margin: 0 12px 30px; }
+.si-tag { color: var(--secondary); font-size: 16px; margin: 0 16px 14px; }
+.si-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 0 30px; }
+.si-badges span {
+  padding: 5px 10px; border-radius: 12px; background: rgba(255, 176, 32, .12);
+  color: var(--blue); font-size: 12px; font-weight: 600;
+}
 .signin .text-button { margin: 10px auto 0; display: block; color: var(--secondary); }
 
 /* Review bar */
