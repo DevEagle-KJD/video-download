@@ -1,9 +1,17 @@
-# Grab: Project Handoff
+# Grab + Nativski: Project Handoff
 
-Read this first in any new session. It describes what the app is, how every part works, the
-rules and decisions behind it, and exactly where things were left off.
+Read this first in any new session. It describes what the apps are, how every part works, the
+rules and decisions behind them, and exactly where things were left off.
 
-_Last updated: 2026-09-30 (public web app started in `web/`; Saved page, Anki-style review, sentence voices)._
+_Last updated: 2026-09-30. **Current focus: the public web app "Nativski" in `web/` (§14).** It is
+built and tested locally but **not deployed yet**: the owner still has to create the Supabase and
+Vercel accounts (steps in §14). Grab (the private app, §1–§13) keeps working and is where the
+Study features were developed first._
+
+**Two apps in this repo:**
+- **Grab** (`app/`, GitHub Pages, private): the owner's downloader + Russian study app. §1–§13.
+- **Nativski** (`web/`, Vercel + Supabase, public, to be monetized): the language-learning product
+  built from Grab's Study tab. §14.
 
 ---
 
@@ -19,9 +27,9 @@ that moment of the video, tap any word to hear it (natural neural voice, normal 
 its meaning, and save sentences or words as **spaced-repetition flashcards**. All heavy work runs
 on **GitHub Actions**. The app is a static site on **GitHub Pages**.
 
-The owner (GitHub user **DevEagle-KJD**) uses an **iPhone only** (no computer) and prefers plain,
-step-by-step explanations. This GitHub version is a **trial run**. The long-term goal is a
-**public multi-language learning service built on Vercel + Supabase** (see §12).
+The owner (GitHub user **DevEagle-KJD**) uses an **iPhone only** (no computer; they may use a
+desktop browser for Grab with a second token) and prefers plain, step-by-step explanations. This
+GitHub version is a **trial run**. The public multi-language service is **Nativski** (§14).
 
 ---
 
@@ -550,12 +558,30 @@ The owner was asked to check platform.claude.com → Usage. Rough estimate: a fe
 17. Engine label on in-progress lessons; **Stop & Remove** for lessons being made; the reload
     (HTTP cache) fix; YouTube first-tap play fix; play returns to the sentence even with Follow
     off; **Caption check**.
+18. (2026-09-29/30) Review got an overhaul from the owner's feedback: **Saved page** (See All:
+    words/sentences, search, Open in Lesson, Review It Now, Start Over, Remove), **Anki-style
+    grading** (Again/Hard/Good/Easy with Anki's 1 min/10 min learning steps, "<1m" labels),
+    **Undo**, learning cards wait until due (countdown screen), sessions carry on with all due
+    cards, and the natural voice always (no robotic fallback while recordings load).
+19. **Sentence voices**: voices.py records every whole sentence too; sentence review plays it
+    automatically (Normal/Slowly/Video); a 🎙️ Record button where a sentence has none; the Add
+    voices workflow now also runs daily / on a marker push and back-fills every lesson. Both
+    existing lessons (4g592n9bv0ta, o1qa70gkuyaq) have sentence voices.
+20. (2026-09-30) Long product/strategy discussion (monetization, content rights, YouTube,
+    Language Reactor as the closest competitor) → decision to build the public **web app**.
+21. **Nativski** stage 1 built in `web/`: Supabase schema, Vercel functions, sign-in by email
+    code, Learn/Explore/Account, the lesson player/review from Grab, the web lesson workflow;
+    then a simple dark cinematic redesign with an amber accent, the habit loop (XP, daily goal,
+    streak, celebrations, progress), and the name/logo/slogan.
 
 ---
 
 ## 12. Where things were left off and what's next
 
-### Immediately pending (owner's side)
+**▶ Start here: the next step is deploying Nativski (§14 → "Where we left off").** The items below
+are Grab's own leftovers.
+
+### Grab: pending (owner's side)
 1. Study with lesson `4g592n9bv0ta` (AI). Check **whether the 45 flagged words were really wrong**.
 2. **Check the real cost** in platform.claude.com → Usage (still unknown; needed for pricing).
 3. Keep reporting YouTube-mode bugs from the Captions lesson (`o1qa70gkuyaq`). Fixed so far: first
@@ -640,54 +666,107 @@ CLAUDE.md                  points new sessions here
 
 ---
 
-## 14. The public web app (`web/`, started 2026-09-30)
+## 14. Nativski: the public web app (`web/`, started 2026-09-30)
 
-The owner decided on a **web app (installable on the Home Screen, no App Store)**, monetized with a
-free tier + Pro subscription. Working name **Clipling** (not final; `APP_NAME` env + a few strings in
-`web/public/index.html` and `manifest.webmanifest`). Launch languages: **Russian, then Spanish**
-(Spanish needs pipeline work: no GigaAM/RUAccent; the enrich prompt is Russian-specific), later
-French/German/Italian/Portuguese, English, then Japanese/Korean/Chinese.
+### The product
+**Nativski** (said **NAY-tiv-skee**; "native" + a Russian **-ski** twist, chosen 2026-09-30):
+learn languages from **real YouTube videos** with the exact transcript (stress marks for Russian),
+a literal word-by-word line, plain English, a natural voice for every word and sentence (normal +
+slow, syllables lit), and Anki-style flashcards. **Slogan:** headline **"Speak it like you were
+born with it."**, sub-line **"Real videos. Every word. A native voice."** (on the sign-in page).
+Short tagline for ads/logo: **"Nativski: Sound native."**
 
-**Content model (owner's decision after long discussion):** creators give **permission** (email /
-one-page agreement) but do **not** send files; approved channels are listed in the `channels` table.
-Lessons play **live through the YouTube embed** (creators keep views/ads). Each video is processed
-**once**, downloading its audio from YouTube behind the scenes (this still breaks YouTube's terms and
-can be blocked: queue + retries; suggested fallbacks: creators add us in **YouTube Studio →
-Permissions**, or share a folder). Claude declined to build rotating-VPN evasion for unapproved
-content and to write marketing meant to hide the method from YouTube; honest marketing of results
-is fine (don't claim "we never download"). Free tier idea: 3 new lessons/week, review unlimited;
-Pro ≈ $7.99/mo or $49.99/yr, 7-day trial, founding-member price.
+**Name history (so nobody re-proposes rejected ones):** Clipling (working name) → owner wanted
+fluency-promising names: Fluentia (taken: fluentia.com/.app, and "Fluent…" is crowded: Fluenti,
+FluentU [video-based competitor], Fluent, Fluentika) → LinguVera (crowded "Lingu-": Linguva,
+Lingua Verbum, Lingua Verna, Linguava) → **Nativessa** (rejected: "sounds like Vanessa") →
+real Russian words rejected (Svobodia, Rodnessa…) → American word + Russian ending: Nativsky /
+Nativov / Speakov (Speakov too close to the "Speako" app) → **Nativski** chosen. Checks done:
+**nativski.com was unregistered** (Verisign RDAP 404, 2026-09-30); no app/company found; searching
+it currently surfaces "nativism" pages (near-spelling; fades once the brand exists). The owner
+should **buy nativski.com** (and ideally nativski.app) and later do a trademark check.
 
-**Built so far (stage 1, tested locally with mocked Supabase/YouTube; not deployed yet):**
-- `web/supabase/schema.sql`: profiles (plan), channels (approved), channel_requests, lessons
-  (one per video: status/stage/error), user_lessons, cards (jsonb per card), reports; RLS; public
-  storage bucket `lessons`.
-- `web/api/config.js`, `web/api/lessons.js` (Vercel functions; env vars in `web/README.md`).
-  Admins (`ADMIN_EMAILS`) can add any video; others only approved channels (requests logged).
-- `web/public/`: sign-in by **6-digit email code** (Supabase GoTrue REST; magic links would open in
-  Safari, not the Home Screen app), Learn (my lessons + add a video), Explore (ready lessons +
-  channels), Account (plan, sign out), and the Grab Study lesson/saved/review code adapted
-  (`study.js`: YouTube-only player, files from `fileUrl()`, cards synced per card to the `cards`
-  table with a `dirty` set, reports to `reports`, no engine switch/captions check/voices button).
-- `.github/workflows/web-lesson.yml` + `scripts/web/{supa,publish}.py`: the AI pipeline for one
-  video, reporting `lessons.stage` as it goes, uploading lesson.json + clips to storage.
+**Look (owner's requests):** SIMPLE, uncluttered, **always dark**, "like a movie app without the
+theater look"; **warm amber** accent (`#ffb020`→`#ff7a3d`, dark text `--on-accent`; the owner
+rejected purple). One place to change it: `--blue` / `--accent-2` in `web/public/web.css`.
+Logo/icon: amber gradient **"N"** on black (`scripts/web/make-icons.py` →
+`web/public/icons/`). Keep new UI in this style: few words, no explanatory footers, big video
+posters.
 
-**Design (owner's request): SIMPLE, uncluttered, always dark, "like a movie app without the theater
-look".** `web/public/web.css` forces dark tokens (black, violet accent `#8b7bff`→`#c86bff`),
-Learn = slim review bar, a big **Continue** hero (last opened lesson, `app.lastLesson`), one-line
-"Paste a YouTube link [Add]" row, and a 2-column **poster grid** (16:9 YouTube thumbnails; lessons
-being made show a spinner + stage over a dimmed poster). Explore = the same posters with a +/✓ badge,
-channels as pills. Keep new UI to this style: few words, no explanatory footers.
-**Accent changed to warm amber** (`#ffb020`→`#ff7a3d`, dark text on it via `--on-accent`); the owner
-didn't like the purple. **Habit loop (owner: "make it addictive, really draw them in")** in
-`web/public/engage.js`: XP (+1 new sentence heard, +3 save, +2 review card, +20 lesson finished at
-90% heard), daily goal 10/30/50 XP, 🔥 streak (days meeting the goal), goal ring next to the Learn
-title, progress sheet (streak, words learned = graduated word cards, sentences heard, 7-day bars,
-goal picker), confetti + "Daily goal reached / Lesson complete" celebrations, a progress bar on each
-poster. Stored in `app.stats` and the Supabase table `user_stats` (merge: max per day, union of heard
-sentences). Ideas not built yet: reminders (web push on Home Screen apps), weekly recap, streak
-freeze, leagues/friends.
+**Addictive by design (owner: "really draw them in"):** `web/public/engage.js`: XP (+1 new
+sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), daily goal 10/30/50,
+🔥 streak (days meeting the goal), goal ring next to "Learn", progress sheet (streak, words learned
+= graduated word cards, sentences heard, 7-day bars, goal picker), confetti + "Daily goal reached"
+/ "Lesson complete", progress bar on each poster. Stored in `app.stats` + Supabase `user_stats`.
+**Not built yet:** daily reminder notifications (web push, works in Home Screen apps on iOS
+16.4+), streak freeze (Pro perk), weekly recap, friends/leagues.
 
-**Owner's next steps:** create Supabase + Vercel accounts and follow `web/README.md` (never paste
-keys into chat). **Next engineering:** Stripe (Pro), Spanish pipeline, Modal GPU worker, custom
-SMTP for sign-in emails (Supabase's built-in email is rate-limited), admin page for channels.
+**Business decisions so far:**
+- **Web app, no App Store** (Home Screen install; Stripe ≈3% instead of Apple's 15–30%).
+- **Freemium:** free = 3 new lessons/week (studying and review unlimited); **Pro ≈ $7.99/mo or
+  $49.99/yr**, 7-day trial, "founding member" price, invite-a-friend week, streak rewards.
+  `profiles.plan` = free|pro (set by hand until Stripe).
+- **Languages:** launch **Russian**, then **Spanish** (needs pipeline work: no GigaAM/RUAccent;
+  the enrich prompt is Russian-specific), then French/German/Italian/Portuguese, English (for
+  non-native speakers), later Japanese/Korean/Chinese (furigana/pinyin).
+- **Content:** creators of approved channels give **permission** (email / one-page agreement) but
+  do **not** send files (owner's firm position: per-creator file requests are too much work).
+  Approved channels live in `channels`; others are logged in `channel_requests`. Lessons play
+  **live in the YouTube embed** (creators keep views/ads; ads are a known downside; YouTube
+  Premium users see none). Each video is processed **once**: its audio is downloaded from YouTube
+  behind the scenes (still against YouTube's terms and blockable: queue + retries; fallbacks
+  suggested: creators add us under **YouTube Studio → Settings → Permissions**, or share a folder).
+  Claude declined to build rotating-VPN/proxy evasion **for unapproved content** and to write
+  marketing meant to hide the method from YouTube; for approved channels, the existing tools (VPN
+  fallback, paid proxies if needed) are acceptable to the owner, who accepts the risk. Honest
+  marketing of results is fine; never claim "we never download". Lawyer review recommended for
+  the creator agreement and terms of use.
+- Realistic revenue ranges were given (quiet launch $200–1k/mo; steady marketing $3–10k; breakout
+  $30k+); marketing via short videos is the main lever. Real per-lesson Claude cost is still
+  unknown (owner to check platform.claude.com → Usage).
+- An outreach email + DM + follow-up for Easy Russian / Easy Languages (a ~20-language network:
+  one deal could cover many languages) was drafted in chat; business email on the channel's
+  About page (desktop view), Instagram, LinkedIn.
+
+### What's built (all in the repo, tested locally with mocked Supabase/YouTube; NOT deployed)
+- `web/supabase/schema.sql`: profiles (plan), channels, channel_requests, lessons (one per video:
+  status/stage/error), user_lessons, cards (jsonb per card), user_stats, reports; RLS; public
+  storage bucket `lessons`; signup trigger creates the profile.
+- `web/api/config.js` (public settings), `web/api/lessons.js` (add a video: sign-in check,
+  Russian only for now, oEmbed details, approved channel or `ADMIN_EMAILS`, free-plan limit,
+  reuse an existing lesson or insert + dispatch `web-lesson.yml`).
+- `web/public/`: `core.js` (helpers, sign-in by **6-digit email code** via Supabase GoTrue REST,
+  since magic links would open in Safari rather than the Home Screen app; REST client `db()`,
+  `api()`, `fileUrl()`), `study.js` (Grab's lesson player/word card/voices/Saved/review adapted:
+  YouTube-only, cards synced per card to `cards` via a `dirty` set, reports to `reports`),
+  `engage.js`, `index.html` (Sign in, Learn, Explore, Account, Lesson, Saved, Review), `web.css`,
+  `sw.js`, manifest, icons.
+- `.github/workflows/web-lesson.yml` + `scripts/web/{supa,publish,make-icons}.py`: the AI pipeline
+  for one video (Whisper large-v3 + GigaAM + Claude proofread/enrich/review + word & sentence
+  voices), updating `lessons.stage`, uploading lesson.json + clips to storage.
+- Setup guide for all accounts/keys: `web/README.md`.
+
+### ▶ Where we left off
+The owner chose the name **Nativski** and asked for this handoff. **They have NOT yet**:
+1. **Bought nativski.com** (namecheap.com).
+2. **Created the Supabase project.** Steps given in chat: supabase.com → Continue with GitHub → New
+   project `nativski` (password in the iPhone Passwords app) → SQL Editor → paste the raw file
+   https://raw.githubusercontent.com/DevEagle-KJD/video-download/claude/iphone-video-downloader-pwqipq/web/supabase/schema.sql
+   → Run → Authentication → Emails → **Magic Link** template: add `Your sign-in code: {{ .Token }}`.
+3. Then (not started): GitHub secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`; a fine-grained
+   GitHub token (Actions: read & write on this repo) for Vercel; **Vercel** → import this repo,
+   Root Directory `web`, env vars (`SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_REF`=the default branch,
+   `ADMIN_EMAILS`) → Deploy. Then add the first approved channel(s) in the `channels` table and
+   test: sign in, add the breakfast video, watch `lessons.stage` progress, study, review.
+   Guide the owner tap by tap; **never ask for keys in chat**.
+
+### Next engineering (in rough order)
+1. After the first real deploy: fix whatever breaks (Supabase REST details, the worker's
+   Supabase uploads, sign-in email rate limits → custom SMTP e.g. Resend).
+2. **Stripe** Pro subscription (Checkout + customer portal + webhook → `profiles.plan`).
+3. Reminder notifications (web push) and streak freeze; weekly recap.
+4. **Spanish** pipeline (second ASR for Spanish, generic enrich prompt, no stress marks).
+5. Move the worker off GitHub Actions to a **serverless GPU (Modal)** before charging money
+   (faster, and GitHub's terms don't fit a commercial service); Azure Speech instead of edge-tts.
+6. Admin page for channels/requests; landing page for marketing; "Import your own video".

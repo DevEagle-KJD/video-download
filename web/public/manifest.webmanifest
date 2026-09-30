@@ -1,7 +1,7 @@
 {
-  "name": "Clipling",
-  "short_name": "Clipling",
-  "description": "Learn languages from real videos",
+  "name": "Nativski",
+  "short_name": "Nativski",
+  "description": "Sound native. Learn languages from real videos.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

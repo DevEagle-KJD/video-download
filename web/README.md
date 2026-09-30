@@ -1,4 +1,4 @@
-# Clipling (working name) — the public web app
+# Nativski — the public web app
 
 Learn languages from real YouTube videos: the exact transcript with stress
 marks, a literal word-by-word line, plain English, a natural voice for every

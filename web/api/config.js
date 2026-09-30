@@ -5,7 +5,7 @@ import { env, send } from './_lib.js';
 export default function handler(req, res) {
   res.setHeader('Cache-Control', 'public, max-age=300');
   send(res, 200, {
-    appName: env('APP_NAME') || 'Clipling',
+    appName: env('APP_NAME') || 'Nativski',
     supabaseUrl: env('SUPABASE_URL'),
     supabaseAnonKey: env('SUPABASE_ANON_KEY'),
     freeLessonsPerWeek: Number(env('FREE_LESSONS_PER_WEEK') || 3),
