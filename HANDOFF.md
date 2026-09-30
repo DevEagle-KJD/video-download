@@ -672,9 +672,10 @@ CLAUDE.md                  points new sessions here
 **Nativski** (said **NAY-tiv-skee**; "native" + a Russian **-ski** twist, chosen 2026-09-30):
 learn languages from **real YouTube videos** with the exact transcript (stress marks for Russian),
 a literal word-by-word line, plain English, a natural voice for every word and sentence (normal +
-slow, syllables lit), and Anki-style flashcards. **Slogan:** headline **"Speak it like you were
-born with it."**, sub-line **"Real videos. Every word. A native voice."** (on the sign-in page).
-Short tagline for ads/logo: **"Nativski: Sound native."**
+slow, syllables lit), and Anki-style flashcards. **The core promise: whatever language you learn,
+you'll sound like a native.** **Slogan (owner loves it):** headline **"Any language. Speak it like
+you were born with it."**, sub-line **"Real videos. Every word. A native voice."** (front of the
+sign-in page and future landing page). Short tagline for ads/logo: **"Nativski: Sound native."**
 
 **Name history (so nobody re-proposes rejected ones):** Clipling (working name) → owner wanted
 fluency-promising names: Fluentia (taken: fluentia.com/.app, and "Fluent…" is crowded: Fluenti,

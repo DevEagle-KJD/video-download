@@ -1,7 +1,7 @@
 {
   "name": "Nativski",
   "short_name": "Nativski",
-  "description": "Sound native. Learn languages from real videos.",
+  "description": "Any language. Speak it like you were born with it.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
