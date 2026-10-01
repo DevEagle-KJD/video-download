@@ -12,7 +12,8 @@ export async function db(path, { method = 'GET', body, headers = {} } = {}) {
     method,
     headers: {
       apikey: env('SUPABASE_SERVICE_ROLE_KEY'),
-      Authorization: `Bearer ${env('SUPABASE_SERVICE_ROLE_KEY')}`,
+      // Legacy keys are JWTs and also go in Authorization; newer "sb_secret_…" keys go in apikey only.
+      ...(env('SUPABASE_SERVICE_ROLE_KEY').startsWith('eyJ') ? { Authorization: `Bearer ${env('SUPABASE_SERVICE_ROLE_KEY')}` } : {}),
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
       ...headers,

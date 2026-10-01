@@ -149,7 +149,7 @@ async function db(path, { method = 'GET', body, prefer } = {}) {
     cache: 'no-store',
     headers: {
       apikey: config.supabaseAnonKey,
-      Authorization: `Bearer ${token || config.supabaseAnonKey}`,
+      ...(token || config.supabaseAnonKey.startsWith('eyJ') ? { Authorization: `Bearer ${token || config.supabaseAnonKey}` } : {}),
       'Content-Type': 'application/json',
       ...(prefer ? { Prefer: prefer } : {}),
     },

@@ -14,7 +14,9 @@ KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 
 def _req(method, path, data=None, headers=None, raw=False):
-    h = {"apikey": KEY, "Authorization": f"Bearer {KEY}"}
+    h = {"apikey": KEY}
+    if KEY.startswith("eyJ"):  # legacy JWT key; newer "sb_secret_..." keys go in apikey only
+        h["Authorization"] = f"Bearer {KEY}"
     h.update(headers or {})
     body = data if raw else (json.dumps(data).encode() if data is not None else None)
     if not raw and data is not None:
