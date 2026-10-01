@@ -392,3 +392,34 @@ body {
 }
 .player-controls > button.big { color: var(--on-accent); }
 @media (min-width: 900px) { .hero { aspect-ratio: 2.35 / 1; } .hero img { object-position: center 30%; } }
+
+/* Phrase list: a clear, lively open arrow and ✕ (owner: easier to see, still on-brand) */
+.ph-q { align-items: center; }
+.ph-fold { padding: 10px 0; }
+.ph-q .ph-head { align-items: center; gap: 12px; border-radius: 14px; padding: 4px 6px 4px 0; transition: background .2s; }
+.ph-chev {
+  flex: none; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; line-height: 1; font-weight: 700; color: var(--blue);
+  background: rgba(255, 176, 32, 0.14); box-shadow: inset 0 0 0 1px rgba(255, 190, 90, 0.30);
+  transition: transform .35s cubic-bezier(.2, 1.5, .4, 1), background .2s, color .2s, box-shadow .2s;
+}
+.ph-fold.open .ph-chev {
+  transform: rotate(90deg); color: var(--on-accent);
+  background: linear-gradient(135deg, var(--blue), var(--accent-2)); box-shadow: 0 4px 16px rgba(255, 140, 40, 0.35);
+}
+.ph-x {
+  flex: none; width: 34px; height: 34px; border-radius: 50%; padding: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;
+  color: var(--secondary); background: var(--fill);
+  transition: transform .25s ease, background .2s, color .2s;
+}
+.ph-x:active { transform: scale(.9); }
+@media (hover: hover) {
+  .ph-q .ph-head:hover { background: rgba(255, 176, 32, 0.06); }
+  .ph-q .ph-head:hover .ph-chev { transform: translateX(3px) scale(1.08); background: rgba(255, 176, 32, 0.24); }
+  .ph-fold.open .ph-head:hover .ph-chev { transform: rotate(90deg) scale(1.08); }
+  .ph-x:hover { color: #fff; background: rgba(255, 90, 60, 0.85); transform: rotate(90deg); }
+}
+.ph-item { animation: phIn .3s ease-out; }
+@keyframes phIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
