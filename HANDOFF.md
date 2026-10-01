@@ -443,7 +443,7 @@ study (never vocabulary lists, never grammar). Study home → **💬 Say it like
    own Russian). Owner asked for **man/woman forms**: when wording depends on who's listening or
    speaking (ты спал/спала, я рад/рада), each form is its own version with `who` ("to a man", "to a
    woman", "if you're a man", "if you're a woman", or both); вы/plural forms get `who` "". Up to 8
-   versions; the app shows `who` next to the context (amber). Same phrase twice is blocked. Then a **second, independent "native-ear" review** (natural / slightly off /
+   versions; the app shows `who` next to the context (amber), and when a result has gendered forms the neutral ones say "man or woman". Context "polite" was renamed "with strangers" (old results mapped in the app); polite вы is translated as one person, not "you all". Same phrase twice is blocked. Then a **second, independent "native-ear" review** (natural / slightly off /
    unnatural + better wording): unnatural versions are replaced, doubts become `flag`s;
    **real-speech matching**: every `study-*` lesson.json is downloaded and searched for the phrase
    (`matches`: lesson, sentence index, text) → "🎬 Heard in N real video sentences" (tap → opens

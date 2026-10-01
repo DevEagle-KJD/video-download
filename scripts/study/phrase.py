@@ -4,8 +4,8 @@
   (then enrich.py adds stress marks, literal meanings, English and its review)
   python3 scripts/study/phrase.py finish    # merges out/phrase.json into out/lesson.json
 
-1. Claude, acting as a native speaker, gives 1-3 everyday versions (casual / polite /
-   anywhere) with a usage tip and its own confidence. When the wording changes with
+1. Claude, acting as a native speaker, gives 1-3 everyday versions (with friends / with
+   strangers / anywhere) with a usage tip and its own confidence. When the wording changes with
    who is talking or listening (спал / спала, рад / рада), each form is its own
    version, labelled "to a man", "if you're a woman", and so on. If the learner typed Russian,
    it also says whether natives would say it like that.
@@ -32,7 +32,7 @@ GEN_SYSTEM = """You are a native Russian speaker helping an English speaker lear
 
 The learner tells you something they want to be able to say: usually in English, sometimes in Russian they heard or wrote themselves.
 Return how native Russians actually say it in everyday conversation today:
-- 1 to 3 ways of saying it. Prefer what people really say out loud over textbook phrasing. When casual and polite speech differ, give a version for friends/family and a polite one for strangers/work; give a single version when one fits everywhere.
+- 1 to 3 ways of saying it. Prefer what people really say out loud over textbook phrasing. When casual and polite speech differ, give a version for friends/family and a polite one for strangers, work and older people; give a single version when one fits everywhere.
 - Russian words often change with who is speaking or who is listening (ты спал / ты спала, я рад / я рада, ты готов / ты готова). Whenever a version's wording depends on that, give each form as its own version (same context, en and note) and set who:
   - "to a man" / "to a woman" when it depends on the person you're talking to;
   - "if you're a man" / "if you're a woman" when it depends on the speaker;
@@ -40,9 +40,9 @@ Return how native Russians actually say it in everyday conversation today:
   Polite вы forms and plural forms are the same for everyone, so they get who "". Use who "" whenever the wording is the same for anyone. Never leave out the woman's form.
 - For each version:
   - ru: the Russian, with normal punctuation and no stress marks;
-  - context: "with friends", "polite" or "anywhere";
+  - context: "with friends", "with strangers" (the polite вы form) or "anywhere";
   - who: as above, or "";
-  - en: what it means, in natural English;
+  - en: what it means, in natural English. A polite вы version speaks to one person, so never write "you all" unless the learner meant a group;
   - note: a short tip on when natives use it (at most 15 words, no grammar terms); "" if nothing useful to add;
   - confidence: "high" if natives commonly say exactly this, "medium" if it's natural but equally common alternatives exist, "low" if you're unsure.
 - If the learner wrote Russian, also fill check: verdict "natural", "understandable but not natural" or "wrong", and a one-line comment in English. Include their wording as a version only if natives would really say it.

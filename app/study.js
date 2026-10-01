@@ -1626,12 +1626,15 @@ function renderPhrases() {
         <p class="ph-why">${step < 0 ? 'Starting… ' : ''}Takes about 2–3 minutes: we check real native speech first instead of guessing.</p></div></div>`;
     }
     const chk = d.check?.verdict ? `<div class="ph-check ${d.check.verdict === 'natural' ? 'good' : 'bad'}"><b>Your Russian: ${esc(d.check.verdict)}.</b> ${esc(d.check.comment || '')}</div>` : '';
+    const gendered = d.sentences.some(s => s.who);
     return `<div class="ph-item">${head}${chk}${d.sentences.map((s, i) => {
+      const ctx = s.context === 'polite' ? 'with strangers' : s.context || '';
+      const who = s.who || (gendered ? 'man or woman' : '');
       const id = `${p.id}:${i}`;
       const heard = (s.matches || []).length ? `<div class="ph-heard"><b>🎬 Heard in ${s.matches.length} real video sentence${s.matches.length === 1 ? '' : 's'}</b>${s.matches.map(m =>
         `<button data-s="ph-heard" data-lesson="${esc(m.lesson)}" data-i="${m.i}">${esc(m.ru)}<span>${esc(m.title || '')}</span></button>`).join('')}</div>` : '';
       return `<div class="ph-v">
-        <div class="ph-top"><span class="ph-ctx">${esc(s.context || '')}${s.who ? ` · <em>${esc(s.who)}</em>` : ''}</span>
+        <div class="ph-top"><span class="ph-ctx">${esc(ctx)}${who ? ` · <em>${esc(who)}</em>` : ''}</span>
           <button class="ph-star${isSaved(id) ? ' on' : ''}" data-s="ph-save" data-id="${p.id}" data-i="${i}" aria-label="Save to review">${isSaved(id) ? '★' : '☆'}</button></div>
         <div class="il">${tokensHTML(s.tokens, true)}</div>
         ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
