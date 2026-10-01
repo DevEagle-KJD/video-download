@@ -208,6 +208,9 @@ $('#si-verify').addEventListener('click', async () => {
     $('#si-verify').disabled = false;
   }
 });
+// Enter (or the keyboard's Send/Go key) does the same as the buttons.
+$('#si-email').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#si-send').click(); } });
+$('#si-code').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#si-verify').click(); } });
 $('#si-back').addEventListener('click', () => { $('#si-step1').hidden = false; $('#si-step2').hidden = true; });
 
 /* ───────── Account ───────── */
