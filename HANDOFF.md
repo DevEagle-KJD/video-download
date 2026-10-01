@@ -712,10 +712,10 @@ CLAUDE.md                  points new sessions here
 ## 14. Nativnik (formerly Nativski): the public web app (`web/`, started 2026-09-30)
 
 ### The product
-**RENAMED to Nativnik (2026-10-01, owner's final choice).** Said **NAY-tiv-nik** (also fine:
-na-TIV-nik); Russian **-ник** = "a person who…" (sputnik, beatnik), so Nativnik = "a native one /
+**RENAMED to Nativnik (2026-10-01, owner's final choice).** Shown on the site as **na-TEEV-nik** (the Russian way; owner chose it
+over the English NAY-tiv-nik); Russian **-ник** = "a person who…" (sputnik, beatnik), so Nativnik = "a native one /
 someone who speaks like a native". Front page shows a dictionary line under the logo:
-*(NAY-tiv-nik) · someone who speaks like a native*. Tagline idea: **"Become a Nativnik."**
+*(na-TEEV-nik) · someone who speaks like a native*. Tagline idea: **"Become a Nativnik."**
 Why the change: the owner worried "-ski" reads Polish and wanted it more Russian. Owner decided
 to **launch Russian only for now** (other languages later). Considered and rejected that day:
 Nativsky (reads "native SKY"), BornSpoken (owner: "sounds bad"), SoundNatively/TalkNatively.
