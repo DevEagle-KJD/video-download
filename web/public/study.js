@@ -1735,13 +1735,13 @@ function renderPhrases() {
     phOpenId = phrases.find(p => p.status === 'ready' && phData[p.id])?.id;
   }
   list.innerHTML = phrases.length ? phrases.map(p => {
-    const del = `<button class="ph-x" data-s="ph-del" data-id="${p.id}" aria-label="Delete">✕</button>`;
+    const del = `<button class="ph-x" data-s="ph-del" data-id="${p.id}" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>`;
     let head = `<div class="ph-q"><b>“${esc(p.text)}”</b>${del}</div>`;
     const d = phData[p.id];
     if (p.status === 'ready' && d) {
       const open = p.id === phOpenId;
       head = `<div class="ph-q ph-fold${open ? ' open' : ''}"><div class="ph-head" role="button" tabindex="0" data-s="ph-toggle" data-id="${p.id}" aria-expanded="${open}">
-        <span class="ph-chev">›</span><span class="ph-title"><b>“${esc(p.text)}”</b>${open ? '' : `<small>${esc(d.sentences[0]?.ru || '')}${d.sentences.length > 1 ? ` · ${d.sentences.length} ways` : ''}</small>`}</span></div>${del}</div>`;
+        <span class="ph-chev"><svg viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></svg></span><span class="ph-title"><b>“${esc(p.text)}”</b>${open ? '' : `<small>${esc(d.sentences[0]?.ru || '')}${d.sentences.length > 1 ? ` · ${d.sentences.length} ways` : ''}</small>`}</span></div>${del}</div>`;
       if (!open) return `<div class="ph-item">${head}</div>`;
     }
     if (p.status === 'failed') return `<div class="ph-item">${head}<div class="ph-wait">⚠️ ${esc(p.error || 'Something went wrong.')} <button class="text-button" data-s="ph-retry" data-id="${p.id}">Try again</button></div></div>`;
