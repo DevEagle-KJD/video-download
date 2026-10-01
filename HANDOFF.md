@@ -816,8 +816,17 @@ before charging money; env vars set; Supabase Site URL/Redirect = that address).
 successfully (sign-in link). GitHub secrets SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY added; a
 fine-grained token (Actions: read & write, this repo only, 1 year) is in Vercel as GITHUB_TOKEN.
 Ported from Grab on 2026-10-01: syllable sync (`analyzeClip`/`followSyllables`), page stack /
-back / reload memory (no phrases page). **Not ported yet:** Say it like a native (needs a web
-version of phrase.yml that publishes to Supabase, a `phrases` table, and the UI).
+back / reload memory (no phrases page). **Say it like a native ported (2026-10-01)** as a 4th tab **Practice**
+(Review + Saved tiles, phrase box/list, word sheet, save to Review): `phrases` table (schema.sql:
+owner must re-run the SQL once), `web/api/phrases.js` (free 10/day; admins unlimited),
+`.github/workflows/web-phrase.yml` (library = every ready lesson's lesson.json from storage;
+progress in `phrases.stage`, which must match `PH_STEPS` labels in web study.js; output in storage
+`lessons/<ph-id>/`, so fileUrl/ensureAudio/cards work unchanged). First real web lesson
+(AlUMYm5YExA) failed on PyAV 19 (`metadata_errors` removed) → `av<19` pinned in both lesson
+workflows. Grab-only things intentionally not in Nativnik: downloader, engine choice
+(Free/AI/Captions), captions check, GitHub token settings, "Record natural voice" (always recorded).
+Owner asked whether to change the locked headline "Any language. Sound native." now that it's
+Russian-only: options offered, awaiting their pick.
 
 Done by the owner: Supabase org **Nativski** (Free) + project, `schema.sql` run (now with
 explicit GRANTs). Email templates are locked without custom SMTP, so the app now also accepts
