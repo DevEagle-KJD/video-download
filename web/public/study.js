@@ -416,7 +416,7 @@ function renderTranscript() {
   const { data } = lesson;
   const noMeanings = !data.enriched;
   $('#ls-transcript').innerHTML =
-    (noMeanings ? `<p class="section-footer" style="margin:12px 16px">This lesson has no translations yet. Add an <b>ANTHROPIC_API_KEY</b> secret to the repo (see README) and make it again.</p>` : '') +
+    (noMeanings ? `<p class="section-footer" style="margin:12px 16px">Translations for this lesson are still being added. Check back soon.</p>` : '') +
     data.sentences.map((s, i) => {
       const starred = cards[`${lesson.id}:${i}`] && !cards[`${lesson.id}:${i}`].deleted;
       return `<div class="sent${starred ? ' starred' : ''}" data-s="sent" data-i="${i}">
@@ -954,7 +954,7 @@ function openWord(i, k) {
       ${t.b || t.m ? `<div class="group kv wc-dict">
         ${t.b ? `<div class="cell"><div class="k">Dictionary form</div><span class="wc-base">${esc(t.b)}</span> <button class="chip small" data-s="w-say-base">🔊</button></div>` : ''}
         ${t.m ? `<div class="cell"><div class="k">Meaning</div>${esc(t.m)}</div>` : ''}
-      </div>` : (lesson.data.enriched ? '' : '<p class="section-footer" style="margin:12px 0">Meanings appear once the lesson is made with the ANTHROPIC_API_KEY secret set.</p>')}
+      </div>` : (lesson.data.enriched ? '' : '')}
       <div class="wc-sentence">
         <div class="k">In this sentence</div>
         <div class="il">${tokensHTML(s.tokens, false, { hl: k })}</div>

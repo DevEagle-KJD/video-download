@@ -377,3 +377,17 @@ body {
 .ph-v .il .tok b { font-size: 26px; }
 .ph-hint { margin: 8px 0 0; font-size: 12px; color: var(--tertiary); }
 .ph-x { color: var(--secondary); font-size: 16px; padding: 4px 6px; }
+
+/* ───────── Lesson page: keep the video's true 16:9 shape, centred ─────────
+   (it filled the full width with a height cap, so wide screens got a cropped strip) */
+.player .yt-box, .player video {
+  width: min(100%, calc(34vh * 16 / 9)); max-height: none; height: auto; aspect-ratio: 16 / 9; margin: 0 auto;
+}
+@media (min-width: 900px) {
+  .player .yt-box, .player video { width: min(100%, calc(52vh * 16 / 9)); border-radius: 0 0 16px 16px; overflow: hidden; }
+  .player-controls, .player-options { max-width: 900px; margin: 0 auto; justify-content: center; }
+  .player .scrub { max-width: 900px; margin: 0 auto; }
+  .transcript { max-width: 820px; }
+  .transcript .il .tok b { font-size: 24px; }
+}
+.player-controls > button.big { color: var(--on-accent); }
