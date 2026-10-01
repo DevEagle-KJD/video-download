@@ -107,8 +107,14 @@ function dueCards() {
   return Object.values(cards).filter(c => !c.deleted && c.due <= now).sort((a, b) => a.due - b.due);
 }
 
-const thumbOf = (id, m = {}) => m.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-const posterImg = (id, m) => `<img src="${esc(thumbOf(id, m))}" referrerpolicy="no-referrer" alt="" loading="lazy" onerror="this.remove()">`;
+// Sharpest thumbnail YouTube has: 1280px, else 640px, else the 480px one.
+const thumbOf = id => `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+function thumbFallback(img) {
+  const next = { maxresdefault: 'sddefault', sddefault: 'hqdefault' }[img.src.match(/\/(\w+)\.jpg/)?.[1]];
+  if (next) img.src = img.src.replace(/\w+\.jpg$/, `${next}.jpg`); else img.remove();
+}
+window.thumbFallback = thumbFallback;
+const posterImg = id => `<img src="${esc(thumbOf(id))}" referrerpolicy="no-referrer" alt="" loading="lazy" onload="if (this.naturalWidth <= 120) thumbFallback(this)" onerror="thumbFallback(this)">`;
 
 function stRender() {
   const live = Object.values(cards).filter(c => !c.deleted);

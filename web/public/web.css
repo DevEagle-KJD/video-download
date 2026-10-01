@@ -391,3 +391,4 @@ body {
   .transcript .il .tok b { font-size: 24px; }
 }
 .player-controls > button.big { color: var(--on-accent); }
+@media (min-width: 900px) { .hero { aspect-ratio: 2.35 / 1; } .hero img { object-position: center 30%; } }
