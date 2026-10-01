@@ -626,9 +626,10 @@ body.in-page .tabbar { display: none; }
 .ph-q b { flex: 1; color: var(--label); font-size: 17px; }
 .ph-q button { color: var(--secondary); font-size: 15px; }
 .ph-item:has(.ph-fold:not(.open)) { margin: 0; border-bottom: 1px solid var(--separator); }
-.ph-fold { margin: 0 4px; padding: 12px 0; align-items: center; }
+#ph-list { overflow-x: clip; }
+.ph-fold { margin: 0 4px; padding: 12px 0; align-items: center; overflow: hidden; }
 .ph-fold.open { padding-bottom: 8px; }
-.ph-q .ph-head { flex: 1; display: flex; align-items: flex-start; gap: 10px; text-align: left; color: var(--label); min-width: 0; }
+.ph-q .ph-head { flex: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; display: flex; align-items: flex-start; gap: 10px; text-align: left; color: var(--label); min-width: 0; }
 .ph-chev { color: var(--secondary); font-size: 20px; line-height: 22px; transition: transform .2s; }
 .ph-fold.open .ph-chev { transform: rotate(90deg); }
 .ph-title { flex: 1; min-width: 0; }
