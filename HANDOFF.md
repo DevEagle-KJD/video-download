@@ -304,6 +304,12 @@ Voices** once.
 
 ## 6. The Study tab (study.js) — screens and controls
 
+**Navigation (owner asked 2026-10-01):** pages opened from Study (lesson, Saved, Say it like a
+native, Review) form a stack (`pageStack`, saved as `grab.pageStack`, Review left out). ← goes to
+the page you came from (e.g. phrase → word → video lesson → ← back to the phrase list); a reload
+reopens the page you were on (lessons at their saved sentence). Each page pushes a history entry,
+so iPhone swipe-back / Safari ← behave like the in-app ←.
+
 ### Study home
 - **Review card** (gradient): "N cards to review · X sentences mined · Y words saved"; the
   **Review** button is disabled when nothing is due. The tab badge shows the due count.

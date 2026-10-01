@@ -262,25 +262,74 @@ function studyShow() {
 window.studyShow = studyShow;
 
 /* ───────── Pages (lesson / review) ───────── */
-let prevTab = 'study';
-function stOpenPage(name) {
+/* Pages opened from Study form a stack (e.g. Say it like a native → a lesson),
+   so ← goes back to the page you came from, and it's saved so a reload reopens
+   the page you were on. Each page also gets a browser history entry, so
+   swiping back / Safari's back button work like ←. Review isn't reopened after
+   a reload (the session is gone); you land on the page under it. */
+let pageStack = store.get('pageStack', []);   // [{ name, id }]
+let pageRestoring = false;
+const savePages = () => store.set('pageStack', pageStack.filter(p => p.name !== 'review'));
+function stOpenPage(name, id = null) {
+  if (!pageRestoring) {
+    const at = pageStack.findIndex(p => p.name === name && p.id === id);
+    if (at >= 0) pageStack.length = at + 1;       // already open further down: go back to it
+    else {
+      pageStack.push({ name, id });
+      try { history.pushState({ page: pageStack.length }, ''); } catch { /* ignore */ }
+    }
+    savePages();
+  }
   document.body.classList.add('in-page');
   showScreen(name);
 }
-function stBack() {
+// Opens a page from the stack again without adding it.
+async function stReopen(p) {
+  pageRestoring = true;
+  try {
+    if (p.name === 'lesson') {
+      const l = lessons.find(x => x.id === p.id && x.state === 'ready');
+      if (l) await openLesson(l); else return false;
+    } else if (p.name === 'saved') openSaved();
+    else if (p.name === 'phrases') openPhrases();
+    else return false;
+    return true;
+  } finally { pageRestoring = false; }
+}
+async function stBack() {
   clearTimeout(waitTimer);
   player.close();
   $('#rv-video').pause();
   stop();
-  if (prevTab === 'saved') {       // review started from the Saved list: go back there
-    prevTab = 'study';
-    stOpenPage('saved');
-    renderSaved();
-    return;
+  pageStack.pop();
+  while (pageStack.length) {
+    if (await stReopen(pageStack[pageStack.length - 1])) { savePages(); return; }
+    pageStack.pop();                               // that page is gone (e.g. lesson deleted)
   }
+  savePages();
   document.body.classList.remove('in-page');
-  showScreen(prevTab);
+  showScreen('study');
   stRender();
+}
+// In-app ←: step back through the browser history too, so the two stay in step.
+function stBackButton() {
+  if (history.state?.page) history.back();         // → popstate → stBack()
+  else stBack();
+}
+window.addEventListener('popstate', () => {
+  if (document.body.classList.contains('in-page') && pageStack.length) stBack();
+});
+// After a reload: reopen the page you were on.
+let pagesRestored = false;
+async function stRestorePages() {
+  if (pagesRestored) return;
+  pagesRestored = true;
+  try { history.replaceState(null, ''); } catch { /* ignore */ }   // ← then works without old history entries
+  while (pageStack.length) {
+    if (await stReopen(pageStack[pageStack.length - 1])) return;
+    pageStack.pop();
+  }
+  savePages();
 }
 
 /* ───────── Player: our downloaded copy, or YouTube's embedded player ───────── */
@@ -438,8 +487,7 @@ async function openLesson(l) {
   renderTranscript();
   syncChips();
   updateScrub(0);
-  prevTab = 'study';
-  stOpenPage('lesson');
+  stOpenPage('lesson', l.id);
   $('#screen-lesson').scrollTop = 0;
   const pos = store.get(`pos.${l.id}`, 0);
   if (pos > 0) setActive(pos, false);
@@ -1152,7 +1200,6 @@ function startReview(list = dueCards().slice(0, 50), from = 'study') {
   clearTimeout(waitTimer);
   undoStack = [];
   $('#rv-undo').hidden = true;
-  prevTab = from;
   stOpenPage('review');
   showCard();
 }
@@ -1467,7 +1514,6 @@ const liveCards = kind => Object.values(cards)
   .sort((a, b) => (b.created || 0) - (a.created || 0));
 
 function openSaved() {
-  prevTab = 'study';
   stOpenPage('saved');
   [...new Set(Object.values(cards).map(c => c.lesson))].forEach(ensureAudio);
   renderSaved();
@@ -1580,7 +1626,6 @@ async function svOpenLesson() {
   if (!l) return;
   store.set(`pos.${l.id}`, c.i);
   closeSheet();
-  prevTab = 'study';
   await openLesson(l);
 }
 
@@ -1606,7 +1651,6 @@ let phOpenId = store.get('phOpen', undefined);   // null = all closed
 function phSetOpen(id) { phOpenId = id; store.set('phOpen', id); }
 
 function openPhrases() {
-  prevTab = 'study';
   stOpenPage('phrases');
   renderPhrases();
   phRefresh();
@@ -1972,7 +2016,7 @@ document.addEventListener('click', e => {
       deletedLessons.add(id);
       store.set('deletedLessons', [...deletedLessons]);
       saveLessons(); closeSheet(); stRender(); break;
-    case 'back': stBack(); break;
+    case 'back': stBackButton(); break;
     case 'sent': playSentence(i); break;
     case 'replay': playSentence(i); break;
     case 'word': {
@@ -2199,4 +2243,10 @@ if ($('#screen-study').classList.contains('active')) studyShow();
 else {
   stRender();
   if (configured()) { syncLoad(); if (lessons.some(l => l.state !== 'ready' && l.state !== 'failed')) stSchedule(2000); }
+}
+
+// After a reload, reopen the page you were on (a lesson, Saved, Say it like a native).
+if (configured() && pageStack.length) {
+  if (!$('#screen-study').classList.contains('active')) { showScreen('study'); }
+  stRestorePages();
 }
