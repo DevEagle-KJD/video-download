@@ -461,10 +461,10 @@ function plainWord(w) {
 }
 
 // hl: index of a token to highlight; i: sentence index to make words tappable.
-function tokensHTML(tokens, withGloss, { i = null, hl = -1 } = {}) {
+function tokensHTML(tokens, withGloss, { i = null, hl = -1, ph = null } = {}) {
   return tokens.map((t, k) => {
-    const saved = i != null && lesson && isSaved(`${lesson.id}:${i}:${k}`);
-    const attrs = i != null ? ` data-s="word" data-i="${i}" data-k="${k}"` : '';
+    const saved = i != null && (ph ? isSaved(`${ph}:${i}:${k}`) : lesson && isSaved(`${lesson.id}:${i}:${k}`));
+    const attrs = i == null ? '' : ph ? ` data-s="ph-word" data-id="${ph}" data-i="${i}" data-k="${k}"` : ` data-s="word" data-i="${i}" data-k="${k}"`;
     return `<span class="tok${k === hl ? ' hl' : ''}${saved ? ' saved' : ''}${t.u ? ' unsure' : ''}"${attrs}><b>${esc(t.w)}</b>${withGloss ? `<i>${esc(t.g || ' ')}</i>` : ''}</span>`;
   }).join('');
 }
@@ -1636,7 +1636,7 @@ function renderPhrases() {
       return `<div class="ph-v">
         <div class="ph-top"><span class="ph-ctx">${esc(ctx)}${who ? ` · <em>${esc(who)}</em>` : ''}</span>
           <button class="ph-star${isSaved(id) ? ' on' : ''}" data-s="ph-save" data-id="${p.id}" data-i="${i}" aria-label="Save to review">${isSaved(id) ? '★' : '☆'}</button></div>
-        <div class="il">${tokensHTML(s.tokens, true)}</div>
+        <div class="il">${tokensHTML(s.tokens, true, { i, ph: p.id })}</div>
         ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
         ${s.note ? `<div class="ph-note">${esc(s.note)}</div>` : ''}
         ${s.flag ? `<div class="ph-flag">⚠️ ${esc(s.flag)}</div>` : ''}
@@ -1678,6 +1678,86 @@ async function phDelete(id) {
   phrases = phrases.filter(x => x.id !== id);
   savePhrases();
   renderPhrases();
+}
+
+/* Tapping a word in a version: hear it, see its meaning, save it, and find it
+   in real video sentences (matched by dictionary form, so спала also finds спал). */
+let phWordOpen = null;   // { pid, i, k }
+const plainKey = w => (w || '').normalize('NFD').replace(/\u0301/g, '').normalize('NFC').toLowerCase().replace(/ё/g, 'е').replace(/[^а-яa-z0-9-]/g, '');
+const videoData = {};    // lesson id → lesson.json (loaded once)
+async function phWordInVideos(t) {
+  const want = plainKey(t.b || t.w), surface = plainKey(t.w);
+  if (!want) return [];
+  const vids = lessons.filter(l => l.state === 'ready');
+  await Promise.all(vids.filter(l => !videoData[l.id]).map(l =>
+    fetch(`files/${l.id}/lesson.json`, { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d) videoData[l.id] = d; }).catch(() => {})));
+  const found = [];
+  for (const l of vids) {
+    (videoData[l.id]?.sentences || []).forEach((s, i) => {
+      const k = (s.tokens || []).findIndex(x => (x.b ? plainKey(x.b) === want : false) || plainKey(x.w) === surface);
+      if (k >= 0) found.push({ lesson: l.id, title: videoData[l.id].title || '', i, k, s });
+    });
+  }
+  // Short, clear sentences first.
+  return found.sort((a, b) => a.s.tokens.length - b.s.tokens.length).slice(0, 4);
+}
+
+function phOpenWord(pid, i, k) {
+  const d = phData[pid], s = d?.sentences[i], t = s?.tokens[k];
+  if (!t) return;
+  phWordOpen = { pid, i, k };
+  const id = `${pid}:${i}:${k}`;
+  openSheet('Word', `
+    <div class="word-card">
+      <div class="wc-word" id="wc-word">${syllablesHTML(t.w)}</div>
+      ${t.g ? `<div class="wc-here">${esc(t.g)}</div>` : ''}
+      <div class="wc-audio">
+        <button class="chip" data-s="phw-say" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+        <button class="chip" data-s="phw-say" data-rate="${RATE_SLOW}">🐢 Slowly</button>
+      </div>
+      ${t.b || t.m ? `<div class="group kv wc-dict">
+        ${t.b ? `<div class="cell"><div class="k">Dictionary form</div><span class="wc-base">${esc(t.b)}</span></div>` : ''}
+        ${t.m ? `<div class="cell"><div class="k">Meaning</div>${esc(t.m)}</div>` : ''}
+      </div>` : ''}
+      <div class="wc-sentence">
+        <div class="k">In this sentence</div>
+        <div class="il">${tokensHTML(s.tokens, false, { hl: k })}</div>
+        ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
+      </div>
+      <div class="ph-heard" id="phw-videos"><b><span class="spinner"></span> Looking for it in your videos…</b></div>
+      <button class="primary-button${isSaved(id) ? ' saved-btn' : ''}" data-s="phw-save">${isSaved(id) ? '★ Saved (tap to remove)' : '☆ Save Word'}</button>
+    </div>`);
+  phWordInVideos(t).then(found => {
+    const box = $('#phw-videos');
+    if (!box || phWordOpen?.pid !== pid || phWordOpen.i !== i || phWordOpen.k !== k) return;
+    box.innerHTML = found.length
+      ? `<b>🎬 In your videos</b>${found.map(f => `<button data-s="ph-heard" data-lesson="${esc(f.lesson)}" data-i="${f.i}">${f.s.tokens.map((x, j) => (j === f.k ? `<mark>${esc(x.w)}</mark>` : esc(x.w))).join(' ')}<span>${esc(f.title)}</span></button>`).join('')}`
+      : '<b>Not in your videos yet.</b> Make more lessons and it may turn up.';
+  });
+}
+
+function phToggleWord() {
+  const { pid, i, k } = phWordOpen;
+  const d = phData[pid], s = d.sentences[i], t = s.tokens[k];
+  const id = `${pid}:${i}:${k}`;
+  if (isSaved(id)) {
+    cards[id].deleted = true;
+    cards[id].updated = Date.now();
+    toast('Word removed from review');
+  } else {
+    const now = Date.now();
+    cards[id] = {
+      id, kind: 'word', lesson: pid, title: d.input, i, k,
+      w: t.w, g: t.g || '', b: t.b || '', m: t.m || '',
+      start: 0, end: 0, ru: s.ru, tokens: s.tokens.map(({ w, g }) => ({ w, g })), en: s.en,
+      created: now, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
+    };
+    toast('Word saved ⭐');
+  }
+  cardsChanged();
+  renderPhrases();
+  phOpenWord(pid, i, k);
 }
 
 async function phOpenHeard(lessonId, i) {
@@ -1861,7 +1941,15 @@ document.addEventListener('click', e => {
     case 'ph-say': { const d = phData[id]; if (d) saySentence({ ru: d.sentences[i].ru, lesson: id }, Number(el.dataset.rate)); break; }
     case 'ph-del': phDelete(id); break;
     case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); $('#ph-input').value = p.text; phStart(); } break; }
-    case 'ph-heard': phOpenHeard(el.dataset.lesson, Number(el.dataset.i)); break;
+    case 'ph-word': {
+      phOpenWord(id, i, Number(el.dataset.k));
+      const t = phData[id]?.sentences[i]?.tokens[Number(el.dataset.k)];
+      if (t) speak(t.w, [RATE_NORMAL, RATE_SLOW], $('#wc-word'), id);   // inside the tap, so iOS allows it
+      break;
+    }
+    case 'phw-say': { const t = phData[phWordOpen.pid].sentences[phWordOpen.i].tokens[phWordOpen.k]; speak(t.w, Number(el.dataset.rate), $('#wc-word'), phWordOpen.pid); break; }
+    case 'phw-save': phToggleWord(); break;
+    case 'ph-heard': closeSheet(); phOpenHeard(el.dataset.lesson, Number(el.dataset.i)); break;
     case 'sv-open': openSavedCard(el.dataset.id); break;
     case 'sv-say': speak(svOpen.w, Number(el.dataset.rate), $('#sv-word'), svOpen.lesson); break;
     case 'sv-now': svReviewNow(); break;
