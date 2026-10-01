@@ -835,16 +835,93 @@ function ensureAudio(lessonId) {
 
 const voicePlayer = new Audio();
 voicePlayer.preload = 'auto';
+
+/* Syllable highlighting that follows the recording itself: the clip is decoded
+   once, its loudness measured every 10 ms to find where the voice really starts
+   and stops (recordings have silence at both ends), and syllable boundaries are
+   placed in the quiet dips between syllables. The highlight then follows the
+   player's actual position, so it can't drift. */
+const sylMaps = new Map();   // url → Promise<{ start, end, env: Float32Array }>
+let audioCtx = null;
+function analyzeClip(url) {
+  if (!sylMaps.has(url)) {
+    sylMaps.set(url, (async () => {
+      const buf = await (await fetch(url)).arrayBuffer();
+      audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+      const audio = await new Promise((ok, bad) => audioCtx.decodeAudioData(buf, ok, bad));
+      const data = audio.getChannelData(0), hop = Math.round(audio.sampleRate / 100);
+      const env = new Float32Array(Math.floor(data.length / hop));
+      for (let f = 0; f < env.length; f++) {
+        let sum = 0;
+        for (let j = f * hop; j < (f + 1) * hop; j++) sum += data[j] * data[j];
+        env[f] = Math.sqrt(sum / hop);
+      }
+      const max = env.reduce((m, x) => Math.max(m, x), 0) || 1;
+      const loud = max * 0.08;
+      let a = env.findIndex(x => x > loud), b = env.length - 1;
+      while (b > a && env[b] <= loud) b--;
+      return { start: Math.max(0, a) / 100, end: (b + 1) / 100, env };
+    })().catch(() => null));
+  }
+  return sylMaps.get(url);
+}
+
+// Syllable start times (seconds) for this clip: weighted by letters (stressed
+// syllables are held longer), then each boundary moved to the quietest moment nearby.
+function sylTimes(info, els) {
+  const w = els.map(e => Math.max(1, e.textContent.replace(/[^\p{L}]/gu, '').length) * (e.classList.contains('stress') ? 1.4 : 1));
+  const total = w.reduce((x, y) => x + y, 0), span = info.end - info.start;
+  const smooth = f => { let s = 0, c = 0; for (let k = f - 2; k <= f + 2; k++) if (info.env[k] != null) { s += info.env[k]; c++; } return s / c; };
+  const ex = w.map(x => (span * x) / total);   // expected length of each syllable
+  const times = [info.start];
+  let acc = 0;
+  for (let n = 0; n < els.length - 1; n++) {
+    acc += w[n];
+    const guess = info.start + (span * acc) / total;
+    // Only look a little either side, and never make a syllable much shorter than expected.
+    const lo = Math.max(times[n] + ex[n] * 0.6, guess - ex[n] * 0.3), hi = guess + ex[n + 1] * 0.3;
+    let best = Math.max(guess, lo), bestE = Infinity;
+    for (let t = lo; t <= hi; t += 0.01) {
+      const e = smooth(Math.round(t * 100));
+      if (e < bestE) { bestE = e; best = t; }
+    }
+    times.push(best);
+  }
+  return times;
+}
+
+let sylRaf = 0;
+function followSyllables(sylRoot, url) {
+  cancelAnimationFrame(sylRaf);
+  clearInterval(sylTimer);
+  const els = sylRoot ? [...sylRoot.querySelectorAll('.syl')] : [];
+  if (!els.length) return;
+  let times = null;
+  analyzeClip(url).then(info => { if (info && voicePlayer.src.endsWith(url)) { times = sylTimes(info, els); times.end = info.end; } });
+  const tick = () => {
+    if (!voicePlayer.src.endsWith(url) || voicePlayer.ended) { els.forEach(e => e.classList.remove('on')); return; }
+    const t = voicePlayer.currentTime, d = voicePlayer.duration;
+    let on = -1;
+    if (times) {
+      if (t >= times[0] && t <= times.end + 0.05) for (let n = 0; n < times.length; n++) if (t >= times[n]) on = n;
+    } else if (isFinite(d) && d) {
+      on = Math.min(els.length - 1, Math.floor((t / (d * 0.8)) * els.length));   // until measured
+    }
+    els.forEach((e, n) => e.classList.toggle('on', n === on));
+    sylRaf = requestAnimationFrame(tick);
+  };
+  sylRaf = requestAnimationFrame(tick);
+}
+
 function playClips(urls, sylRoot) {
   speechSynthesis?.cancel?.();
+  if (sylRoot) urls.forEach(analyzeClip);   // measure while the first one starts
   let i = 0;
   const next = () => {
     if (i >= urls.length) { sylRoot?.querySelectorAll('.syl.on').forEach(e => e.classList.remove('on')); return; }
-    voicePlayer.src = urls[i++];
-    voicePlayer.onplaying = () => {
-      const n = sylRoot ? sylRoot.querySelectorAll('.syl').length : 0;
-      if (n && isFinite(voicePlayer.duration)) animateSyllables(sylRoot, 1, (voicePlayer.duration * 1000 * 0.85) / n);
-    };
+    const url = urls[i++];
+    voicePlayer.src = url;
+    voicePlayer.onplaying = () => followSyllables(sylRoot, url);
     voicePlayer.onended = () => setTimeout(next, 300);
     voicePlayer.play().catch(() => {});
   };

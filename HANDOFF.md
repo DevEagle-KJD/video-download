@@ -369,7 +369,11 @@ Voices** once.
   YouTube's own bar is used; ours couldn't drive the YouTube player reliably.
 - **Tapping a word** opens the word card and **immediately speaks the word, normal then slow**:
   - the word split into **syllables** (the stressed one in orange), each lit up in time with the
-    audio;
+    audio. Timing follows the recording itself (`analyzeClip`/`sylTimes`/`followSyllables`):
+    the clip is decoded once with Web Audio, loudness per 10 ms finds where the voice starts and
+    stops (edge-tts clips have ~0.3 s silence before and ~1.3 s after), boundaries are weighted
+    by letters (stressed ×1.4) and nudged into the quiet dips, and the highlight tracks
+    `voicePlayer.currentTime` every frame. (Owner reported the old even split lagged.);
   - **🔊 Normal**, **🐢 Slowly**, **🎬 From the video** (plays just that word's clip);
   - the literal meaning here, **dictionary form** (with its own 🔊) and **general meaning**;
   - the sentence with the word underlined, plus English;
