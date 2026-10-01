@@ -1536,6 +1536,8 @@ async function phStart() {
   if (!configured()) { toast('Add your GitHub token in Settings first'); showScreen('settings'); return; }
   const text = $('#ph-input').value.replace(/\s+/g, ' ').trim();
   if (!text) { toast('Type what you want to say'); $('#ph-input').focus(); return; }
+  const same = phrases.find(x => x.state !== 'failed' && x.text.toLowerCase() === text.toLowerCase());
+  if (same) { toast('Already on it: see below'); $('#ph-input').value = ''; return; }
   const p = { id: randomId(), text, created: Date.now(), state: 'starting' };
   phrases.unshift(p);
   savePhrases();
@@ -1629,7 +1631,7 @@ function renderPhrases() {
       const heard = (s.matches || []).length ? `<div class="ph-heard"><b>🎬 Heard in ${s.matches.length} real video sentence${s.matches.length === 1 ? '' : 's'}</b>${s.matches.map(m =>
         `<button data-s="ph-heard" data-lesson="${esc(m.lesson)}" data-i="${m.i}">${esc(m.ru)}<span>${esc(m.title || '')}</span></button>`).join('')}</div>` : '';
       return `<div class="ph-v">
-        <div class="ph-top"><span class="ph-ctx">${esc(s.context || '')}</span>
+        <div class="ph-top"><span class="ph-ctx">${esc(s.context || '')}${s.who ? ` · <em>${esc(s.who)}</em>` : ''}</span>
           <button class="ph-star${isSaved(id) ? ' on' : ''}" data-s="ph-save" data-id="${p.id}" data-i="${i}" aria-label="Save to review">${isSaved(id) ? '★' : '☆'}</button></div>
         <div class="il">${tokensHTML(s.tokens, true)}</div>
         ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}

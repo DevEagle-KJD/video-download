@@ -440,7 +440,10 @@ study (never vocabulary lists, never grammar). Study home → **💬 Say it like
 `#screen-phrases`. The app dispatches `phrase.yml` (inputs `text`, `job_id`); the workflow:
 1. `scripts/study/phrase.py prepare`: Claude as a native speaker gives 1–3 versions (`context`:
    "with friends" / "polite" / "anywhere", `en`, `note`, `confidence`; plus `check` of the learner's
-   own Russian), then a **second, independent "native-ear" review** (natural / slightly off /
+   own Russian). Owner asked for **man/woman forms**: when wording depends on who's listening or
+   speaking (ты спал/спала, я рад/рада), each form is its own version with `who` ("to a man", "to a
+   woman", "if you're a man", "if you're a woman", or both); вы/plural forms get `who` "". Up to 8
+   versions; the app shows `who` next to the context (amber). Same phrase twice is blocked. Then a **second, independent "native-ear" review** (natural / slightly off /
    unnatural + better wording): unnatural versions are replaced, doubts become `flag`s;
    **real-speech matching**: every `study-*` lesson.json is downloaded and searched for the phrase
    (`matches`: lesson, sentence index, text) → "🎬 Heard in N real video sentences" (tap → opens

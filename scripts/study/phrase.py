@@ -5,7 +5,9 @@
   python3 scripts/study/phrase.py finish    # merges out/phrase.json into out/lesson.json
 
 1. Claude, acting as a native speaker, gives 1-3 everyday versions (casual / polite /
-   anywhere) with a usage tip and its own confidence. If the learner typed Russian,
+   anywhere) with a usage tip and its own confidence. When the wording changes with
+   who is talking or listening (спал / спала, рад / рада), each form is its own
+   version, labelled "to a man", "if you're a woman", and so on. If the learner typed Russian,
    it also says whether natives would say it like that.
 2. A second, independent pass judges each version only by how people really talk
    ("natural" / "slightly off" / "unnatural") and offers a better wording.
@@ -30,10 +32,16 @@ GEN_SYSTEM = """You are a native Russian speaker helping an English speaker lear
 
 The learner tells you something they want to be able to say: usually in English, sometimes in Russian they heard or wrote themselves.
 Return how native Russians actually say it in everyday conversation today:
-- 1 to 3 versions. Prefer what people really say out loud over textbook phrasing. When casual and polite speech differ, give a version for friends/family and a polite one for strangers/work; give a single version when one fits everywhere.
+- 1 to 3 ways of saying it. Prefer what people really say out loud over textbook phrasing. When casual and polite speech differ, give a version for friends/family and a polite one for strangers/work; give a single version when one fits everywhere.
+- Russian words often change with who is speaking or who is listening (ты спал / ты спала, я рад / я рада, ты готов / ты готова). Whenever a version's wording depends on that, give each form as its own version (same context, en and note) and set who:
+  - "to a man" / "to a woman" when it depends on the person you're talking to;
+  - "if you're a man" / "if you're a woman" when it depends on the speaker;
+  - "if you're a man, to a woman" (and so on) only when it depends on both.
+  Polite вы forms and plural forms are the same for everyone, so they get who "". Use who "" whenever the wording is the same for anyone. Never leave out the woman's form.
 - For each version:
   - ru: the Russian, with normal punctuation and no stress marks;
   - context: "with friends", "polite" or "anywhere";
+  - who: as above, or "";
   - en: what it means, in natural English;
   - note: a short tip on when natives use it (at most 15 words, no grammar terms); "" if nothing useful to add;
   - confidence: "high" if natives commonly say exactly this, "medium" if it's natural but equally common alternatives exist, "low" if you're unsure.
@@ -45,9 +53,9 @@ GEN_SCHEMA = {
     "type": "object",
     "properties": {
         "versions": {"type": "array", "items": {"type": "object", "properties": {
-            "ru": {"type": "string"}, "context": {"type": "string"}, "en": {"type": "string"},
-            "note": {"type": "string"}, "confidence": {"type": "string"}},
-            "required": ["ru", "context", "en", "note", "confidence"], "additionalProperties": False}},
+            "ru": {"type": "string"}, "context": {"type": "string"}, "who": {"type": "string"},
+            "en": {"type": "string"}, "note": {"type": "string"}, "confidence": {"type": "string"}},
+            "required": ["ru", "context", "who", "en", "note", "confidence"], "additionalProperties": False}},
         "check": {"type": "object", "properties": {
             "verdict": {"type": "string"}, "comment": {"type": "string"}},
             "required": ["verdict", "comment"], "additionalProperties": False},
@@ -56,7 +64,7 @@ GEN_SCHEMA = {
     "additionalProperties": False,
 }
 
-REVIEW_SYSTEM = """You are a native Russian speaker. A tutor suggested these phrases to a learner who wants to sound like a native. Judge each one only by how real people talk today, in the given context.
+REVIEW_SYSTEM = """You are a native Russian speaker. A tutor suggested these phrases to a learner who wants to sound like a native. Judge each one only by how real people talk today, in the given context. Some phrases are marked for who is speaking or listening (e.g. "to a woman", "if you're a man"): the words must match that person (спал vs спала, рад vs рада); a mismatch is "unnatural".
 
 For each phrase return:
 - i: its number;
@@ -144,11 +152,11 @@ def prepare():
         sys.exit("no PHRASE")
     client = anthropic.Anthropic(max_retries=4)
     gen = ask(client, GEN_SYSTEM, f"The learner wants to say:\n{text}", GEN_SCHEMA)
-    versions = [v for v in gen["versions"] if v["ru"].strip()][:3]
+    versions = [v for v in gen["versions"] if v["ru"].strip()][:8]
     if not versions:
         sys.exit("no versions returned")
 
-    listing = "\n".join(f"{i}. [{v['context']}] {v['ru']}  (meaning: {v['en']})" for i, v in enumerate(versions))
+    listing = "\n".join(f"{i}. [{', '.join(x for x in (v['context'], v.get('who', '')) if x)}] {v['ru']}  (meaning: {v['en']})" for i, v in enumerate(versions))
     rev = ask(client, REVIEW_SYSTEM, f"The learner wanted to say: {text}\n\nSuggested phrases:\n{listing}", REVIEW_SCHEMA)
     reviews = {r["i"]: r for r in rev["reviews"]}
 
@@ -167,7 +175,7 @@ def prepare():
             flag = f"A second review thinks natives might say: {r.get('better', '')}. {r.get('note', '')}".strip()
         elif v["confidence"] == "low":
             flag = "Not fully confirmed: there may be a more common way to say this."
-        meta.append({"context": v["context"], "note": v["note"], "confidence": v["confidence"],
+        meta.append({"context": v["context"], "who": v.get("who", ""), "note": v["note"], "confidence": v["confidence"],
                      "review": verdict, "flag": flag, "matches": library_matches(v["ru"], library)})
 
     with open(os.path.join(OUT, "phrase.json"), "w", encoding="utf-8") as f:
@@ -178,7 +186,7 @@ def prepare():
     with open(os.path.join(OUT, "media.info.json"), "w", encoding="utf-8") as f:
         json.dump({"title": text}, f, ensure_ascii=False)
     for v, m in zip(versions, meta):
-        print(f"  [{m['context']}] {v['ru']}  review={m['review'] or '-'}  matches={len(m['matches'])}")
+        print(f"  [{m['context']} {m['who']}] {v['ru']}  review={m['review'] or '-'}  matches={len(m['matches'])}")
 
 
 def finish():

@@ -631,6 +631,7 @@ body.in-page .tabbar { display: none; }
 .ph-v { background: var(--cell); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; }
 .ph-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .ph-ctx { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--blue); }
+.ph-ctx em { font-style: normal; color: var(--orange, #ff9f0a); }
 .ph-star { font-size: 22px; color: var(--secondary); line-height: 1; }
 .ph-star.on { color: #ffcc00; }
 .ph-v .en { margin: 8px 0 0; }
