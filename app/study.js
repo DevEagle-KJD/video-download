@@ -1507,6 +1507,156 @@ async function svOpenLesson() {
   await openLesson(l);
 }
 
+/* ───────── Say it like a native ─────────
+   You type what you want to say (English, or Russian to check); the "Say it like
+   a native" workflow finds how natives really say it, double-checks it, looks
+   for it in real lesson sentences, and publishes release phrase-<id> with a
+   lesson.json (kind "phrases") + voices. Versions can be saved to Review. */
+const PH_WORKFLOW = 'phrase.yml';
+let phrases = store.get('phrases', []);            // [{id, text, created, state, error}]
+const phData = {};                                  // id → lesson.json
+const savePhrases = () => store.set('phrases', phrases);
+
+function openPhrases() {
+  prevTab = 'study';
+  stOpenPage('phrases');
+  renderPhrases();
+  phRefresh();
+}
+
+async function phStart() {
+  if (!configured()) { toast('Add your GitHub token in Settings first'); showScreen('settings'); return; }
+  const text = $('#ph-input').value.replace(/\s+/g, ' ').trim();
+  if (!text) { toast('Type what you want to say'); $('#ph-input').focus(); return; }
+  const p = { id: randomId(), text, created: Date.now(), state: 'starting' };
+  phrases.unshift(p);
+  savePhrases();
+  renderPhrases();
+  try {
+    await gh(`/actions/workflows/${PH_WORKFLOW}/dispatches`, {
+      method: 'POST', body: { ref: await defaultBranch(), inputs: { text, job_id: p.id } },
+    });
+    $('#ph-input').value = '';
+    p.state = 'processing';
+  } catch (e) {
+    p.state = 'failed';
+    p.error = e.status === 404 ? 'The “Say it like a native” workflow isn’t on GitHub yet.' : e.message;
+  }
+  savePhrases();
+  renderPhrases();
+  phSchedule(20000);
+}
+
+let phTimer = null;
+function phSchedule(ms = 15000) { clearTimeout(phTimer); phTimer = setTimeout(phRefresh, ms); }
+
+async function phRefresh() {
+  if (!configured()) return;
+  try {
+    const releases = await gh('/releases?per_page=100');
+    const byId = new Map(phrases.map(p => [p.id, p]));
+    for (const rel of releases.filter(r => r.tag_name.startsWith('phrase-'))) {
+      const id = rel.tag_name.slice(7);
+      let meta = {};
+      try { meta = JSON.parse(rel.body || '{}'); } catch { /* ignore */ }
+      const p = byId.get(id) || { id, text: meta.input || '', created: Date.parse(rel.created_at) };
+      p.releaseId = rel.id;
+      if (meta.ok === false) { p.state = 'failed'; p.error = meta.error; } else if (p.state !== 'ready') p.state = 'publishing';
+      if (!byId.has(id)) { phrases.push(p); byId.set(id, p); }
+    }
+    // Published: load the result (the site may still be rebuilding for a minute).
+    await Promise.all(phrases.filter(p => p.state === 'publishing' || (p.state === 'ready' && !phData[p.id])).map(async p => {
+      try {
+        const r = await fetch(`files/${p.id}/lesson.json`, { cache: 'no-cache' });
+        if (!r.ok) return;
+        phData[p.id] = await r.json();
+        audioMaps[p.id] = phData[p.id].audio?.clips || {};
+        p.state = 'ready';
+      } catch { /* try again later */ }
+    }));
+    // A run that never published and is long gone failed.
+    phrases.forEach(p => { if (p.state === 'processing' && Date.now() - p.created > 20 * 60e3) { p.state = 'failed'; p.error = p.error || 'It took too long. Try again.'; } });
+    phrases.sort((a, b) => b.created - a.created);
+    savePhrases();
+    renderPhrases();
+  } catch (e) {
+    console.warn('phrases refresh', e);
+  }
+  if (phrases.some(p => ['starting', 'processing', 'publishing'].includes(p.state))) phSchedule();
+}
+
+function renderPhrases() {
+  const list = $('#ph-list');
+  if (!list) return;
+  list.innerHTML = phrases.length ? phrases.map(p => {
+    const head = `<div class="ph-q"><b>“${esc(p.text)}”</b><button data-s="ph-del" data-id="${p.id}" aria-label="Delete">✕</button></div>`;
+    if (p.state === 'failed') return `<div class="ph-item">${head}<div class="ph-wait">⚠️ ${esc(p.error || 'Something went wrong.')} <button class="text-button" data-s="ph-retry" data-id="${p.id}">Try again</button></div></div>`;
+    const d = phData[p.id];
+    if (p.state !== 'ready' || !d) {
+      return `<div class="ph-item">${head}<div class="ph-wait"><span class="spinner"></span>${p.state === 'publishing' ? 'Almost ready…' : 'Finding how natives really say it… about 2 minutes'}</div></div>`;
+    }
+    const chk = d.check?.verdict ? `<div class="ph-check ${d.check.verdict === 'natural' ? 'good' : 'bad'}"><b>Your Russian: ${esc(d.check.verdict)}.</b> ${esc(d.check.comment || '')}</div>` : '';
+    return `<div class="ph-item">${head}${chk}${d.sentences.map((s, i) => {
+      const id = `${p.id}:${i}`;
+      const heard = (s.matches || []).length ? `<div class="ph-heard"><b>🎬 Heard in ${s.matches.length} real video sentence${s.matches.length === 1 ? '' : 's'}</b>${s.matches.map(m =>
+        `<button data-s="ph-heard" data-lesson="${esc(m.lesson)}" data-i="${m.i}">${esc(m.ru)}<span>${esc(m.title || '')}</span></button>`).join('')}</div>` : '';
+      return `<div class="ph-v">
+        <div class="ph-top"><span class="ph-ctx">${esc(s.context || '')}</span>
+          <button class="ph-star${isSaved(id) ? ' on' : ''}" data-s="ph-save" data-id="${p.id}" data-i="${i}" aria-label="Save to review">${isSaved(id) ? '★' : '☆'}</button></div>
+        <div class="il">${tokensHTML(s.tokens, true)}</div>
+        ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
+        ${s.note ? `<div class="ph-note">${esc(s.note)}</div>` : ''}
+        ${s.flag ? `<div class="ph-flag">⚠️ ${esc(s.flag)}</div>` : ''}
+        <div class="ph-tools"><button class="chip" data-s="ph-say" data-id="${p.id}" data-i="${i}" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+          <button class="chip" data-s="ph-say" data-id="${p.id}" data-i="${i}" data-rate="${RATE_SLOW}">🐢 Slowly</button></div>
+        ${heard}
+      </div>`;
+    }).join('')}</div>`;
+  }).join('') : '<p class="section-footer" style="margin-top:20px">Try something you’d really say, like “No worries, take your time” or “Can I get the check?”</p>';
+}
+
+function phToggleSave(pid, i) {
+  const d = phData[pid], s = d?.sentences[i];
+  if (!s) return;
+  const id = `${pid}:${i}`;
+  if (isSaved(id)) {
+    cards[id].deleted = true;
+    cards[id].updated = Date.now();
+    toast('Removed from review');
+  } else {
+    const now = Date.now();
+    cards[id] = {
+      id, lesson: pid, title: d.input, i, start: 0, end: 0, ru: s.ru, tokens: s.tokens, en: s.en,
+      created: now, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
+    };
+    toast('Saved for review ⭐');
+  }
+  cardsChanged();
+  renderPhrases();
+}
+
+async function phDelete(id) {
+  const p = phrases.find(x => x.id === id);
+  if (!p || !confirm('Delete this phrase? Versions you saved to Review stay.')) return;
+  try {
+    if (p.releaseId) await gh(`/releases/${p.releaseId}`, { method: 'DELETE' }).catch(e => { if (e.status !== 404) throw e; });
+    await gh(`/git/refs/tags/phrase-${id}`, { method: 'DELETE' }).catch(e => { if (e.status !== 404 && e.status !== 422) throw e; });
+  } catch (e) { toast(e.message); return; }
+  phrases = phrases.filter(x => x.id !== id);
+  savePhrases();
+  renderPhrases();
+}
+
+async function phOpenHeard(lessonId, i) {
+  const l = lessons.find(x => x.id === lessonId && x.state === 'ready');
+  if (!l) { toast('That lesson isn’t in your list anymore'); return; }
+  store.set(`pos.${l.id}`, i);
+  await openLesson(l);
+  playSentence(i);
+}
+
+$('#ph-go').addEventListener('click', phStart);
+
 $('#sv-kind').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { svKind = b.dataset.kind; renderSaved(); } });
 $('#sv-search').addEventListener('input', renderSaved);
 
@@ -1673,6 +1823,12 @@ document.addEventListener('click', e => {
     case 'delete-lesson': { const l = lessons.find(x => x.id === lesson?.id); if (l) stDeleteLesson(l); break; }
     case 'review': startReview(); break;
     case 'saved': openSaved(); break;
+    case 'phrases': openPhrases(); break;
+    case 'ph-save': phToggleSave(id, i); break;
+    case 'ph-say': { const d = phData[id]; if (d) saySentence({ ru: d.sentences[i].ru, lesson: id }, Number(el.dataset.rate)); break; }
+    case 'ph-del': phDelete(id); break;
+    case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); $('#ph-input').value = p.text; phStart(); } break; }
+    case 'ph-heard': phOpenHeard(el.dataset.lesson, Number(el.dataset.i)); break;
     case 'sv-open': openSavedCard(el.dataset.id); break;
     case 'sv-say': speak(svOpen.w, Number(el.dataset.rate), $('#sv-word'), svOpen.lesson); break;
     case 'sv-now': svReviewNow(); break;

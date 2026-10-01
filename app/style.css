@@ -611,3 +611,34 @@ body.in-page .tabbar { display: none; }
 .navbar-text-action { position: absolute; right: 16px; bottom: 10px; color: var(--blue); font-size: 17px; }
 .sv-voice { display: contents; }
 .chip.record-chip { background: var(--blue); color: #fff; }
+
+/* Say it like a native */
+.native-btn {
+  display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; width: 100%;
+  margin: 0 0 8px; padding: 14px 16px; border-radius: 16px; background: var(--cell); text-align: left;
+}
+.native-btn span { grid-row: span 2; font-size: 28px; }
+.native-btn b { font-size: 17px; }
+.native-btn i { font-style: normal; font-size: 13px; color: var(--secondary); }
+#ph-input { width: 100%; border: 0; outline: 0; resize: none; background: none; color: var(--label); font: inherit; font-size: 17px; padding: 4px 0; }
+.ph-item { margin: 22px 0 6px; }
+.ph-q { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; color: var(--secondary); margin: 0 4px 8px; }
+.ph-q b { flex: 1; color: var(--label); font-size: 17px; }
+.ph-q button { color: var(--secondary); font-size: 15px; }
+.ph-check { margin: 0 4px 10px; padding: 10px 12px; border-radius: 12px; background: var(--fill); font-size: 14px; }
+.ph-check.good b { color: var(--green); }
+.ph-check.bad b { color: var(--orange); }
+.ph-v { background: var(--cell); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; }
+.ph-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.ph-ctx { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--blue); }
+.ph-star { font-size: 22px; color: var(--secondary); line-height: 1; }
+.ph-star.on { color: #ffcc00; }
+.ph-v .en { margin: 8px 0 0; }
+.ph-note { font-size: 13px; color: var(--secondary); margin-top: 6px; }
+.ph-flag { font-size: 13px; color: var(--orange); margin-top: 6px; }
+.ph-heard { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--separator); }
+.ph-heard b { font-size: 13px; color: var(--green); }
+.ph-heard button { display: block; width: 100%; text-align: left; font-size: 14px; padding: 6px 0 0; color: var(--label); }
+.ph-heard button span { display: block; font-size: 12px; color: var(--secondary); }
+.ph-tools { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.ph-wait { background: var(--cell); border-radius: 16px; padding: 14px; color: var(--secondary); font-size: 15px; display: flex; gap: 10px; align-items: center; }

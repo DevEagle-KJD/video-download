@@ -31,7 +31,7 @@ while read -r tag name size; do
   echo "Added $tag/$name"
 done < <(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '
   sort_by(.created_at) | reverse
-  | (map(select(.tag_name | startswith("study-"))) + map(select(.tag_name | startswith("dl-"))))
+  | (map(select(.tag_name | startswith("study-") or startswith("phrase-"))) + map(select(.tag_name | startswith("dl-"))))
   | .[] | .tag_name as $t
   | .assets[] | "\($t) \(.name) \(.size)"')
 

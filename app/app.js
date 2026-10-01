@@ -566,7 +566,7 @@ function render() {
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === `screen-${name}`));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.screen === name));
-  if (!['lesson', 'review', 'saved'].includes(name)) {
+  if (!['lesson', 'review', 'saved', 'phrases'].includes(name)) {
     document.body.classList.remove('in-page');
     store.set('tab', name);
   }

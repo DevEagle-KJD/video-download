@@ -433,6 +433,31 @@ autopause (reset to on per lesson), speed), `pos.<lessonId>` (last sentence).
 
 ---
 
+### Say it like a native (`phrase.yml`, added 2026-10-01)
+Owner's idea: learners type the **sentence they really want to say** (in English, or Russian they
+want checked) and get **how natives actually say it**, not a literal translation, as sentences to
+study (never vocabulary lists, never grammar). Study home → **💬 Say it like a native** →
+`#screen-phrases`. The app dispatches `phrase.yml` (inputs `text`, `job_id`); the workflow:
+1. `scripts/study/phrase.py prepare`: Claude as a native speaker gives 1–3 versions (`context`:
+   "with friends" / "polite" / "anywhere", `en`, `note`, `confidence`; plus `check` of the learner's
+   own Russian), then a **second, independent "native-ear" review** (natural / slightly off /
+   unnatural + better wording): unnatural versions are replaced, doubts become `flag`s;
+   **real-speech matching**: every `study-*` lesson.json is downloaded and searched for the phrase
+   (`matches`: lesson, sentence index, text) → "🎬 Heard in N real video sentences" (tap → opens
+   the lesson at that sentence and plays the native).
+2. `enrich.py` (stress, literal line, English, review with RUAccent), `phrase.py finish`,
+   `voices.py`, release **`phrase-<id>`** (lesson.json `kind:"phrases"` + audio.zip), site rebuild
+   (`build-site.sh` now also publishes `phrase-*`). ~2–3 min.
+App: list of requests (pending spinner, failed + Try again, ✕ deletes the release), each version
+with ☆ save to Review (card `lesson` = phrase id, no video; voice from files/<id>/), 🔊/🐢, note,
+⚠️ flag, matches. Stored locally as `grab.phrases`; results rebuilt from releases.
+**Not built yet:** Tatoeba real-usage check (Russian is one of Tatoeba's largest languages;
+volunteer-made, quality varies, so use it only as supporting evidence, preferring sentences added
+by native speakers; CC BY 2.0 FR; per-language exports at downloads.tatoeba.org), **Anki .apkg
+import** (zip with SQLite + media; needs sql.js + JSZip in the browser; newer exports are zstd-
+compressed unless "Support older Anki versions" is ticked), importing the owner's
+russian-study decks directly, and porting all of this to Nativski.
+
 ## 7. YouTube playback test mode
 
 `player` in study.js abstracts playback (`time`, `duration`, `seek`, `play`, `pause`, `setRate`)
@@ -654,9 +679,11 @@ scripts/
   study/voices.py          edge-tts neural word audio (normal + slow)
   study/clean_captions.py  Captions test: Claude re-splits + cleans automatic captions → flags
   study/check_captions.py  Caption check: info.json → {creator tracks, auto} summary
+  study/phrase.py          Say it like a native: native versions + native-ear review + real-speech matches
   study/publish.sh         study-<id> release (media.mp4, lesson.json, audio.zip)
 .github/workflows/
-  download.yml, study.yml, voices.yml, captions-check.yml, cleanup.yml (dl-*/check-* > 24 h),
+  download.yml, study.yml, voices.yml, captions-check.yml, phrase.yml (Say it like a native),
+  cleanup.yml (dl-*/check-* > 24 h),
   pages.yml (reusable + push-triggered), web-lesson.yml (public app's lesson maker)
 web/                       the public web app (see §14 and web/README.md)
 README.md                  user-facing setup and feature docs

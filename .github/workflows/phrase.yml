@@ -1,0 +1,91 @@
+name: Say it like a native
+
+# Started from Grab (Study → Say it like a native): finds how natives really say
+# what the learner typed (English, or Russian to check), double-checks it, looks for
+# the same phrase in real lesson sentences, adds stress marks / literal meanings /
+# English and natural voices, and publishes it as release "phrase-<id>".
+run-name: "phrase ${{ inputs.job_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: What the learner wants to say
+        required: true
+      job_id:
+        description: Unique id chosen by the app (used for the release tag)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  phrase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PHRASE: ${{ inputs.text }}
+      JOB_ID: ${{ inputs.job_id }}
+      TAG_PREFIX: phrase
+      URL: ""
+      GH_TOKEN: ${{ github.token }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      STUDY_MODEL: ${{ vars.STUDY_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate input
+        run: |
+          [[ "$JOB_ID" =~ ^[a-z0-9]{6,32}$ ]] || { echo "::error::bad job id"; exit 1; }
+          [ ${#PHRASE} -le 400 ] || { echo "::error::too long"; exit 1; }
+          [ -n "$ANTHROPIC_API_KEY" ] || { echo "::error::ANTHROPIC_API_KEY secret is missing"; exit 1; }
+
+      - name: Install tools
+        run: python3 -m pip install -q anthropic ruaccent edge-tts
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: phrase-models-ruaccent
+
+      - name: Collect real sentences from lessons
+        run: |
+          mkdir -p out/library
+          for t in $(gh release list -R "$GITHUB_REPOSITORY" --limit 200 --json tagName \
+                       --jq '.[].tagName | select(startswith("study-"))'); do
+            gh release download "$t" -R "$GITHUB_REPOSITORY" -p lesson.json -O "out/library/${t#study-}.json" 2>/dev/null || true
+          done
+          ls out/library | wc -l
+
+      - name: Find how natives say it
+        run: python3 scripts/study/phrase.py prepare
+
+      - name: Stress marks, meanings and English
+        run: python3 scripts/study/enrich.py
+
+      - name: Finish
+        run: python3 scripts/study/phrase.py finish
+
+      - name: Voices
+        continue-on-error: true
+        run: python3 scripts/study/voices.py
+
+      - name: Publish
+        run: |
+          (cd out && [ -d audio ] && zip -q -r audio.zip audio || true)
+          notes=$(jq -c '{ok: true, kind: "phrase", input, count: (.sentences | length)}' out/lesson.json)
+          assets=(out/lesson.json); [ -f out/audio.zip ] && assets+=(out/audio.zip)
+          gh release create "phrase-$JOB_ID" "${assets[@]}" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Phrase: $(jq -r .input out/lesson.json | cut -c1-80)" --notes "$notes"
+
+      - name: Report failure
+        if: failure()
+        run: bash scripts/report-failure.sh
+
+  publish-site:
+    needs: phrase
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

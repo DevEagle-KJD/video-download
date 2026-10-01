@@ -141,6 +141,7 @@
         <h1 class="large-title">Study</h1>
 
         <div class="review-card" id="st-review-card"></div>
+        <button class="native-btn" data-s="phrases"><span>💬</span><b>Say it like a native</b><i>Type what you want to say. Get how natives really say it.</i></button>
 
         <p class="section-header">New lesson</p>
         <div class="group">
@@ -239,6 +240,24 @@
         </div>
         <button class="primary-button" data-s="sv-review-all" id="sv-review-all" style="margin-top:12px"></button>
         <div class="group sv-list" id="sv-list"></div>
+      </div>
+    </section>
+
+    <!-- ───────── Say it like a native ───────── -->
+    <section class="screen page" id="screen-phrases">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Study</span>
+        </button>
+        <span class="navbar-title page-title">Say it like a native</span>
+        <span style="width:60px"></span>
+      </header>
+      <div class="content">
+        <div class="group" style="margin-top:8px">
+          <div class="cell"><textarea id="ph-input" rows="3" maxlength="300" placeholder="What do you want to say? Type it in English, or the Russian you want checked."></textarea></div>
+        </div>
+        <button class="primary-button" id="ph-go">Show Me How Natives Say It</button>
+        <div id="ph-list"></div>
       </div>
     </section>
 
