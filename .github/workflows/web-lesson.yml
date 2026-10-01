@@ -56,7 +56,7 @@ jobs:
           sudo apt-get install -y -qq ffmpeg > /dev/null
           python3 -m pip install -q --upgrade pip
           python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
-          python3 -m pip install -q anthropic ruaccent edge-tts "faster-whisper>=1.1"
+          python3 -m pip install -q anthropic ruaccent edge-tts "faster-whisper>=1.1" "av<19"
           python3 -m pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
           python3 -m pip install -q "git+https://github.com/salute-developers/GigaAM.git"
 

@@ -59,7 +59,7 @@ jobs:
           python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
           python3 -m pip install -q anthropic ruaccent edge-tts
           if [ "$ENGINE" != "captions" ]; then
-            python3 -m pip install -q "faster-whisper>=1.1"
+            python3 -m pip install -q "faster-whisper>=1.1" "av<19"
             # CPU-only PyTorch is ~10x smaller than the default build. Needed by
             # GigaAM (second transcriber) and Argos Translate (free engine).
             python3 -m pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cpu
