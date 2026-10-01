@@ -135,6 +135,17 @@ create policy "send reports" on public.reports for insert with check (auth.uid()
 -- Lessons and new lesson rows are written only by the server (service key),
 -- which bypasses these rules.
 
+-- Table access for the app's API roles (newer Supabase projects may not grant
+-- this automatically). Row-level security above still limits every row.
+grant usage on schema public to anon, authenticated, service_role;
+grant select on public.channels, public.lessons to anon, authenticated;
+grant select on public.profiles to authenticated;
+grant select, insert, update, delete on public.user_lessons, public.cards, public.user_stats to authenticated;
+grant insert on public.channel_requests, public.reports to authenticated;
+grant usage on all sequences in schema public to authenticated;
+grant all on all tables in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+
 -- ───────── Lesson files (lesson.json + voice clips), publicly readable ─────────
 insert into storage.buckets (id, name, public) values ('lessons', 'lessons', true)
   on conflict (id) do update set public = true;
