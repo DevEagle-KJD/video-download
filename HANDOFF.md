@@ -731,7 +731,7 @@ learn languages from **real YouTube videos** with the exact transcript (stress m
 a literal word-by-word line, plain English, a natural voice for every word and sentence (normal +
 slow, syllables lit), and Anki-style flashcards. **The core promise: whatever language you learn,
 you'll sound like a native, from near-perfect transcripts.** **Front page (sign-in), LOCKED IN (owner: "the best so far"; don't change without asking):** headline
-**"Any language. Sound native."**, sub-line **"Real sentences from real videos. Every word is heard
+**"Learn Russian. Sound native."** (changed 2026-10-01 from "Any language. Sound native." because the app is Russian-only for now; switch back when more languages launch), sub-line **"Real sentences from real videos. Every word is heard
 by two speech engines, then verified by an AI language expert, so you learn exactly what natives
 say."**, badges **✓ Real sentences · ✓ Word by word · ✓ Native voice**
 (owner: must say sentence learning from real videos, and show how deep the checking goes;
@@ -825,8 +825,7 @@ progress in `phrases.stage`, which must match `PH_STEPS` labels in web study.js;
 (AlUMYm5YExA) failed on PyAV 19 (`metadata_errors` removed) → `av<19` pinned in both lesson
 workflows. Grab-only things intentionally not in Nativnik: downloader, engine choice
 (Free/AI/Captions), captions check, GitHub token settings, "Record natural voice" (always recorded).
-Owner asked whether to change the locked headline "Any language. Sound native." now that it's
-Russian-only: options offered, awaiting their pick.
+Headline changed to "Learn Russian. Sound native." at the owner's request (Russian-only for now).
 
 Done by the owner: Supabase org **Nativski** (Free) + project, `schema.sql` run (now with
 explicit GRANTs). Email templates are locked without custom SMTP, so the app now also accepts

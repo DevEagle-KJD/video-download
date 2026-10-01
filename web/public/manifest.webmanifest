@@ -1,7 +1,7 @@
 {
   "name": "Nativnik",
   "short_name": "Nativnik",
-  "description": "Any language. Speak it like you were born with it.",
+  "description": "Learn Russian. Sound native.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
