@@ -46,6 +46,7 @@ export default async function handler(req, res) {
     return send(res, 200, { phrase: row });
   } catch (e) {
     console.error(e);
+    if (/PGRST205|phrases/.test(String(e.message))) return send(res, 503, { error: '“Say it like a native” isn’t switched on yet. (Admin: run supabase/schema.sql again.)' });
     return send(res, 500, { error: 'Something went wrong. Please try again.' });
   }
 }
