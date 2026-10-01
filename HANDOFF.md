@@ -811,6 +811,14 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
 - Setup guide for all accounts/keys: `web/README.md`.
 
 ### ▶ Where we left off (updated 2026-10-01)
+**LIVE at https://nativnik.vercel.app** (Vercel project `nativnik`, Hobby plan for now: needs Pro
+before charging money; env vars set; Supabase Site URL/Redirect = that address). Owner signed in
+successfully (sign-in link). GitHub secrets SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY added; a
+fine-grained token (Actions: read & write, this repo only, 1 year) is in Vercel as GITHUB_TOKEN.
+Ported from Grab on 2026-10-01: syllable sync (`analyzeClip`/`followSyllables`), page stack /
+back / reload memory (no phrases page). **Not ported yet:** Say it like a native (needs a web
+version of phrase.yml that publishes to Supabase, a `phrases` table, and the UI).
+
 Done by the owner: Supabase org **Nativski** (Free) + project, `schema.sql` run (now with
 explicit GRANTs). Email templates are locked without custom SMTP, so the app now also accepts
 Supabase's default sign-in **link** (`signInFromLink`, `redirect_to` = the app's address); the

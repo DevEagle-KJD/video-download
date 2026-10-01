@@ -157,29 +157,78 @@ function studyShow() {
   stRender();
   stRefresh();
   syncLoad();
+  stRestorePages();   // after a reload: reopen the page you were on
 }
 window.studyShow = studyShow;
 
-/* ───────── Pages (lesson / review) ───────── */
-let prevTab = 'study';
-function stOpenPage(name) {
+/* ───────── Pages (lesson / saved / review) ───────── */
+/* Pages opened from Study form a stack (e.g. Saved → a lesson),
+   so ← goes back to the page you came from, and it's saved so a reload reopens
+   the page you were on. Each page also gets a browser history entry, so
+   swiping back / Safari's back button work like ←. Review isn't reopened after
+   a reload (the session is gone); you land on the page under it. */
+let pageStack = store.get('pageStack', []);   // [{ name, id }]
+let pageRestoring = false;
+const savePages = () => store.set('pageStack', pageStack.filter(p => p.name !== 'review'));
+function stOpenPage(name, id = null) {
+  if (!pageRestoring) {
+    const at = pageStack.findIndex(p => p.name === name && p.id === id);
+    if (at >= 0) pageStack.length = at + 1;       // already open further down: go back to it
+    else {
+      pageStack.push({ name, id });
+      try { history.pushState({ page: pageStack.length }, ''); } catch { /* ignore */ }
+    }
+    savePages();
+  }
   document.body.classList.add('in-page');
   showScreen(name);
 }
-function stBack() {
+// Opens a page from the stack again without adding it.
+async function stReopen(p) {
+  pageRestoring = true;
+  try {
+    if (p.name === 'lesson') {
+      const l = lessons.find(x => x.id === p.id && x.state === 'ready');
+      if (l) await openLesson(l); else return false;
+    } else if (p.name === 'saved') openSaved();
+    else return false;
+    return true;
+  } finally { pageRestoring = false; }
+}
+async function stBack() {
   clearTimeout(waitTimer);
   player.close();
   $('#rv-video').pause();
   stop();
-  if (prevTab === 'saved') {       // review started from the Saved list: go back there
-    prevTab = 'study';
-    stOpenPage('saved');
-    renderSaved();
-    return;
+  pageStack.pop();
+  while (pageStack.length) {
+    if (await stReopen(pageStack[pageStack.length - 1])) { savePages(); return; }
+    pageStack.pop();                               // that page is gone (e.g. lesson deleted)
   }
+  savePages();
   document.body.classList.remove('in-page');
-  showScreen(prevTab);
+  showScreen('study');
   stRender();
+}
+// In-app ←: step back through the browser history too, so the two stay in step.
+function stBackButton() {
+  if (history.state?.page) history.back();         // → popstate → stBack()
+  else stBack();
+}
+window.addEventListener('popstate', () => {
+  if (document.body.classList.contains('in-page') && pageStack.length) stBack();
+});
+// After a reload: reopen the page you were on.
+let pagesRestored = false;
+async function stRestorePages() {
+  if (pagesRestored) return;
+  pagesRestored = true;
+  try { history.replaceState(null, ''); } catch { /* ignore */ }   // ← then works without old history entries
+  while (pageStack.length) {
+    if (await stReopen(pageStack[pageStack.length - 1])) return;
+    pageStack.pop();
+  }
+  savePages();
 }
 
 /* ───────── Player: YouTube's embedded player (the `player` layer can also drive a <video>) ───────── */
@@ -324,8 +373,7 @@ async function openLesson(l) {
   renderTranscript();
   syncChips();
   updateScrub(0);
-  prevTab = 'study';
-  stOpenPage('lesson');
+  stOpenPage('lesson', l.id);
   $('#screen-lesson').scrollTop = 0;
   const pos = store.get(`pos.${l.id}`, 0);
   if (pos > 0) setActive(pos, false);
@@ -722,16 +770,92 @@ function ensureAudio(lessonId) {
 
 const voicePlayer = new Audio();
 voicePlayer.preload = 'auto';
+/* Syllable highlighting that follows the recording itself: the clip is decoded
+   once, its loudness measured every 10 ms to find where the voice really starts
+   and stops (recordings have silence at both ends), and syllable boundaries are
+   placed in the quiet dips between syllables. The highlight then follows the
+   player's actual position, so it can't drift. */
+const sylMaps = new Map();   // url → Promise<{ start, end, env: Float32Array }>
+let audioCtx = null;
+function analyzeClip(url) {
+  if (!sylMaps.has(url)) {
+    sylMaps.set(url, (async () => {
+      const buf = await (await fetch(url)).arrayBuffer();
+      audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+      const audio = await new Promise((ok, bad) => audioCtx.decodeAudioData(buf, ok, bad));
+      const data = audio.getChannelData(0), hop = Math.round(audio.sampleRate / 100);
+      const env = new Float32Array(Math.floor(data.length / hop));
+      for (let f = 0; f < env.length; f++) {
+        let sum = 0;
+        for (let j = f * hop; j < (f + 1) * hop; j++) sum += data[j] * data[j];
+        env[f] = Math.sqrt(sum / hop);
+      }
+      const max = env.reduce((m, x) => Math.max(m, x), 0) || 1;
+      const loud = max * 0.08;
+      let a = env.findIndex(x => x > loud), b = env.length - 1;
+      while (b > a && env[b] <= loud) b--;
+      return { start: Math.max(0, a) / 100, end: (b + 1) / 100, env };
+    })().catch(() => null));
+  }
+  return sylMaps.get(url);
+}
+
+// Syllable start times (seconds) for this clip: weighted by letters (stressed
+// syllables are held longer), then each boundary moved to the quietest moment nearby.
+function sylTimes(info, els) {
+  const w = els.map(e => Math.max(1, e.textContent.replace(/[^\p{L}]/gu, '').length) * (e.classList.contains('stress') ? 1.4 : 1));
+  const total = w.reduce((x, y) => x + y, 0), span = info.end - info.start;
+  const smooth = f => { let s = 0, c = 0; for (let k = f - 2; k <= f + 2; k++) if (info.env[k] != null) { s += info.env[k]; c++; } return s / c; };
+  const ex = w.map(x => (span * x) / total);   // expected length of each syllable
+  const times = [info.start];
+  let acc = 0;
+  for (let n = 0; n < els.length - 1; n++) {
+    acc += w[n];
+    const guess = info.start + (span * acc) / total;
+    // Only look a little either side, and never make a syllable much shorter than expected.
+    const lo = Math.max(times[n] + ex[n] * 0.6, guess - ex[n] * 0.3), hi = guess + ex[n + 1] * 0.3;
+    let best = Math.max(guess, lo), bestE = Infinity;
+    for (let t = lo; t <= hi; t += 0.01) {
+      const e = smooth(Math.round(t * 100));
+      if (e < bestE) { bestE = e; best = t; }
+    }
+    times.push(best);
+  }
+  return times;
+}
+
+let sylRaf = 0;
+function followSyllables(sylRoot, url) {
+  cancelAnimationFrame(sylRaf);
+  clearInterval(sylTimer);
+  const els = sylRoot ? [...sylRoot.querySelectorAll('.syl')] : [];
+  if (!els.length) return;
+  let times = null;
+  analyzeClip(url).then(info => { if (info && voicePlayer.src.endsWith(url)) { times = sylTimes(info, els); times.end = info.end; } });
+  const tick = () => {
+    if (!voicePlayer.src.endsWith(url) || voicePlayer.ended) { els.forEach(e => e.classList.remove('on')); return; }
+    const t = voicePlayer.currentTime, d = voicePlayer.duration;
+    let on = -1;
+    if (times) {
+      if (t >= times[0] && t <= times.end + 0.05) for (let n = 0; n < times.length; n++) if (t >= times[n]) on = n;
+    } else if (isFinite(d) && d) {
+      on = Math.min(els.length - 1, Math.floor((t / (d * 0.8)) * els.length));   // until measured
+    }
+    els.forEach((e, n) => e.classList.toggle('on', n === on));
+    sylRaf = requestAnimationFrame(tick);
+  };
+  sylRaf = requestAnimationFrame(tick);
+}
+
 function playClips(urls, sylRoot) {
   speechSynthesis?.cancel?.();
+  if (sylRoot) urls.forEach(analyzeClip);   // measure while the first one starts
   let i = 0;
   const next = () => {
     if (i >= urls.length) { sylRoot?.querySelectorAll('.syl.on').forEach(e => e.classList.remove('on')); return; }
-    voicePlayer.src = urls[i++];
-    voicePlayer.onplaying = () => {
-      const n = sylRoot ? sylRoot.querySelectorAll('.syl').length : 0;
-      if (n && isFinite(voicePlayer.duration)) animateSyllables(sylRoot, 1, (voicePlayer.duration * 1000 * 0.85) / n);
-    };
+    const url = urls[i++];
+    voicePlayer.src = url;
+    voicePlayer.onplaying = () => followSyllables(sylRoot, url);
     voicePlayer.onended = () => setTimeout(next, 300);
     voicePlayer.play().catch(() => {});
   };
@@ -929,7 +1053,6 @@ function startReview(list = dueCards().slice(0, 50), from = 'study') {
   clearTimeout(waitTimer);
   undoStack = [];
   $('#rv-undo').hidden = true;
-  prevTab = from;
   stOpenPage('review');
   showCard();
 }
@@ -1225,7 +1348,6 @@ const liveCards = kind => Object.values(cards)
   .sort((a, b) => (b.created || 0) - (a.created || 0));
 
 function openSaved() {
-  prevTab = 'study';
   stOpenPage('saved');
   [...new Set(Object.values(cards).map(c => c.lesson))].forEach(ensureAudio);
   renderSaved();
@@ -1338,7 +1460,6 @@ async function svOpenLesson() {
   if (!l) return;
   store.set(`pos.${l.id}`, c.i);
   closeSheet();
-  prevTab = 'study';
   await openLesson(l);
 }
 
@@ -1418,7 +1539,7 @@ document.addEventListener('click', e => {
     case 'open': { const l = lessons.find(x => x.id === id); if (l) openLesson(l); break; }
     case 'retry': { const l = lessons.find(x => x.id === id); closeSheet(); if (l) stStart(l.url); break; }
     case 'forget': { const l = lessons.find(x => x.id === id); if (l) stRemoveLesson(l, false); break; }
-    case 'back': stBack(); break;
+    case 'back': stBackButton(); break;
     case 'sent': playSentence(i); break;
     case 'replay': playSentence(i); break;
     case 'word': {
