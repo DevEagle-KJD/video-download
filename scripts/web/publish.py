@@ -13,9 +13,9 @@ import supa  # noqa: E402
 OUT = Path("out")
 
 
-def main(video_id):
+def main(video_id, phrase=False):
     lesson = json.loads((OUT / "lesson.json").read_text(encoding="utf-8"))
-    lesson["video"] = False                  # always played through YouTube
+    lesson["video"] = False                  # always played through YouTube (or none, for phrases)
     clips = sorted((OUT / "audio").glob("*.mp3")) if (OUT / "audio").is_dir() else []
     print(f"Uploading {len(clips)} voice clips…", flush=True)
 
@@ -35,6 +35,10 @@ def main(video_id):
     supa.upload(f"{video_id}/lesson.json",
                 json.dumps(lesson, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
                 "application/json", cache="no-cache")
+    if phrase:
+        supa.update_phrase(video_id, status="ready", stage=None, error=None)
+        print(f"Published phrase {video_id}")
+        return
     supa.update_lesson(video_id, status="ready", stage=None, error=None,
                        title=lesson.get("title"), duration=lesson.get("duration"),
                        sentence_count=len(lesson.get("sentences", [])))
@@ -42,4 +46,4 @@ def main(video_id):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], phrase="--phrase" in sys.argv)

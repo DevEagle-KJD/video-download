@@ -62,6 +62,7 @@ function showScreen(name) {
   }
   if (name === 'study' && window.studyShow) window.studyShow();
   if (name === 'explore' && window.exploreShow) window.exploreShow();
+  if (name === 'practice' && window.practiceShow) window.practiceShow();
   if (name === 'account') renderAccount();
 }
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showScreen(t.dataset.screen)));
@@ -232,7 +233,7 @@ async function startApp() {
   if (!session) { showScreen('signin'); return; }
   document.body.classList.remove('signed-out');
   const tab = store.get('tab', 'study');
-  showScreen(['study', 'explore', 'account'].includes(tab) ? tab : 'study');
+  showScreen(['study', 'practice', 'explore', 'account'].includes(tab) ? tab : 'study');
 }
 
 window.addEventListener('hashchange', () => { if (config) signInFromLink().then(startApp); });

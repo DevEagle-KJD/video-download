@@ -305,3 +305,75 @@ body {
 .empty-card .big { font-size: 40px; display: block; margin-bottom: 6px; }
 .empty-card b { display: block; font-size: 19px; margin-bottom: 4px; }
 .empty-card span { color: var(--secondary); font-size: 15px; }
+
+/* ───────── Say it like a native (from Grab's app/style.css) ───────── */
+#ph-input { width: 100%; border: 0; outline: 0; resize: none; background: none; color: var(--label); font: inherit; font-size: 17px; padding: 4px 0; }
+.ph-item { margin: 12px 0 6px; }
+.ph-q { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; color: var(--secondary); margin: 0 4px 8px; }
+.ph-q b { flex: 1; color: var(--label); font-size: 17px; }
+.ph-q button { color: var(--secondary); font-size: 15px; }
+.ph-item:has(.ph-fold:not(.open)) { margin: 0; border-bottom: 1px solid var(--separator); }
+#ph-list { overflow-x: clip; }
+.ph-fold { margin: 0 4px; padding: 12px 0; align-items: center; overflow: hidden; }
+.ph-fold.open { padding-bottom: 8px; }
+.ph-q .ph-head { flex: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; display: flex; align-items: flex-start; gap: 10px; text-align: left; color: var(--label); min-width: 0; }
+.ph-chev { color: var(--secondary); font-size: 20px; line-height: 22px; transition: transform .2s; }
+.ph-fold.open .ph-chev { transform: rotate(90deg); }
+.ph-title { flex: 1; min-width: 0; }
+.ph-title b { display: block; font-size: 17px; }
+.ph-title small { display: block; margin-top: 3px; font-size: 14px; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-check { margin: 0 4px 10px; padding: 10px 12px; border-radius: 12px; background: var(--fill); font-size: 14px; }
+.ph-check.good b { color: var(--green); }
+.ph-check.bad b { color: var(--orange); }
+.ph-v { background: var(--cell); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; }
+.ph-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.ph-ctx { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--blue); }
+.ph-ctx em { font-style: normal; color: var(--orange, #ff9f0a); }
+.ph-star { font-size: 22px; color: var(--secondary); line-height: 1; }
+.ph-star.on { color: #ffcc00; }
+.ph-v .en { margin: 8px 0 0; }
+.ph-note { font-size: 13px; color: var(--secondary); margin-top: 6px; }
+.ph-flag { font-size: 13px; color: var(--orange); margin-top: 6px; }
+.ph-heard { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--separator); }
+.ph-heard b { font-size: 13px; color: var(--green); }
+.ph-heard button { display: block; width: 100%; text-align: left; font-size: 14px; padding: 6px 0 0; color: var(--label); }
+.ph-heard button span { display: block; font-size: 12px; color: var(--secondary); }
+.ph-heard mark { background: none; color: var(--orange, #ff9f0a); font-weight: 600; }
+.ph-v .il .tok { cursor: pointer; }
+.ph-tools { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.ph-wait { background: var(--cell); border-radius: 16px; padding: 14px; color: var(--secondary); font-size: 15px; display: flex; gap: 10px; align-items: center; }
+
+.ph-steps { flex-direction: column; align-items: stretch; gap: 8px; }
+.ph-steps > div { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--tertiary); }
+.ph-steps > div > i { width: 18px; flex: none; display: flex; justify-content: center; font-style: normal; }
+.ph-steps > div > span { flex: 1; min-width: 0; }
+.ph-steps > div.done { color: var(--secondary); }
+.ph-steps > div.done > i { color: var(--green); }
+.ph-steps > div.now { color: var(--label); font-weight: 600; }
+.ph-why { margin: 4px 0 0; font-size: 12px; color: var(--secondary); }
+
+/* ───────── Practice tab ───────── */
+.pr-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 4px 0 30px; }
+.pr-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 18px; border-radius: 20px; text-align: left;
+  background: var(--cell); box-shadow: inset 0 0 0 1px rgba(255, 190, 90, 0.14);
+}
+.pr-tile.lit { background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent); box-shadow: 0 10px 30px rgba(255, 140, 40, 0.3); }
+.pr-big { font-size: 40px; font-weight: 800; line-height: 1; margin-bottom: 6px; }
+.pr-tile b { font-size: 19px; }
+.pr-tile i { font-style: normal; font-size: 14px; opacity: .75; }
+.ph-box {
+  display: flex; align-items: flex-end; gap: 8px; padding: 10px 10px 10px 18px; border-radius: 18px; margin-bottom: 18px;
+  background: var(--cell); box-shadow: inset 0 0 0 1px rgba(255, 190, 90, 0.18);
+}
+.ph-box #ph-input { flex: 1; min-height: 46px; padding: 10px 0; }
+.ph-box #ph-input::placeholder { color: var(--tertiary); }
+#ph-go {
+  flex: none; height: 46px; padding: 0 20px; border-radius: 14px; font-weight: 700; font-size: 17px; color: var(--on-accent);
+  background: linear-gradient(135deg, var(--blue), var(--accent-2)); box-shadow: 0 6px 20px rgba(255, 140, 40, 0.30);
+}
+#ph-go:disabled { opacity: .5; }
+.ph-v { padding: 16px 18px; border-radius: 18px; box-shadow: inset 0 0 0 1px rgba(255, 190, 90, 0.10); }
+.ph-v .il .tok b { font-size: 26px; }
+.ph-hint { margin: 8px 0 0; font-size: 12px; color: var(--tertiary); }
+.ph-x { color: var(--secondary); font-size: 16px; padding: 4px 6px; }

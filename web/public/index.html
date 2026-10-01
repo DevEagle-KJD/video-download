@@ -74,6 +74,24 @@
     </section>
 
     <!-- ───────── Explore ───────── -->
+    <section class="screen" id="screen-practice">
+      <header class="navbar"><span class="navbar-title">Practice</span></header>
+      <div class="content">
+        <h1 class="large-title">Practice</h1>
+        <div class="pr-tiles">
+          <button class="pr-tile due" data-s="pr-review"><span class="pr-big" id="pr-due">0</span><b>Review</b><i id="pr-due-l">cards due now</i></button>
+          <button class="pr-tile" data-s="saved"><span class="pr-big" id="pr-saved">0</span><b>Saved</b><i>words &amp; sentences</i></button>
+        </div>
+        <h2 class="shelf-title">💬 Say it like a native</h2>
+        <p class="hello">Type something you want to say, in English or Russian. Get how natives really say it.</p>
+        <div class="ph-box">
+          <textarea id="ph-input" rows="2" maxlength="300" placeholder="e.g. No worries, take your time" enterkeyhint="send"></textarea>
+          <button id="ph-go">Show Me</button>
+        </div>
+        <div id="ph-list"></div>
+      </div>
+    </section>
+
     <section class="screen" id="screen-explore">
       <header class="navbar"><span class="navbar-title">Explore</span></header>
       <div class="content">
@@ -181,6 +199,11 @@
       <svg viewBox="0 0 24 24"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 6v13.5"/></svg>
       <span>Learn</span>
       <i class="badge" id="st-badge" hidden></i>
+    </button>
+    <button class="tab" data-screen="practice" role="tab">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/></svg>
+      <span>Practice</span>
+      <i class="badge" id="pr-badge" hidden></i>
     </button>
     <button class="tab" data-screen="explore" role="tab">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>

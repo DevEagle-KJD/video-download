@@ -121,9 +121,11 @@ function stRender() {
          <span class="rv-bar-t"><b>${due ? `${plural(due, 'card')} to review` : 'All caught up'}</b><i>${plural(live.length, 'saved card')}</i></span>
          <span class="rv-bar-go">${due ? 'Review' : 'See all'}</span>
        </button>` : '';
-  const badge = $('#st-badge');
-  badge.hidden = !due;
-  badge.textContent = due > 99 ? '99+' : due;
+  for (const badge of [$('#st-badge'), $('#pr-badge')]) {
+    if (!badge) continue;
+    badge.hidden = !due;
+    badge.textContent = due > 99 ? '99+' : due;
+  }
 
   window.engage?.render();
   // Continue: the lesson you opened last.
@@ -212,7 +214,7 @@ async function stBack() {
   }
   savePages();
   document.body.classList.remove('in-page');
-  showScreen('study');
+  showScreen(store.get('tab', 'study'));
   stRender();
 }
 // In-app ←: step back through the browser history too, so the two stay in step.
@@ -400,10 +402,10 @@ function plainWord(w) {
 }
 
 // hl: index of a token to highlight; i: sentence index to make words tappable.
-function tokensHTML(tokens, withGloss, { i = null, hl = -1 } = {}) {
+function tokensHTML(tokens, withGloss, { i = null, hl = -1, ph = null } = {}) {
   return tokens.map((t, k) => {
-    const saved = i != null && lesson && isSaved(`${lesson.id}:${i}:${k}`);
-    const attrs = i != null ? ` data-s="word" data-i="${i}" data-k="${k}"` : '';
+    const saved = i != null && (ph ? isSaved(`${ph}:${i}:${k}`) : lesson && isSaved(`${lesson.id}:${i}:${k}`));
+    const attrs = i == null ? '' : ph ? ` data-s="ph-word" data-id="${ph}" data-i="${i}" data-k="${k}"` : ` data-s="word" data-i="${i}" data-k="${k}"`;
     return `<span class="tok${k === hl ? ' hl' : ''}${saved ? ' saved' : ''}${t.u ? ' unsure' : ''}"${attrs}><b>${esc(t.w)}</b>${withGloss ? `<i>${esc(t.g || ' ')}</i>` : ''}</span>`;
   }).join('');
 }
@@ -1654,3 +1656,265 @@ $('#st-refresh').addEventListener('click', () => { stRefresh(); syncLoad(); });
 // core.js may have opened the Study tab before this file loaded.
 if ($('#screen-study').classList.contains('active')) studyShow();
 else stRender();
+
+
+/* ───────── Practice tab: Review, Saved and "Say it like a native" ─────────
+   Phrases are rows in the phrases table (one per request); the "Web phrase"
+   workflow updates status/stage and uploads lesson.json + voices to storage
+   (lessons/<id>/), so they play and save exactly like lesson sentences. */
+const PH_STEPS = [
+  'Gathering real sentences from our videos',
+  'Searching real native speech, then asking a native-speaker AI and double-checking it',
+  'Adding stress marks and word-by-word meanings',
+  'Recording the natural voice',
+  'Publishing',
+];
+let phrases = store.get('phrases', []);            // rows: {id, text, status, stage, error, created_at}
+const phData = {};                                  // id → lesson.json
+let phOpenId = store.get('phOpen', undefined);      // the one open result (null = all closed)
+function phSetOpen(id) { phOpenId = id; store.set('phOpen', id); }
+
+function practiceShow() {
+  const live = Object.values(cards).filter(c => !c.deleted).length, due = dueCards().length;
+  $('#pr-due').textContent = due;
+  $('#pr-due-l').textContent = due ? `card${due === 1 ? '' : 's'} due now` : 'all caught up';
+  $('.pr-tile.due')?.classList.toggle('lit', due > 0);
+  $('#pr-saved').textContent = live;
+  renderPhrases();
+  phRefresh();
+}
+window.practiceShow = practiceShow;
+
+let phTimer = null;
+async function phRefresh() {
+  clearTimeout(phTimer);
+  if (!session) return;
+  try {
+    const before = new Map(phrases.map(p => [p.id, p.status]));
+    phrases = await db('phrases?select=id,text,status,stage,error,created_at&order=created_at.desc&limit=60');
+    store.set('phrases', phrases);
+    await Promise.all(phrases.filter(p => p.status === 'ready' && !phData[p.id]).map(async p => {
+      try {
+        const r = await fetch(fileUrl(p.id, 'lesson.json'), { cache: 'no-cache' });
+        if (!r.ok) return;
+        phData[p.id] = await r.json();
+        audioMaps[p.id] = phData[p.id].audio?.clips || {};
+        if (before.has(p.id) && before.get(p.id) !== 'ready') phSetOpen(p.id);   // just finished: show it
+      } catch { /* next time */ }
+    }));
+    renderPhrases();
+  } catch (e) { console.warn('phrases', e); }
+  if (phrases.some(p => p.status === 'queued' || p.status === 'processing')) phTimer = setTimeout(phRefresh, 6000);
+}
+
+async function phStart(textArg) {
+  const text = (textArg ?? $('#ph-input').value).replace(/\s+/g, ' ').trim();
+  if (!text) { toast('Type what you want to say'); $('#ph-input').focus(); return; }
+  if (phrases.some(x => x.status !== 'failed' && x.text.toLowerCase() === text.toLowerCase())) { toast('Already on it: see below'); $('#ph-input').value = ''; return; }
+  $('#ph-go').disabled = true;
+  try {
+    const { phrase } = await api('phrases', { text });
+    phrases.unshift(phrase);
+    $('#ph-input').value = '';
+    renderPhrases();
+    phTimer = setTimeout(phRefresh, 4000);
+  } catch (e) { toast(e.message); } finally { $('#ph-go').disabled = false; }
+}
+
+function renderPhrases() {
+  const list = $('#ph-list');
+  if (!list) return;
+  // Nothing chosen yet (or it was deleted): open the newest finished one.
+  if (phOpenId === undefined || (phOpenId !== null && !phrases.some(p => p.id === phOpenId))) {
+    phOpenId = phrases.find(p => p.status === 'ready' && phData[p.id])?.id;
+  }
+  list.innerHTML = phrases.length ? phrases.map(p => {
+    const del = `<button class="ph-x" data-s="ph-del" data-id="${p.id}" aria-label="Delete">✕</button>`;
+    let head = `<div class="ph-q"><b>“${esc(p.text)}”</b>${del}</div>`;
+    const d = phData[p.id];
+    if (p.status === 'ready' && d) {
+      const open = p.id === phOpenId;
+      head = `<div class="ph-q ph-fold${open ? ' open' : ''}"><div class="ph-head" role="button" tabindex="0" data-s="ph-toggle" data-id="${p.id}" aria-expanded="${open}">
+        <span class="ph-chev">›</span><span class="ph-title"><b>“${esc(p.text)}”</b>${open ? '' : `<small>${esc(d.sentences[0]?.ru || '')}${d.sentences.length > 1 ? ` · ${d.sentences.length} ways` : ''}</small>`}</span></div>${del}</div>`;
+      if (!open) return `<div class="ph-item">${head}</div>`;
+    }
+    if (p.status === 'failed') return `<div class="ph-item">${head}<div class="ph-wait">⚠️ ${esc(p.error || 'Something went wrong.')} <button class="text-button" data-s="ph-retry" data-id="${p.id}">Try again</button></div></div>`;
+    if (p.status !== 'ready' || !d) {
+      const step = p.status === 'ready' ? PH_STEPS.length - 1 : PH_STEPS.indexOf(p.stage);
+      return `<div class="ph-item">${head}<div class="ph-wait ph-steps">${PH_STEPS.map((label, k) =>
+        `<div class="${k < step ? 'done' : k === step ? 'now' : ''}"><i>${k < step ? '✓' : k === step ? '<span class="spinner"></span>' : '•'}</i><span>${label}</span></div>`).join('')}
+        <p class="ph-why">${step < 0 ? 'Starting… ' : ''}Takes about 2–3 minutes: we check real native speech first instead of guessing.</p></div></div>`;
+    }
+    const chk = d.check?.verdict ? `<div class="ph-check ${d.check.verdict === 'natural' ? 'good' : 'bad'}"><b>Your Russian: ${esc(d.check.verdict)}.</b> ${esc(d.check.comment || '')}</div>` : '';
+    const gendered = d.sentences.some(s => s.who);
+    return `<div class="ph-item">${head}${chk}${d.sentences.map((s, i) => {
+      const ctx = s.context === 'polite' ? 'with strangers' : s.context || '';
+      const who = s.who || (gendered ? 'man or woman' : '');
+      const id = `${p.id}:${i}`;
+      const heard = (s.matches || []).length ? `<div class="ph-heard"><b>🎬 Heard in ${s.matches.length} real video sentence${s.matches.length === 1 ? '' : 's'}</b>${s.matches.map(m =>
+        `<button data-s="ph-heard" data-lesson="${esc(m.lesson)}" data-i="${m.i}">${esc(m.ru)}<span>${esc(m.title || '')}</span></button>`).join('')}</div>` : '';
+      return `<div class="ph-v">
+        <div class="ph-top"><span class="ph-ctx">${esc(ctx)}${who ? ` · <em>${esc(who)}</em>` : ''}</span>
+          <button class="ph-star${isSaved(id) ? ' on' : ''}" data-s="ph-save" data-id="${p.id}" data-i="${i}" aria-label="Save to review">${isSaved(id) ? '★' : '☆'}</button></div>
+        <div class="il">${tokensHTML(s.tokens, true, { i, ph: p.id })}</div>
+        ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
+        ${s.note ? `<div class="ph-note">${esc(s.note)}</div>` : ''}
+        ${s.flag ? `<div class="ph-flag">⚠️ ${esc(s.flag)}</div>` : ''}
+        <div class="ph-tools"><button class="chip" data-s="ph-say" data-id="${p.id}" data-i="${i}" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+          <button class="chip" data-s="ph-say" data-id="${p.id}" data-i="${i}" data-rate="${RATE_SLOW}">🐢 Slowly</button></div>
+        <p class="ph-hint">Tap any word to hear it, see its meaning and save it.</p>
+        ${heard}
+      </div>`;
+    }).join('')}</div>`;
+  }).join('') : '<div class="empty-card"><span class="big">💬</span><b>What do you want to be able to say?</b><span>Try “No worries, take your time” or “Can I get the check?”</span></div>';
+}
+
+function phToggleSave(pid, i) {
+  const d = phData[pid], s = d?.sentences[i];
+  if (!s) return;
+  const id = `${pid}:${i}`;
+  if (isSaved(id)) {
+    cards[id].deleted = true;
+    cards[id].updated = Date.now();
+    toast('Removed from review');
+  } else {
+    const now = Date.now();
+    cards[id] = {
+      id, lesson: pid, title: d.input, i, start: 0, end: 0, ru: s.ru, tokens: s.tokens.map(({ w, g }) => ({ w, g })), en: s.en,
+      created: now, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
+    };
+    toast('Saved for review ⭐');
+    window.engage?.xp(3);
+  }
+  cardsChanged(id);
+  renderPhrases();
+}
+
+async function phDelete(id) {
+  if (!confirm('Delete this phrase? Anything you saved to Review stays.')) return;
+  try { await db(`phrases?id=eq.${id}`, { method: 'DELETE' }); } catch (e) { toast(e.message); return; }
+  phrases = phrases.filter(x => x.id !== id);
+  store.set('phrases', phrases);
+  renderPhrases();
+}
+
+/* Tapping a word: hear it, see its meaning, save it, and find it in real video
+   sentences (matched by dictionary form, so спала also finds спал). */
+let phWordOpen = null;   // { pid, i, k }
+const plainKey = w => (w || '').normalize('NFD').replace(/́/g, '').normalize('NFC').toLowerCase().replace(/ё/g, 'е').replace(/[^а-яa-z0-9-]/g, '');
+const videoData = {};
+async function phWordInVideos(t) {
+  const want = plainKey(t.b || t.w), surface = plainKey(t.w);
+  if (!want) return [];
+  const vids = lessons.filter(l => l.state === 'ready');
+  await Promise.all(vids.filter(l => !videoData[l.id]).map(l =>
+    fetch(fileUrl(l.id, 'lesson.json'), { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d) videoData[l.id] = d; }).catch(() => {})));
+  const found = [];
+  for (const l of vids) {
+    (videoData[l.id]?.sentences || []).forEach((s, i) => {
+      const k = (s.tokens || []).findIndex(x => (x.b ? plainKey(x.b) === want : false) || plainKey(x.w) === surface);
+      if (k >= 0) found.push({ lesson: l.id, title: videoData[l.id].title || '', i, k, s });
+    });
+  }
+  return found.sort((a, b) => a.s.tokens.length - b.s.tokens.length).slice(0, 4);
+}
+
+function phOpenWord(pid, i, k) {
+  const d = phData[pid], s = d?.sentences[i], t = s?.tokens[k];
+  if (!t) return;
+  phWordOpen = { pid, i, k };
+  const id = `${pid}:${i}:${k}`;
+  openSheet('Word', `
+    <div class="word-card">
+      <div class="wc-word" id="wc-word">${syllablesHTML(t.w)}</div>
+      ${t.g ? `<div class="wc-here">${esc(t.g)}</div>` : ''}
+      <div class="wc-audio">
+        <button class="chip" data-s="phw-say" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+        <button class="chip" data-s="phw-say" data-rate="${RATE_SLOW}">🐢 Slowly</button>
+      </div>
+      ${t.b || t.m ? `<div class="group kv wc-dict">
+        ${t.b ? `<div class="cell"><div class="k">Dictionary form</div><span class="wc-base">${esc(t.b)}</span></div>` : ''}
+        ${t.m ? `<div class="cell"><div class="k">Meaning</div>${esc(t.m)}</div>` : ''}
+      </div>` : ''}
+      <div class="wc-sentence">
+        <div class="k">In this sentence</div>
+        <div class="il">${tokensHTML(s.tokens, false, { hl: k })}</div>
+        ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
+      </div>
+      <div class="ph-heard" id="phw-videos"><b><span class="spinner"></span> Looking for it in your videos…</b></div>
+      <button class="primary-button${isSaved(id) ? ' saved-btn' : ''}" data-s="phw-save">${isSaved(id) ? '★ Saved (tap to remove)' : '☆ Save Word'}</button>
+    </div>`);
+  phWordInVideos(t).then(found => {
+    const box = $('#phw-videos');
+    if (!box || phWordOpen?.pid !== pid || phWordOpen.i !== i || phWordOpen.k !== k) return;
+    box.innerHTML = found.length
+      ? `<b>🎬 In your videos</b>${found.map(f => `<button data-s="ph-heard" data-lesson="${esc(f.lesson)}" data-i="${f.i}">${f.s.tokens.map((x, j) => (j === f.k ? `<mark>${esc(x.w)}</mark>` : esc(x.w))).join(' ')}<span>${esc(f.title)}</span></button>`).join('')}`
+      : '<b>Not in your videos yet.</b> Add more lessons and it may turn up.';
+  });
+}
+
+function phToggleWord() {
+  const { pid, i, k } = phWordOpen;
+  const d = phData[pid], s = d.sentences[i], t = s.tokens[k];
+  const id = `${pid}:${i}:${k}`;
+  if (isSaved(id)) {
+    cards[id].deleted = true;
+    cards[id].updated = Date.now();
+    toast('Word removed from review');
+  } else {
+    const now = Date.now();
+    cards[id] = {
+      id, kind: 'word', lesson: pid, title: d.input, i, k,
+      w: t.w, g: t.g || '', b: t.b || '', m: t.m || '',
+      start: 0, end: 0, ru: s.ru, tokens: s.tokens.map(({ w, g }) => ({ w, g })), en: s.en,
+      created: now, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
+    };
+    toast('Word saved ⭐');
+    window.engage?.xp(3);
+  }
+  cardsChanged(id);
+  renderPhrases();
+  phOpenWord(pid, i, k);
+}
+
+// A real video sentence: open that lesson there (adding it to your list if needed).
+async function phOpenHeard(lessonId, i) {
+  closeSheet();
+  let l = lessons.find(x => x.id === lessonId && x.state === 'ready');
+  if (!l) {
+    await stStart(`https://www.youtube.com/watch?v=${lessonId}`);
+    await stRefresh();
+    l = lessons.find(x => x.id === lessonId && x.state === 'ready');
+    if (!l) return;
+  }
+  store.set(`pos.${l.id}`, i);
+  await openLesson(l);
+  playSentence(i);
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-s]');
+  if (!el) return;
+  const id = el.dataset.id, i = Number(el.dataset.i);
+  switch (el.dataset.s) {
+    case 'pr-review': if (dueCards().length) startReview(); else toast('Nothing due right now. Save words and sentences to review them.'); break;
+    case 'ph-toggle': phSetOpen(phOpenId === id ? null : id); renderPhrases(); break;
+    case 'ph-del': phDelete(id); break;
+    case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); phStart(p.text); } break; }
+    case 'ph-save': phToggleSave(id, i); break;
+    case 'ph-say': { const d = phData[id]; if (d) saySentence({ ru: d.sentences[i].ru, lesson: id }, Number(el.dataset.rate)); break; }
+    case 'ph-heard': phOpenHeard(el.dataset.lesson, i); break;
+    case 'ph-word': {
+      phOpenWord(id, i, Number(el.dataset.k));
+      const t = phData[id]?.sentences[i]?.tokens[Number(el.dataset.k)];
+      if (t) speak(t.w, [RATE_NORMAL, RATE_SLOW], $('#wc-word'), id);   // inside the tap, so iOS allows it
+      break;
+    }
+    case 'phw-say': { const t = phData[phWordOpen.pid].sentences[phWordOpen.i].tokens[phWordOpen.k]; speak(t.w, Number(el.dataset.rate), $('#wc-word'), phWordOpen.pid); break; }
+    case 'phw-save': phToggleWord(); break;
+  }
+});
+$('#ph-go').addEventListener('click', () => phStart());
+$('#ph-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); phStart(); } });
+if ($('#screen-practice').classList.contains('active')) practiceShow();

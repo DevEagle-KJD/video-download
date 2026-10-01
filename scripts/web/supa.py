@@ -37,9 +37,44 @@ def upload(path, data, content_type, cache="max-age=31536000"):
          {"Content-Type": content_type, "x-upsert": "true", "Cache-Control": cache}, raw=True)
 
 
+def update_phrase(phrase_id, **fields):
+    from datetime import datetime, timezone
+    fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    _req("PATCH", f"/rest/v1/phrases?id=eq.{phrase_id}", fields, {"Prefer": "return=minimal"})
+
+
+def phrase_text(phrase_id):
+    rows = json.loads(_req("GET", f"/rest/v1/phrases?id=eq.{phrase_id}&select=text"))
+    return rows[0]["text"] if rows else ""
+
+
+def download_library(language="ru", folder="out/library"):
+    """Every ready lesson's lesson.json (real native sentences) for phrase matching."""
+    os.makedirs(folder, exist_ok=True)
+    rows = json.loads(_req("GET", f"/rest/v1/lessons?status=eq.ready&language=eq.{language}&select=video_id"))
+    n = 0
+    for r in rows:
+        try:
+            data = _req("GET", f"/storage/v1/object/public/lessons/{r['video_id']}/lesson.json")
+            with open(os.path.join(folder, f"{r['video_id']}.json"), "wb") as f:
+                f.write(data)
+            n += 1
+        except Exception as e:  # noqa: BLE001
+            print(f"  skipped {r['video_id']}: {e}")
+    print(f"{n} lessons in the library")
+
+
 if __name__ == "__main__":
     cmd, vid = sys.argv[1], sys.argv[2]
-    if cmd == "stage":
+    if cmd == "pstage":
+        update_phrase(vid, status="processing", stage=sys.argv[3])
+    elif cmd == "pfail":
+        update_phrase(vid, status="failed", stage=None, error="It couldn't be made. Try again.")
+    elif cmd == "ptext":
+        print(phrase_text(vid))
+    elif cmd == "library":
+        download_library(vid)
+    elif cmd == "stage":
         update_lesson(vid, status="processing", stage=sys.argv[3])
     elif cmd == "fail":
         msg = "The lesson couldn't be made."

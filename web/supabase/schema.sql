@@ -149,3 +149,24 @@ grant all on all sequences in schema public to service_role;
 -- ───────── Lesson files (lesson.json + voice clips), publicly readable ─────────
 insert into storage.buckets (id, name, public) values ('lessons', 'lessons', true)
   on conflict (id) do update set public = true;
+
+-- ───────── "Say it like a native" requests (per user) ─────────
+-- id is "ph-<random>", also the folder of its lesson.json + voices in the lessons bucket.
+create table if not exists public.phrases (
+  id text primary key,
+  user_id uuid not null references auth.users on delete cascade,
+  text text not null,
+  language text not null default 'ru',
+  status text not null default 'queued',       -- queued | processing | ready | failed
+  stage text,
+  error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.phrases enable row level security;
+drop policy if exists "own phrases" on public.phrases;
+create policy "own phrases" on public.phrases for select using (auth.uid() = user_id);
+drop policy if exists "delete own phrases" on public.phrases;
+create policy "delete own phrases" on public.phrases for delete using (auth.uid() = user_id);
+grant select, delete on public.phrases to authenticated;
+grant all on public.phrases to service_role;

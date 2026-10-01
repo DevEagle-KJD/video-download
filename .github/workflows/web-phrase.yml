@@ -1,0 +1,78 @@
+name: Web phrase
+
+# Nativnik's "Say it like a native": started by web/api/phrases.js for one row of
+# the phrases table. Finds how natives really say what the learner typed, double-
+# checks it, looks for it in real lesson sentences (every ready lesson), adds stress
+# marks / literal meanings / English and natural voices, and uploads it to Supabase
+# storage (lessons/<phrase id>/), then marks the row ready. Progress goes to phrases.stage.
+run-name: "web phrase ${{ inputs.phrase_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      phrase_id:
+        description: Row id in the phrases table (ph-…)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  phrase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PHRASE_ID: ${{ inputs.phrase_id }}
+      URL: ""
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      STUDY_MODEL: ${{ vars.STUDY_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate input
+        run: |
+          [[ "$PHRASE_ID" =~ ^ph-[a-z0-9]{8,32}$ ]] || { echo "::error::bad phrase id"; exit 1; }
+          python3 scripts/web/supa.py pstage "$PHRASE_ID" "Gathering real sentences from our videos"
+
+      - name: Install tools
+        run: python3 -m pip install -q anthropic ruaccent edge-tts
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: phrase-models-ruaccent
+
+      - name: Collect real sentences from lessons
+        run: |
+          mkdir -p out
+          python3 scripts/web/supa.py library ru
+          python3 scripts/web/supa.py ptext "$PHRASE_ID" > out/phrase.txt
+          [ -s out/phrase.txt ] || { echo "::error::phrase not found"; exit 1; }
+
+      - name: Find how natives say it
+        run: |
+          python3 scripts/web/supa.py pstage "$PHRASE_ID" "Searching real native speech, then asking a native-speaker AI and double-checking it"
+          PHRASE="$(cat out/phrase.txt)" python3 scripts/study/phrase.py prepare
+
+      - name: Stress marks, meanings and English
+        run: |
+          python3 scripts/web/supa.py pstage "$PHRASE_ID" "Adding stress marks and word-by-word meanings"
+          python3 scripts/study/enrich.py
+          python3 scripts/study/phrase.py finish
+
+      - name: Voices
+        continue-on-error: true
+        run: |
+          python3 scripts/web/supa.py pstage "$PHRASE_ID" "Recording the natural voice"
+          python3 scripts/study/voices.py
+
+      - name: Publish
+        run: |
+          python3 scripts/web/supa.py pstage "$PHRASE_ID" "Publishing"
+          python3 scripts/web/publish.py "$PHRASE_ID" --phrase
+
+      - name: Report failure
+        if: failure()
+        run: python3 scripts/web/supa.py pfail "$PHRASE_ID" || true
