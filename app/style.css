@@ -642,3 +642,12 @@ body.in-page .tabbar { display: none; }
 .ph-heard button span { display: block; font-size: 12px; color: var(--secondary); }
 .ph-tools { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .ph-wait { background: var(--cell); border-radius: 16px; padding: 14px; color: var(--secondary); font-size: 15px; display: flex; gap: 10px; align-items: center; }
+
+.ph-steps { flex-direction: column; align-items: stretch; gap: 8px; }
+.ph-steps > div { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--tertiary); }
+.ph-steps > div > i { width: 18px; flex: none; display: flex; justify-content: center; font-style: normal; }
+.ph-steps > div > span { flex: 1; min-width: 0; }
+.ph-steps > div.done { color: var(--secondary); }
+.ph-steps > div.done > i { color: var(--green); }
+.ph-steps > div.now { color: var(--label); font-weight: 600; }
+.ph-why { margin: 4px 0 0; font-size: 12px; color: var(--secondary); }

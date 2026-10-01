@@ -448,7 +448,10 @@ study (never vocabulary lists, never grammar). Study home → **💬 Say it like
 2. `enrich.py` (stress, literal line, English, review with RUAccent), `phrase.py finish`,
    `voices.py`, release **`phrase-<id>`** (lesson.json `kind:"phrases"` + audio.zip), site rebuild
    (`build-site.sh` now also publishes `phrase-*`). ~2–3 min.
-App: list of requests (pending spinner, failed + Try again, ✕ deletes the release), each version
+App: list of requests (while running, a live checklist from the run's steps, `PH_STEPS`:
+"Gathering real sentences from our videos → Searching real native speech, then asking a
+native-speaker AI and double-checking it → Adding stress marks… → Recording the natural voice →
+Publishing", so learners see why it takes minutes; failed + Try again; ✕ deletes the release), each version
 with ☆ save to Review (card `lesson` = phrase id, no video; voice from files/<id>/), 🔊/🐢, note,
 ⚠️ flag, matches. Stored locally as `grab.phrases`; results rebuilt from releases.
 **Not built yet:** Tatoeba real-usage check (Russian is one of Tatoeba's largest languages;

@@ -1513,6 +1513,14 @@ async function svOpenLesson() {
    for it in real lesson sentences, and publishes release phrase-<id> with a
    lesson.json (kind "phrases") + voices. Versions can be saved to Review. */
 const PH_WORKFLOW = 'phrase.yml';
+// What the workflow is doing, step by step (step names in phrase.yml → what the learner sees).
+const PH_STEPS = [
+  ['Collect real sentences from lessons', 'Gathering real sentences from our videos'],
+  ['Find how natives say it', 'Searching real native speech, then asking a native-speaker AI and double-checking it'],
+  ['Stress marks, meanings and English', 'Adding stress marks and word-by-word meanings'],
+  ['Voices', 'Recording the natural voice'],
+  ['Publish', 'Publishing'],
+];
 let phrases = store.get('phrases', []);            // [{id, text, created, state, error}]
 const phData = {};                                  // id → lesson.json
 const savePhrases = () => store.set('phrases', phrases);
@@ -1564,6 +1572,23 @@ async function phRefresh() {
       if (meta.ok === false) { p.state = 'failed'; p.error = meta.error; } else if (p.state !== 'ready') p.state = 'publishing';
       if (!byId.has(id)) { phrases.push(p); byId.set(id, p); }
     }
+    // Still running: find each run and which step it's on.
+    const running = phrases.filter(p => p.state === 'processing');
+    if (running.length) {
+      const { workflow_runs: runs } = await gh(`/actions/workflows/${PH_WORKFLOW}/runs?per_page=30`).catch(() => ({ workflow_runs: [] }));
+      await Promise.all(running.map(async p => {
+        const run = runs.find(r => r.display_title === `phrase ${p.id}`);
+        if (!run) return;
+        if (run.status === 'completed' && run.conclusion !== 'success') { p.state = 'failed'; p.error = 'It couldn’t be made. Try again.'; return; }
+        try {
+          const { jobs } = await gh(`/actions/runs/${run.id}/jobs`);
+          const steps = jobs.find(j => j.name === 'phrase')?.steps || [];
+          p.done = PH_STEPS.filter(([n]) => steps.find(x => x.name === n)?.status === 'completed').length;
+          const now = PH_STEPS.findIndex(([n]) => steps.find(x => x.name === n)?.status === 'in_progress');
+          p.step = now >= 0 ? now : p.done;
+        } catch { /* keep the last step */ }
+      }));
+    }
     // Published: load the result (the site may still be rebuilding for a minute).
     await Promise.all(phrases.filter(p => p.state === 'publishing' || (p.state === 'ready' && !phData[p.id])).map(async p => {
       try {
@@ -1593,7 +1618,10 @@ function renderPhrases() {
     if (p.state === 'failed') return `<div class="ph-item">${head}<div class="ph-wait">⚠️ ${esc(p.error || 'Something went wrong.')} <button class="text-button" data-s="ph-retry" data-id="${p.id}">Try again</button></div></div>`;
     const d = phData[p.id];
     if (p.state !== 'ready' || !d) {
-      return `<div class="ph-item">${head}<div class="ph-wait"><span class="spinner"></span>${p.state === 'publishing' ? 'Almost ready…' : 'Finding how natives really say it… about 2 minutes'}</div></div>`;
+      const step = p.state === 'publishing' ? PH_STEPS.length - 1 : (p.step ?? -1);
+      return `<div class="ph-item">${head}<div class="ph-wait ph-steps">${PH_STEPS.map(([, label], k) =>
+        `<div class="${k < step ? 'done' : k === step ? 'now' : ''}"><i>${k < step ? '✓' : k === step ? '<span class="spinner"></span>' : '•'}</i><span>${label}</span></div>`).join('')}
+        <p class="ph-why">${step < 0 ? 'Starting… ' : ''}Takes about 2–3 minutes: we check real native speech first instead of guessing.</p></div></div>`;
     }
     const chk = d.check?.verdict ? `<div class="ph-check ${d.check.verdict === 'natural' ? 'good' : 'bad'}"><b>Your Russian: ${esc(d.check.verdict)}.</b> ${esc(d.check.comment || '')}</div>` : '';
     return `<div class="ph-item">${head}${chk}${d.sentences.map((s, i) => {
