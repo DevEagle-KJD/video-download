@@ -1524,6 +1524,9 @@ const PH_STEPS = [
 let phrases = store.get('phrases', []);            // [{id, text, created, state, error}]
 const phData = {};                                  // id → lesson.json
 const savePhrases = () => store.set('phrases', phrases);
+// Only one finished phrase is open at a time, so the page stays short.
+let phOpenId = store.get('phOpen', null);
+function phSetOpen(id) { phOpenId = id; store.set('phOpen', id); }
 
 function openPhrases() {
   prevTab = 'study';
@@ -1598,6 +1601,7 @@ async function phRefresh() {
         if (!r.ok) return;
         phData[p.id] = await r.json();
         audioMaps[p.id] = phData[p.id].audio?.clips || {};
+        if (p.state === 'publishing') phSetOpen(p.id);   // just finished: show it
         p.state = 'ready';
       } catch { /* try again later */ }
     }));
@@ -1615,8 +1619,16 @@ async function phRefresh() {
 function renderPhrases() {
   const list = $('#ph-list');
   if (!list) return;
+  if (!phrases.some(p => p.id === phOpenId)) phOpenId = phrases.find(p => p.state === 'ready')?.id ?? null;
   list.innerHTML = phrases.length ? phrases.map(p => {
-    const head = `<div class="ph-q"><b>“${esc(p.text)}”</b><button data-s="ph-del" data-id="${p.id}" aria-label="Delete">✕</button></div>`;
+    const del = `<button class="ph-x" data-s="ph-del" data-id="${p.id}" aria-label="Delete">✕</button>`;
+    let head = `<div class="ph-q"><b>“${esc(p.text)}”</b>${del}</div>`;
+    if (p.state === 'ready' && phData[p.id]) {
+      const d = phData[p.id], open = p.id === phOpenId;
+      head = `<div class="ph-q ph-fold${open ? ' open' : ''}"><button class="ph-head" data-s="ph-toggle" data-id="${p.id}" aria-expanded="${open}">
+        <span class="ph-chev">›</span><span class="ph-title"><b>“${esc(p.text)}”</b>${open ? '' : `<small>${esc(d.sentences[0]?.ru || '')}${d.sentences.length > 1 ? ` · ${d.sentences.length} ways` : ''}</small>`}</span></button>${del}</div>`;
+      if (!open) return `<div class="ph-item">${head}</div>`;
+    }
     if (p.state === 'failed') return `<div class="ph-item">${head}<div class="ph-wait">⚠️ ${esc(p.error || 'Something went wrong.')} <button class="text-button" data-s="ph-retry" data-id="${p.id}">Try again</button></div></div>`;
     const d = phData[p.id];
     if (p.state !== 'ready' || !d) {
@@ -1940,6 +1952,7 @@ document.addEventListener('click', e => {
     case 'ph-save': phToggleSave(id, i); break;
     case 'ph-say': { const d = phData[id]; if (d) saySentence({ ru: d.sentences[i].ru, lesson: id }, Number(el.dataset.rate)); break; }
     case 'ph-del': phDelete(id); break;
+    case 'ph-toggle': phSetOpen(phOpenId === id ? null : id); renderPhrases(); el.closest('.ph-item')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); break;
     case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); $('#ph-input').value = p.text; phStart(); } break; }
     case 'ph-word': {
       phOpenWord(id, i, Number(el.dataset.k));

@@ -621,10 +621,19 @@ body.in-page .tabbar { display: none; }
 .native-btn b { font-size: 17px; }
 .native-btn i { font-style: normal; font-size: 13px; color: var(--secondary); }
 #ph-input { width: 100%; border: 0; outline: 0; resize: none; background: none; color: var(--label); font: inherit; font-size: 17px; padding: 4px 0; }
-.ph-item { margin: 22px 0 6px; }
+.ph-item { margin: 12px 0 6px; }
 .ph-q { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; color: var(--secondary); margin: 0 4px 8px; }
 .ph-q b { flex: 1; color: var(--label); font-size: 17px; }
 .ph-q button { color: var(--secondary); font-size: 15px; }
+.ph-item:has(.ph-fold:not(.open)) { margin: 0; border-bottom: 1px solid var(--separator); }
+.ph-fold { margin: 0 4px; padding: 12px 0; align-items: center; }
+.ph-fold.open { padding-bottom: 8px; }
+.ph-q .ph-head { flex: 1; display: flex; align-items: flex-start; gap: 10px; text-align: left; color: var(--label); min-width: 0; }
+.ph-chev { color: var(--secondary); font-size: 20px; line-height: 22px; transition: transform .2s; }
+.ph-fold.open .ph-chev { transform: rotate(90deg); }
+.ph-title { flex: 1; min-width: 0; }
+.ph-title b { display: block; font-size: 17px; }
+.ph-title small { display: block; margin-top: 3px; font-size: 14px; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ph-check { margin: 0 4px 10px; padding: 10px 12px; border-radius: 12px; background: var(--fill); font-size: 14px; }
 .ph-check.good b { color: var(--green); }
 .ph-check.bad b { color: var(--orange); }
