@@ -1,4 +1,4 @@
--- Nativski database. Paste this whole file into
+-- Nativnik database. Paste this whole file into
 -- Supabase → SQL Editor → New query → Run. Safe to run again.
 --
 -- Lessons are made once per YouTube video and shared by every user; each user

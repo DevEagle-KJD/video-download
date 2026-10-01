@@ -1,5 +1,5 @@
 {
-  "name": "nativski-web",
+  "name": "nativnik-web",
   "private": true,
   "type": "module",
   "engines": { "node": ">=20" }

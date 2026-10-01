@@ -112,7 +112,23 @@ async function accessToken() {
 }
 
 async function sendCode(email) {
-  await auth('otp', { email, create_user: true });
+  // redirect_to: where the email's sign-in link brings you back (until custom
+  // email is set up, Supabase's default email has a link instead of a code).
+  await auth(`otp?redirect_to=${encodeURIComponent(location.origin + location.pathname)}`, { email, create_user: true });
+}
+
+// Coming back from the email's sign-in link: the session is in the address (#access_token=…).
+async function signInFromLink() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (!h.get('access_token') && !h.get('error_description')) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  if (h.get('error_description')) { toast(h.get('error_description').replace(/\+/g, ' ')); return; }
+  const r = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+    headers: { apikey: config.supabaseAnonKey, Authorization: `Bearer ${h.get('access_token')}` },
+  });
+  if (!r.ok) { toast('That sign-in link didn’t work. Try again.'); return; }
+  saveSession({ access_token: h.get('access_token'), refresh_token: h.get('refresh_token'),
+    expires_in: Number(h.get('expires_in')) || 3600, user: await r.json() });
 }
 async function verifyCode(email, token) {
   saveSession(await auth('verify', { type: 'email', email, token }));
@@ -216,7 +232,9 @@ async function startApp() {
   showScreen(['study', 'explore', 'account'].includes(tab) ? tab : 'study');
 }
 
+window.addEventListener('hashchange', () => { if (config) signInFromLink().then(startApp); });
 loadConfig()
+  .then(signInFromLink)
   .then(startApp)
   .catch(e => { $('#si-step1').innerHTML = `<p class="section-footer">${esc(e.message)}</p>`; showScreen('signin'); });
 

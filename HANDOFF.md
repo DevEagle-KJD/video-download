@@ -709,9 +709,23 @@ CLAUDE.md                  points new sessions here
 
 ---
 
-## 14. Nativski: the public web app (`web/`, started 2026-09-30)
+## 14. Nativnik (formerly Nativski): the public web app (`web/`, started 2026-09-30)
 
 ### The product
+**RENAMED to Nativnik (2026-10-01, owner's final choice).** Said **NAY-tiv-nik** (also fine:
+na-TIV-nik); Russian **-ник** = "a person who…" (sputnik, beatnik), so Nativnik = "a native one /
+someone who speaks like a native". Front page shows a dictionary line under the logo:
+*(NAY-tiv-nik) · someone who speaks like a native*. Tagline idea: **"Become a Nativnik."**
+Why the change: the owner worried "-ski" reads Polish and wanted it more Russian. Owner decided
+to **launch Russian only for now** (other languages later). Considered and rejected that day:
+Nativsky (reads "native SKY"), BornSpoken (owner: "sounds bad"), SoundNatively/TalkNatively.
+**Known risk, accepted by the owner:** Google's AI Overview currently guesses "Nativnik" = a
+nativist (political), and similar for Nativski/Nativsky ("nativism", Ukrainian "натівські" =
+NATO-style). This is the usual guess for an unknown word; counter it by defining the name on
+every page, getting the site indexed (Google Search Console), and consistent social handles.
+nativnik.com and nativnik.app were unregistered (RDAP 404, 2026-10-01): owner to buy.
+Everything below that says "Nativski" now means Nativnik.
+
 **Nativski** (said **NAY-tiv-skee**; "native" + a Russian **-ski** twist, chosen 2026-09-30):
 learn languages from **real YouTube videos** with the exact transcript (stress marks for Russian),
 a literal word-by-word line, plain English, a natural voice for every word and sentence (normal +
@@ -796,7 +810,16 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
   voices), updating `lessons.stage`, uploading lesson.json + clips to storage.
 - Setup guide for all accounts/keys: `web/README.md`.
 
-### ▶ Where we left off
+### ▶ Where we left off (updated 2026-10-01)
+Done by the owner: Supabase org **Nativski** (Free) + project, `schema.sql` run (now with
+explicit GRANTs). Email templates are locked without custom SMTP, so the app now also accepts
+Supabase's default sign-in **link** (`signInFromLink`, `redirect_to` = the app's address); the
+6-digit code needs Resend SMTP on the owner's domain (they already have a Resend account).
+Next: GitHub secrets → Vercel → Supabase URL Configuration (Site URL / Redirect URLs = the
+Vercel address) → first channel → test. Before launch: buy nativnik.com, Resend SMTP, Pro plan
+for the Nativnik org ($25/mo; first project's compute included), maybe rename the Supabase org.
+
+(Older notes:)
 The owner chose the name **Nativski** and asked for this handoff. **They have NOT yet**:
 1. **Bought nativski.com** (namecheap.com).
 2. **Created the Supabase project.** Steps given in chat: supabase.com → Continue with GitHub → New

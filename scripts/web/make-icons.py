@@ -1,4 +1,4 @@
-"""Nativski app icons: an amber "N" on black (run: python3 scripts/web/make-icons.py)."""
+"""Nativnik app icons: an amber "N" on black (run: python3 scripts/web/make-icons.py)."""
 from pathlib import Path
 from PIL import Image, ImageDraw
 

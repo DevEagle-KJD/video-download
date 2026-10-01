@@ -1,4 +1,4 @@
-# Nativski — the public web app
+# Nativnik — the public web app
 
 Learn languages from real YouTube videos: the exact transcript with stress
 marks, a literal word-by-word line, plain English, a natural voice for every
@@ -45,6 +45,14 @@ web/
      `ADMIN_EMAILS` = your email (admins can add any video),
      optional `APP_NAME`, `FREE_LESSONS_PER_WEEK` (default 3).
    - Deploy.
+5. **Supabase → Authentication → URL Configuration**: Site URL = the Vercel address
+   (e.g. `https://nativnik.vercel.app`, later `https://nativnik.com`); add the same under
+   Redirect URLs. Until custom SMTP is set up, Supabase's default email (which can't be
+   edited and only reaches the project's team members) sends a sign-in **link**; the app
+   accepts it (`signInFromLink` in core.js). With custom SMTP (Resend: host
+   `smtp.resend.com`, port 465, user `resend`, password = a Resend API key) the Magic Link and
+   Confirm signup templates get `Your sign-in code: {{ .Token }}` and users type the code
+   (needed for the Home Screen app, where a tapped link opens Safari instead).
 
 ## How a lesson is made
 
