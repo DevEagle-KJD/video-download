@@ -146,7 +146,12 @@ function stRender() {
       <span class="poster-title">${esc(m.title || 'New lesson')}</span>
       <span class="poster-sub">${esc(m.channel || '')}</span>
     </button>`;
-  }).join('') : `<p class="empty-note">Paste a YouTube link above, or pick a lesson in Explore.</p>`;
+  }).join('') : `<div class="empty-card"><span class="big">🎬</span><b>Your first lesson is one link away</b>
+      <span>Paste a YouTube link above, or pick a video in Explore.</span></div>`;
+  // A friendly hello, Russian first.
+  const h = new Date().getHours();
+  const [ru, en] = h < 5 ? ['Доброй ночи!', 'Good night'] : h < 12 ? ['Доброе утро!', 'Good morning'] : h < 18 ? ['Добрый день!', 'Good afternoon'] : ['Добрый вечер!', 'Good evening'];
+  $('#st-hello').innerHTML = `<b>${ru}</b> ${en}. Ready to sound native today?`;
 }
 
 function studyShow() {

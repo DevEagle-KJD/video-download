@@ -214,3 +214,94 @@ body.signed-out .tabbar { display: none; }
 .wc-word .syl.on { background: rgba(255, 176, 32, .22); }
 .review-card { background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent); }
 .rc-btn { color: var(--accent-2); }
+
+/* ───────── Brighter, bigger, happier (owner, 2026-10-01: "looks small, not bright,
+   engaging and happy"; tab buttons hard to see). Still dark + amber, still simple. ───────── */
+:root, :root:not([data-theme]) {
+  --cell: #1c1712;
+  --cell-pressed: #2b241b;
+  --secondary: rgba(255, 240, 222, 0.70);
+  --tertiary: rgba(255, 240, 222, 0.40);
+  --separator: rgba(255, 200, 120, 0.10);
+  --fill: rgba(255, 210, 150, 0.10);
+  --tabbar-h: 68px;
+}
+body {
+  background:
+    radial-gradient(900px 520px at 50% -160px, rgba(255, 150, 40, 0.24), transparent 70%),
+    radial-gradient(700px 400px at 100% 110%, rgba(255, 110, 60, 0.10), transparent 70%),
+    linear-gradient(#140e08, #050403 55%) fixed;
+}
+.content { max-width: 1100px; padding-left: 20px; padding-right: 20px; padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 48px); }
+.signin.content { max-width: 560px; }
+
+/* Greeting */
+.hello { margin: -2px 4px 18px; font-size: 17px; color: var(--secondary); }
+.hello b { color: var(--blue); font-weight: 700; }
+
+/* Floating tab dock: big, bright, easy to hit */
+.tabbar {
+  left: 50%; right: auto; transform: translateX(-50%);
+  bottom: calc(var(--safe-bottom) + 12px);
+  width: min(480px, calc(100% - 24px)); height: var(--tabbar-h);
+  padding: 6px; gap: 6px; border-radius: 26px;
+  background: rgba(34, 27, 19, 0.92);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 190, 90, 0.16);
+}
+.tab {
+  max-width: none; border-radius: 20px; gap: 3px;
+  color: rgba(255, 240, 222, 0.80); font-size: 12.5px; font-weight: 650;
+  transition: background .2s, color .2s;
+}
+.tab svg { width: 26px; height: 26px; stroke-width: 2; }
+.tab.active {
+  color: var(--on-accent);
+  background: linear-gradient(135deg, var(--blue), var(--accent-2));
+  box-shadow: 0 6px 22px rgba(255, 140, 40, 0.35);
+}
+.tab.active svg { stroke-width: 2.3; }
+.badge { top: 2px; }
+
+/* Bigger type on bigger screens */
+.large-title { font-size: 38px; line-height: 1.1; letter-spacing: -0.8px; }
+@media (min-width: 900px) {
+  .large-title { font-size: 48px; }
+  .hello { font-size: 19px; }
+  .shelf-title { font-size: 26px; }
+  .poster-title { font-size: 16px; }
+}
+
+/* Streak + goal: warmer, bigger */
+.streak { height: 46px; padding: 0 16px; border-radius: 23px; background: rgba(255, 170, 40, 0.14); box-shadow: inset 0 0 0 1px rgba(255, 180, 60, 0.22); }
+.streak b { font-size: 20px; color: var(--blue); }
+.streak .flame { font-size: 20px; filter: saturate(.6); }
+.goal, .goal svg { width: 52px; height: 52px; }
+.goal span b { font-size: 14px; }
+
+/* Add a video: bigger and inviting */
+.add-row { padding: 8px 8px 8px 18px; border-radius: 18px; box-shadow: inset 0 0 0 1px rgba(255, 190, 90, 0.18); margin-bottom: 28px; }
+.add-row input { height: 46px; font-size: 17px; }
+.add-row button { height: 46px; padding: 0 24px; border-radius: 14px; font-size: 17px; box-shadow: 0 6px 20px rgba(255, 140, 40, 0.30); }
+
+/* Posters: bigger, with a warm glow */
+.shelf-title { font-size: 22px; }
+.poster-grid { gap: 22px 16px; }
+.poster-img { border-radius: 16px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55); transition: transform .2s, box-shadow .2s; }
+@media (hover: hover) {
+  .poster:hover .poster-img { transform: translateY(-3px); box-shadow: 0 14px 36px rgba(255, 140, 40, 0.25), 0 0 0 1px rgba(255, 190, 90, 0.35); }
+}
+.poster-title { margin-top: 10px; font-size: 15px; }
+.poster-state { font-size: 13px; color: #fff; }
+.poster-state .spinner { border-color: rgba(255, 190, 90, .3); border-top-color: var(--blue); }
+.poster.busy img { filter: brightness(.45) saturate(.8); }
+
+/* Friendly empty state */
+.empty-note { font-size: 16px; }
+.empty-card {
+  grid-column: 1 / -1; padding: 28px 22px; border-radius: 20px; text-align: center;
+  background: linear-gradient(160deg, rgba(255, 176, 32, 0.14), rgba(255, 122, 61, 0.06));
+  box-shadow: inset 0 0 0 1px rgba(255, 190, 90, 0.18);
+}
+.empty-card .big { font-size: 40px; display: block; margin-bottom: 6px; }
+.empty-card b { display: block; font-size: 19px; margin-bottom: 4px; }
+.empty-card span { color: var(--secondary); font-size: 15px; }
