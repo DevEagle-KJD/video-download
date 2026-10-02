@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Nativnik email template</title>
+<style>
+body{margin:0;background:#0b0806;color:#f5f5f7;font:16px/1.45 -apple-system,system-ui,sans-serif;padding:24px 16px 60px}
+main{max-width:560px;margin:0 auto} h1{font-size:24px;margin:0 0 6px} p{color:#b8aea2;margin:0 0 18px}
+.step{background:#17120d;border:1px solid #3a2a14;border-radius:18px;padding:16px;margin-bottom:14px}
+.step b{display:block;margin-bottom:8px} code{display:block;background:#000;border-radius:10px;padding:10px;font-size:14px;color:#ffb020;word-break:break-all;margin-bottom:10px}
+button{width:100%;height:50px;border:0;border-radius:14px;font:700 17px -apple-system,system-ui,sans-serif;color:#1a1000;background:linear-gradient(135deg,#ffb020,#ff7a3d)}
+button.ok{background:#2fbf71;color:#fff} textarea{position:absolute;left:-9999px}
+</style></head><body><main>
+<h1>Sign-in email for Supabase</h1>
+<p>For Magic Link and Confirm signup: copy the subject, paste it in Subject; copy the body, paste it in Body (Source), then Save. Do both templates.</p>
+<div class="step"><b>1. Subject</b><code id="subj">Your Nativnik code: {{ .Token }}</code><button data-copy="subj">Copy Subject</button></div>
+<div class="step"><b>2. Body</b><p style="margin:0 0 10px">The dark Nativnik email with the 6-digit code.</p><button data-copy="body">Copy Body</button></div>
+<textarea id="body" readonly>&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;utf-8&quot;&gt;
+  &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+  &lt;meta name=&quot;color-scheme&quot; content=&quot;dark&quot;&gt;
+  &lt;meta name=&quot;supported-color-schemes&quot; content=&quot;dark&quot;&gt;
+  &lt;title&gt;Your Nativnik code&lt;/title&gt;
+&lt;/head&gt;
+&lt;body style=&quot;margin:0; padding:0; background:#0b0806;&quot;&gt;
+  &lt;table role=&quot;presentation&quot; width=&quot;100%&quot; cellpadding=&quot;0&quot; cellspacing=&quot;0&quot; border=&quot;0&quot; style=&quot;background:#0b0806;&quot;&gt;
+    &lt;tr&gt;
+      &lt;td align=&quot;center&quot; style=&quot;padding:40px 16px;&quot;&gt;
+        &lt;table role=&quot;presentation&quot; width=&quot;100%&quot; cellpadding=&quot;0&quot; cellspacing=&quot;0&quot; border=&quot;0&quot; style=&quot;max-width:460px; background:#17120d; border-radius:24px; border:1px solid #3a2a14;&quot;&gt;
+          &lt;tr&gt;
+            &lt;td align=&quot;center&quot; style=&quot;padding:36px 28px 8px;&quot;&gt;
+              &lt;div style=&quot;display:inline-block; width:64px; height:64px; line-height:64px; border-radius:18px; background:#000000; color:#ffa526; font:800 40px/64px -apple-system, &#x27;Segoe UI&#x27;, Helvetica, Arial, sans-serif; text-align:center;&quot;&gt;N&lt;/div&gt;
+              &lt;div style=&quot;margin-top:14px; color:#f5f5f7; font:800 26px/1.2 -apple-system, &#x27;Segoe UI&#x27;, Helvetica, Arial, sans-serif;&quot;&gt;Nativnik&lt;/div&gt;
+              &lt;div style=&quot;margin-top:4px; color:#a89f94; font:400 13px/1.4 -apple-system, &#x27;Segoe UI&#x27;, Helvetica, Arial, sans-serif;&quot;&gt;(na-TEEV-nik) · someone who speaks like a native&lt;/div&gt;
+            &lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td align=&quot;center&quot; style=&quot;padding:22px 28px 6px; color:#f5f5f7; font:600 17px/1.4 -apple-system, &#x27;Segoe UI&#x27;, Helvetica, Arial, sans-serif;&quot;&gt;
+              Привет! Here’s your sign-in code:
+            &lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td align=&quot;center&quot; style=&quot;padding:12px 28px 6px;&quot;&gt;
+              &lt;div style=&quot;display:inline-block; padding:16px 26px; border-radius:16px; background:#2a1d0c; border:1px solid #6b4a17; color:#ffb020; font:800 38px/1 &#x27;SF Mono&#x27;, Menlo, Consolas, monospace; letter-spacing:10px;&quot;&gt;{{ .Token }}&lt;/div&gt;
+            &lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td align=&quot;center&quot; style=&quot;padding:14px 28px 4px; color:#a89f94; font:400 14px/1.5 -apple-system, &#x27;Segoe UI&#x27;, Helvetica, Arial, sans-serif;&quot;&gt;
+              Type it in the app to sign in. It works for one hour.
+            &lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td align=&quot;center&quot; style=&quot;padding:22px 28px 6px;&quot;&gt;
+              &lt;a href=&quot;{{ .ConfirmationURL }}&quot; style=&quot;display:inline-block; padding:13px 26px; border-radius:14px; background:#ffa526; color:#1a1000; text-decoration:none; font:700 16px/1 -apple-system, &#x27;Segoe UI&#x27;, Helvetica, Arial, sans-serif;&quot;&gt;Or tap here to sign in&lt;/a&gt;
+            &lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td align=&quot;center&quot; style=&quot;padding:26px 28px 32px; color:#6f675e; font:400 12px/1.5 -apple-system, &#x27;Segoe UI&#x27;, Helvetica, Arial, sans-serif;&quot;&gt;
+              Learn Russian. Sound native.&lt;br&gt;
+              Didn’t ask for this? You can ignore this email.
+            &lt;/td&gt;
+          &lt;/tr&gt;
+        &lt;/table&gt;
+      &lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/table&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</textarea>
+</main>
+<script>
+document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+  const el = document.getElementById(b.dataset.copy), text = el.value ?? el.textContent;
+  try { await navigator.clipboard.writeText(text); }
+  catch { el.select?.(); document.execCommand('copy'); }
+  const t = b.textContent; b.textContent = 'Copied ✓'; b.classList.add('ok');
+  setTimeout(() => { b.textContent = t; b.classList.remove('ok'); }, 1800);
+}));
+</script></body></html>
