@@ -811,6 +811,10 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
 - Setup guide for all accounts/keys: `web/README.md`.
 
 ### ▶ Where we left off (updated 2026-10-01)
+**Vercel builds every branch:** the `study-data` branch (Grab's cards.json) has
+`web/vercel.json` with `git.deploymentEnabled: false` (added 2026-10-02, owner OK'd) so card syncs
+no longer trigger failing preview builds + emails. Keep it there.
+
 **LIVE at https://nativnik.vercel.app** (Vercel project `nativnik`, Hobby plan for now: needs Pro
 before charging money; env vars set; Supabase Site URL/Redirect = that address). Owner signed in
 successfully (sign-in link). GitHub secrets SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY added; a
