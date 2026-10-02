@@ -1,0 +1,56 @@
+<!-- Nativnik sign-in email. Paste this whole file into Supabase →
+     Authentication → Emails → Templates → "Magic Link" AND "Confirm signup" (Body / Source).
+     Subject for both: Your Nativnik code: {{ .Token }} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="supported-color-schemes" content="dark">
+  <title>Your Nativnik code</title>
+</head>
+<body style="margin:0; padding:0; background:#0b0806;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0b0806;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px; background:#17120d; border-radius:24px; border:1px solid #3a2a14;">
+          <tr>
+            <td align="center" style="padding:36px 28px 8px;">
+              <div style="display:inline-block; width:64px; height:64px; line-height:64px; border-radius:18px; background:#000000; color:#ffa526; font:800 40px/64px -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; text-align:center;">N</div>
+              <div style="margin-top:14px; color:#f5f5f7; font:800 26px/1.2 -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">Nativnik</div>
+              <div style="margin-top:4px; color:#a89f94; font:400 13px/1.4 -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">(na-TEEV-nik) · someone who speaks like a native</div>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:22px 28px 6px; color:#f5f5f7; font:600 17px/1.4 -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+              Привет! Here’s your sign-in code:
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:12px 28px 6px;">
+              <div style="display:inline-block; padding:16px 26px; border-radius:16px; background:#2a1d0c; border:1px solid #6b4a17; color:#ffb020; font:800 38px/1 'SF Mono', Menlo, Consolas, monospace; letter-spacing:10px;">{{ .Token }}</div>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:14px 28px 4px; color:#a89f94; font:400 14px/1.5 -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+              Type it in the app to sign in. It works for one hour.
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:22px 28px 6px;">
+              <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:13px 26px; border-radius:14px; background:#ffa526; color:#1a1000; text-decoration:none; font:700 16px/1 -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">Or tap here to sign in</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:26px 28px 32px; color:#6f675e; font:400 12px/1.5 -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+              Learn Russian. Sound native.<br>
+              Didn’t ask for this? You can ignore this email.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

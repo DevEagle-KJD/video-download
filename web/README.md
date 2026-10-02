@@ -51,7 +51,7 @@ web/
    edited and only reaches the project's team members) sends a sign-in **link**; the app
    accepts it (`signInFromLink` in core.js). With custom SMTP (Resend: host
    `smtp.resend.com`, port 465, user `resend`, password = a Resend API key) the Magic Link and
-   Confirm signup templates get `Your sign-in code: {{ .Token }}` and users type the code
+   Confirm signup templates get the body from `supabase/email-code.html` (subject: `Your Nativnik code: {{ .Token }}`) and users type the code
    (needed for the Home Screen app, where a tapped link opens Safari instead).
 
 ## How a lesson is made
