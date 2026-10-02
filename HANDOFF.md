@@ -811,6 +811,15 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
 - Setup guide for all accounts/keys: `web/README.md`.
 
 ### ▶ Where we left off (updated 2026-10-01)
+**Sign-in email (2026-10-02):** Supabase SMTP = Resend (smtp.resend.com, sender
+`nativnik@wildidahopowersports.com`, name Nativnik; owner's only verified Resend domain; switch the
+sender to the Nativnik domain once bought). Templates (Magic Link + Confirm signup, subject
+`Your Nativnik code: {{ .Token }}`) come from `web/supabase/email-code.html` and are installed by
+`.github/workflows/supabase-email.yml` (runs when that file changes; secret
+`SUPABASE_ACCESS_TOKEN` = scoped token with Project Settings + Auth Config read-write, 90 days).
+Pasting into Supabase's template editor doesn't work on iPhone; `/email-template.html` on the
+site has Copy buttons as a fallback.
+
 **Vercel builds every branch:** the `study-data` branch (Grab's cards.json) has
 `web/vercel.json` with `git.deploymentEnabled: false` (added 2026-10-02, owner OK'd) so card syncs
 no longer trigger failing preview builds + emails. Keep it there.
