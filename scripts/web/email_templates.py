@@ -41,7 +41,8 @@ def call(method, data=None):
         with urllib.request.urlopen(req, timeout=60) as r:
             return json.loads(r.read() or b"{}")
     except urllib.error.HTTPError as e:
-        sys.exit(f"::error::Supabase API {method} failed: {e.code} {e.read()[:300]!r}")
+        sys.exit(f"::error::Supabase API {method} failed: {e.code} {e.read()[:300]!r} "
+                 "(the token needs Project Settings + Auth Config: Read and write)")
 
 
 call("PATCH", body)
