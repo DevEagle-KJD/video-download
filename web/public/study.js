@@ -514,8 +514,19 @@ function keepPlace(change) {
   const before = anchor ? anchor.getBoundingClientRect().top : 0;
   change();
   if (!anchor) return;
-  const target = pinCurrent ? playerBottom() + 12 : before;
-  scroller.scrollBy({ top: anchor.getBoundingClientRect().top - target, behavior: 'instant' });
+  const target = () => (pinCurrent ? playerBottom() + 12 : before);
+  // Set scrollTop directly (works on every iPhone; scrollBy's "instant" isn't known
+  // to older Safari, which threw and left the list jumping). Briefly stopping
+  // scrolling cancels any leftover finger momentum that would undo it; check again
+  // on the next frames in case Safari lays the text out late.
+  const fix = () => { scroller.scrollTop += anchor.getBoundingClientRect().top - target(); };
+  scroller.style.overflowY = 'hidden';
+  fix();
+  requestAnimationFrame(() => {
+    scroller.style.overflowY = '';
+    fix();
+    requestAnimationFrame(fix);
+  });
 }
 
 function syncChips() {
