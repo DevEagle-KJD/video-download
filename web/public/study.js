@@ -17,6 +17,7 @@ let lessons = store.get('lessons', []);
 let cards = store.get('cards', {});                 // id → card (deleted ones kept as tombstones)
 const prefs = Object.assign({ literal: true, english: true, follow: true, loop: false, autopause: true, speed: 1 },
   store.get('studyPrefs', {}));
+prefs.speed = 1;   // every time the app opens, lessons start at normal speed
 const saveLessons = () => store.set('lessons', lessons);
 const savePrefs = () => store.set('studyPrefs', prefs);
 
@@ -658,7 +659,7 @@ function tick() {
     justStarted = false;
     returnToSentence(i);
   }
-  if (seekWait && ((t >= seekWait.to - 0.6 && stopAt != null && t < stopAt) || Date.now() > seekWait.until)) seekWait = null;
+  if (seekWait && ((t >= seekWait.to - 0.6 && (stopAt == null || t < stopAt)) || Date.now() > seekWait.until)) seekWait = null;
   if (stopAt != null && t >= stopAt && !seekWait) {
     if (prefs.loop && loopFrom != null) {
       player.seek(loopFrom);
@@ -750,13 +751,15 @@ function playSentence(i) {
     player.play();
     player.seek(loopFrom);
   } else { player.seek(loopFrom); player.play(); }
+  // Pause each and Loop off: jump to the sentence and keep watching from there.
+  if (!prefs.autopause && !prefs.loop) { stopAt = null; lockedIdx = null; }
   startTick();
   store.set(`pos.${lesson.id}`, i);
 }
 
 function togglePlay() {
   if (!player.paused) { player.pause(); return; }
-  if (nextAfterStop != null) { playSentence(nextAfterStop); return; }
+  if (nextAfterStop != null && (prefs.autopause || prefs.loop)) { playSentence(nextAfterStop); return; }
   if (prefs.autopause || prefs.loop) { playSentence(Math.max(0, cur)); return; }
   // Continuous play from the current sentence: the highlight follows the video.
   stopAt = null; loopFrom = null; lockedIdx = null;

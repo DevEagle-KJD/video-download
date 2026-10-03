@@ -33,7 +33,7 @@ const guide = (() => {
     { screen: 'study', target: '.tab[data-screen="study"]', title: 'Step 2 · Your lessons',
       text: 'Lessons you add show up here in <b>Learn</b>. Tap one to study it. Your daily goal 🔥 is at the top.' },
     { title: 'Step 3 · Listen one sentence at a time', demo: () => demoSentence(),
-      text: `In a lesson, tap the orange ${pic.play} next to a sentence. The video plays <b>just that sentence</b>, then stops. Tap it again to hear it again.` },
+      text: `In a lesson, tap the orange ${pic.play} next to a sentence. The video jumps there and plays it. With <b>Pause each</b> on (it is when a lesson opens), it <b>stops after that sentence</b>, so you can repeat it.` },
     { title: 'Step 4 · Tap any word', demo: () => demoSentence('word'),
       text: `Every word with a ${pic.word('dotted orange line')} can be tapped: hear it (slowly too), see what it means, and save it.` },
     { title: 'Step 5 · Save what you want to remember', demo: () => demoSentence('star'),
@@ -47,15 +47,29 @@ const guide = (() => {
     { title: 'You’re ready! 🎉', text: 'Go to <b>Explore</b>, pick a video, and tap the orange ▶ on the first sentence.<br><br>Удачи! (Good luck!)', last: true },
   ];
 
+  // A real, tappable example: ▶ plays the sentence, a word plays that word, ☆ fills in.
   function demoSentence(focus) {
-    const w = (t, g) => `<span class="tok"><b>${t}</b><i>${g}</i></span>`;
-    return `<div class="tour-demo${focus ? ` focus-${focus}` : ''}">
+    let k = 0;
+    const w = (t, g) => `<span class="tok" data-t="demo-word" data-k="${++k}"><b>${t}</b><i>${g}</i></span>`;
+    const tryIt = { word: '👆 Try it: tap any word', star: '👆 Try it: tap the ☆' }[focus] || '👆 Try it: tap the orange ▶';
+    return `<div class="tour-demo${focus ? ` focus-${focus}` : ''}"><span class="tour-try">${tryIt}</span>
       <div class="sent demo-sent">
         <div class="sent-main"><div class="il">${w('Приве́т,', 'hi')}${w('как', 'how')}${w('дела́?', 'things')}</div>
           <p class="en">Hi, how are you?</p></div>
-        <div class="sent-side"><span class="replay"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg></span>
-          <span class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span></div>
+        <div class="sent-side"><span class="replay" data-t="demo-play"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg></span>
+          <span class="star" data-t="demo-star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span></div>
       </div></div>`;
+  }
+
+  // Natural-voice recordings of the example (audio/tour-*.mp3).
+  const demoAudio = new Audio();
+  function demoSay(name, hl) {
+    demoAudio.pause();
+    demoAudio.src = `audio/tour-${name}.mp3`;
+    demoAudio.play().catch(() => {});
+    el?.querySelectorAll('.tour-demo .now, .tour-demo .hl').forEach(x => x.classList.remove('now', 'hl'));
+    hl?.classList.add(hl.classList.contains('sent') ? 'now' : 'hl');
+    demoAudio.onended = () => hl?.classList.remove('now', 'hl');
   }
 
   let step = 0, el = null;
@@ -75,6 +89,9 @@ const guide = (() => {
       if (b.dataset.t === 'back') go(step - 1);
       if (b.dataset.t === 'skip') finish();
       if (b.dataset.t === 'explore') { finish(); showScreen('explore'); }
+      if (b.dataset.t === 'demo-play') demoSay('sent', b.closest('.sent'));
+      if (b.dataset.t === 'demo-word') demoSay(`w${b.dataset.k}`, b);
+      if (b.dataset.t === 'demo-star') { const on = b.classList.toggle('on'); b.closest('.sent').classList.toggle('starred', on); }
     });
     go(0);
   }
@@ -188,12 +205,13 @@ const guide = (() => {
     ['lesson', '🎧 Studying a lesson', `
       <p>The video is at the top. Under it are the buttons, then every sentence of the video.</p>
       <ol>
-        <li><b>Hear one sentence:</b> tap the orange ${pic.play} next to it. The video jumps there, plays that sentence and stops. Tap it again to hear it again.</li>
+        <li><b>Hear one sentence:</b> tap the orange ${pic.play} next to it. The video jumps there and plays it. With <b>Pause each</b> on, it stops after that sentence; tap ${pic.play} again to hear it again. With Pause each off, it keeps playing from there.</li>
         <li><b>The big button</b> ${pic.bigplay} plays/pauses. With <b>Pause each</b> on, every tap plays the <b>next</b> sentence.</li>
         <li><b>|◀ and ▶|</b> go to the previous / next sentence.</li>
         <li>${pic.chip('1×')} changes the speed: 1× (normal), 0.75×, 0.5× (slow). The voice doesn’t change.</li>
         <li>${pic.chip('Loop')} repeats one sentence over and over. Great for saying it along with the speaker. Tap ▶ to stop.</li>
-        <li>${pic.chipOn('Pause each')} (orange = on) stops after every sentence. Turn it off to watch normally.</li>
+        <li>${pic.chipOn('Pause each')} (orange = on, the way every lesson starts) stops after every sentence. Turn it off to watch normally.</li>
+        <li>Speed always starts at <b>1×</b> when you open the app.</li>
         <li>${pic.chipOn('Literal')} shows the word-by-word meaning under each Russian word. ${pic.chipOn('English')} shows the full translation. Turn them off to test yourself.</li>
         <li>${pic.chipOn('Follow')} keeps the sentence being spoken at the top as the video plays.</li>
         <li><b>Tap a word</b> with a ${pic.word('dotted orange line')} to hear it, see its meaning and save it.</li>

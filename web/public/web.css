@@ -642,12 +642,19 @@ body {
 .tour-next { background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent); }
 .tour-skip { background: var(--fill); color: var(--label); }
 .tour-x { position: absolute; top: 14px; right: 16px; color: var(--secondary); font-size: 14px; font-weight: 600; }
-.tour-demo { margin: 4px 0 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.04); padding: 4px 0; pointer-events: none; }
+.tour-demo { margin: 4px 0 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.04); padding: 8px 0 4px; position: relative; }
+.tour-try { display: block; margin: 0 16px 2px; font-size: 13px; font-weight: 700; color: var(--blue); }
+.tour-demo .tok b { text-decoration: underline dotted rgba(255, 176, 32, 0.85); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.tour-demo .tok { cursor: pointer; }
+.tour-demo .tok.hl b { color: var(--blue); }
+.tour-demo .sent.now .tok b { color: var(--blue); }
+.tour-demo .replay, .tour-demo .star { cursor: pointer; }
+.tour-demo .star.on { color: #ffcc00; }
+.tour-demo .star.on svg { fill: #ffcc00; }
 .tour-demo .sent { margin: 0; }
 .tour-demo .replay, .tour-demo .star { display: flex; }
 .tour-demo.focus-word .tok b { color: var(--blue); animation: tapPulse 1.4s ease-in-out infinite; display: inline-block; }
-.tour-demo.focus-star .star { color: #ffcc00; animation: tapPulse 1.4s ease-in-out infinite; }
-.tour-demo.focus-star .star svg { fill: #ffcc00; }
+.tour-demo.focus-star .star:not(.on) { animation: tapPulse 1.4s ease-in-out infinite; }
 .tour-demo:not(.focus-word):not(.focus-star) .replay { animation: tapPulse 1.4s ease-in-out infinite; }
 
 #ac-plan-note { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.4; margin-top: 2px; }
