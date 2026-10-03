@@ -1,0 +1,5 @@
+# Channels whose creators gave permission. One row approves the WHOLE channel
+# (every video, including future uploads). Pushing this file updates Supabase
+# (.github/workflows/web-channels.yml). To withdraw one, change approved to false.
+# author_url	name	language	approved	notes
+https://www.youtube.com/@everydayrussian	Everyday Russian	ru	true	whole-channel permission, recorded 2026-10-03
