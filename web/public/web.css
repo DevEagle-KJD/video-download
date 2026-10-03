@@ -719,3 +719,9 @@ body:not(.signed-out):not(.in-page)::after {
 .bv-old-ru { font-size: 17px; line-height: 1.45; }
 .bv-old .en { font-size: 14px; color: var(--secondary); margin: 6px 0 0; }
 .bv-copy { font-size: 11px; color: var(--secondary); margin: 22px 4px 8px; line-height: 1.4; }
+#bv-words { margin-top: 22px; }
+.bv-words { display: flex; flex-direction: column; gap: 8px; }
+.bv-word { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 10px; text-align: left; background: var(--cell); border: 0; border-radius: 12px; padding: 12px 14px; color: var(--label); font: inherit; }
+.bv-word b { font-size: 18px; }
+.bv-word i { font-style: normal; font-size: 14px; color: var(--secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bv-none { font-size: 14px; color: var(--secondary); margin: 0 4px; line-height: 1.45; }

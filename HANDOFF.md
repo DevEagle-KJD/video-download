@@ -853,7 +853,7 @@ next verse, across chapters and books) → enrich.py → `deck.py finish` → vo
 group `bible` (reviewed from the Bible page). **Learned rule (owner chose):** the card was
 remembered across a gap of 7+ days (`card.proven`, set in `schedule()` from the real gap; reset
 by Again); then the next verse unlocks by itself. "I already know it: next verse" moves on by
-hand. The next verse is always made one ahead. If the owner's Anki syllables exist for that verse
+hand. The next verse is always made one ahead. Words saved from a verse (button "☆ Save to My Bible Words") are bible-group word cards, listed under "My Bible words" on the Bible page and reviewed in the Bible review; they don't affect unlocking. If the owner's Anki syllables exist for that verse
 (`web/decks/bible.tsv`), their stress is applied. Note: the current НРП text of Matthew 1:18 has a
 second sentence ("Младенец… был от Святого Духа.") that the Anki card didn't have.
 

@@ -2336,6 +2336,12 @@ function renderBible() {
       <p class="ph-why">${step < 0 ? 'Starting… ' : ''}Takes a few minutes the first time: the verse gets stress marks, word-by-word meanings and a natural voice.</p></div></div>`;
   }
   setHTML(box, html);
+  // Words saved from the verses: reviewed with them in the Bible review.
+  const words = Object.values(cards).filter(x => !x.deleted && cardSet(x) === 'bible' && x.kind === 'word')
+    .sort((a, b) => (b.created || 0) - (a.created || 0));
+  setHTML($('#bv-words'), `<h2 class="shelf-title">My Bible words</h2>${words.length ? `<div class="bv-words">${words.map(x =>
+    `<button class="bv-word" data-s="bvw-open" data-id="${esc(x.lesson)}" data-i="${x.i}" data-k="${x.k}"><b>${esc(x.w.replace(/[.,!?…:;«»"“”()]+/g, ''))}</b><i>${esc(x.m || x.g || '')}</i>${dueText(x)}</button>`).join('')}</div>`
+    : '<p class="bv-none">Tap any underlined word in the verse and choose <b>☆ Save to My Bible Words</b>. Only the words you save are added to your Bible review.</p>'}`);
   // Verses learned before (still in Review), newest first.
   const done = Object.values(cards).filter(x => !x.deleted && cardSet(x) === 'bible' && x.kind !== 'word' && x.lesson !== id)
     .sort((a, b) => (b.created || 0) - (a.created || 0));
@@ -2526,7 +2532,7 @@ function phOpenWord(pid, i, k) {
         ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
       </div>
       <div class="ph-heard" id="phw-videos"><b><span class="spinner"></span> Looking for it in your videos…</b></div>
-      <button class="primary-button${isSaved(id) ? ' saved-btn' : ''}" data-s="phw-save">${isSaved(id) ? '★ Saved (tap to remove)' : '☆ Save Word'}</button>
+      <button class="primary-button${isSaved(id) ? ' saved-btn' : ''}" data-s="phw-save">${isSaved(id) ? '★ Saved (tap to remove)' : pid.startsWith('bv-') ? '☆ Save to My Bible Words' : '☆ Save Word'}</button>
     </div>`);
   phWordInVideos(t).then(found => {
     const box = $('#phw-videos');
@@ -2555,11 +2561,12 @@ function phToggleWord() {
       start: 0, end: 0, ru: s.ru, tokens: s.tokens.map(({ w, g }) => ({ w, g })), en: s.en,
       created: now, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
     };
-    toast('Word saved ⭐');
+    toast(pid.startsWith('bv-') ? 'Saved to your Bible words ⭐' : 'Word saved ⭐');
     window.engage?.xp(3);
   }
   cardsChanged(id);
   renderPhrases();
+  if (pid.startsWith('bv-')) renderBible();
   phOpenWord(pid, i, k);
 }
 
@@ -2595,6 +2602,7 @@ document.addEventListener('click', e => {
     case 'open-bible': openBible(); break;
     case 'bv-review': if (dueCards('bible').length) startReview(null, 'practice', 'bible'); else toast('Nothing due right now. Come back later.'); break;
     case 'bv-next': bibleNextSheet(); break;
+    case 'bvw-open': bvLoad(id).then(() => phOpenWord(id, Number(el.dataset.i), Number(el.dataset.k))).catch(e => toast(e.message)); break;
     case 'bv-next-yes': closeSheet(); bibleAdvance(true); break;
     case 'bv-retry': bvState = {}; bibleRefresh(); break;
     case 'open-phrases': openPhrasesPage(); break;
