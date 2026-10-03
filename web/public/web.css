@@ -434,3 +434,9 @@ body {
   }
   .ph-x:hover { color: var(--blue); background: rgba(255, 176, 32, 0.18); box-shadow: inset 0 0 0 1px rgba(255, 190, 90, 0.35); }
 }
+
+/* Anki decks in Practice */
+#dk-section { margin-bottom: 30px; }
+.dk-import { margin-top: 10px; }
+.dk-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 4px 12px; font-size: 13px; color: var(--secondary); }
+.dk-top .chip:disabled { opacity: .6; }

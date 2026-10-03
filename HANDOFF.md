@@ -811,6 +811,15 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
 - Setup guide for all accounts/keys: `web/README.md`.
 
 ### ▶ Where we left off (updated 2026-10-01)
+**Anki decks in Practice (2026-10-03, owner asked):** `web/decks/conversation.tsv` and
+`bible.tsv` are copies of `russian-study/anki/sentences.tsv` and `bible.tsv` (re-copy when the
+owner adds sentences there). Practice → "📚 My Anki decks" (admins: Import / Update button →
+`POST /api/decks` → `web-deck.yml`: `scripts/web/deck.py prepare` → enrich.py → `deck.py finish`
+(keeps the owner's own English; "— speaking to a girl/woman" / "— female speaker" → man/woman
+labels; Bible refs as the label) → voices → storage `lessons/dk-…/`). Decks are rows in the
+`phrases` table with id `dk-<source>-…` (no new table needed). Open a deck → tap words, voices,
+☆ per sentence or "Save all N to Review". `POST /api/me` tells the app if the user is an admin.
+
 **Sign-in email (2026-10-02):** Supabase SMTP = Resend (smtp.resend.com, sender
 `nativnik@wildidahopowersports.com`, name Nativnik; owner's only verified Resend domain; switch the
 sender to the Nativnik domain once bought). Templates (Magic Link + Confirm signup, subject

@@ -1679,6 +1679,7 @@ let phrases = store.get('phrases', []);            // rows: {id, text, status, s
 const phData = {};                                  // id → lesson.json
 let phOpenId = store.get('phOpen', undefined);      // the one open result (null = all closed)
 function phSetOpen(id) { phOpenId = id; store.set('phOpen', id); }
+let dkOpenId = null;                                // the open Anki deck (decks start closed: they're long)
 
 function practiceShow() {
   const live = Object.values(cards).filter(c => !c.deleted).length, due = dueCards().length;
@@ -1688,6 +1689,7 @@ function practiceShow() {
   $('#pr-saved').textContent = live;
   renderPhrases();
   phRefresh();
+  checkAdmin();
 }
 window.practiceShow = practiceShow;
 
@@ -1727,40 +1729,52 @@ async function phStart(textArg) {
   } catch (e) { toast(e.message); } finally { $('#ph-go').disabled = false; }
 }
 
+const isDeck = p => p.id.startsWith('dk-');
+const DK_STEPS = ['Reading your Anki sentences', 'Adding stress marks and word-by-word meanings', 'Recording the natural voice', 'Publishing'];
 function renderPhrases() {
-  const list = $('#ph-list');
+  renderList($('#dk-list'), phrases.filter(isDeck), true);
+  renderList($('#ph-list'), phrases.filter(p => !isDeck(p)), false);
+  $('#dk-section').hidden = !(phrases.some(isDeck) || meAdmin);
+  $('#dk-import').hidden = !meAdmin;
+  $('#dk-import').textContent = phrases.some(isDeck) ? 'Update My Anki Decks' : 'Import My Anki Decks';
+}
+function renderList(list, items, decks) {
   if (!list) return;
   // Nothing chosen yet (or it was deleted): open the newest finished one.
-  if (phOpenId === undefined || (phOpenId !== null && !phrases.some(p => p.id === phOpenId))) {
-    phOpenId = phrases.find(p => p.status === 'ready' && phData[p.id])?.id;
+  if (!decks && (phOpenId === undefined || (phOpenId !== null && !phrases.some(p => p.id === phOpenId)))) {
+    phOpenId = items.find(p => p.status === 'ready' && phData[p.id])?.id;
   }
-  list.innerHTML = phrases.length ? phrases.map(p => {
+  list.innerHTML = items.length ? items.map(p => {
     const del = `<button class="ph-x" data-s="ph-del" data-id="${p.id}" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>`;
-    let head = `<div class="ph-q"><b>“${esc(p.text)}”</b>${del}</div>`;
+    let head = `<div class="ph-q"><b>${decks ? `📚 ${esc(p.text)}` : `“${esc(p.text)}”`}</b>${del}</div>`;
     const d = phData[p.id];
     if (p.status === 'ready' && d) {
-      const open = p.id === phOpenId;
+      const open = p.id === (decks ? dkOpenId : phOpenId);
       head = `<div class="ph-q ph-fold${open ? ' open' : ''}"><div class="ph-head" role="button" tabindex="0" data-s="ph-toggle" data-id="${p.id}" aria-expanded="${open}">
-        <span class="ph-chev"><svg viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></svg></span><span class="ph-title"><b>“${esc(p.text)}”</b>${open ? '' : `<small>${esc(d.sentences[0]?.ru || '')}${d.sentences.length > 1 ? ` · ${d.sentences.length} ways` : ''}</small>`}</span></div>${del}</div>`;
+        <span class="ph-chev"><svg viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></svg></span><span class="ph-title"><b>${decks ? `📚 ${esc(p.text)}` : `“${esc(p.text)}”`}</b>${open ? '' : `<small>${decks ? `${d.sentences.length} sentences · ${esc(d.sentences[0]?.ru || '')}` : `${esc(d.sentences[0]?.ru || '')}${d.sentences.length > 1 ? ` · ${d.sentences.length} ways` : ''}`}</small>`}</span></div>${del}</div>`;
       if (!open) return `<div class="ph-item">${head}</div>`;
     }
     if (p.status === 'failed') return `<div class="ph-item">${head}<div class="ph-wait">⚠️ ${esc(p.error || 'Something went wrong.')} <button class="text-button" data-s="ph-retry" data-id="${p.id}">Try again</button></div></div>`;
     if (p.status !== 'ready' || !d) {
-      const step = p.status === 'ready' ? PH_STEPS.length - 1 : PH_STEPS.indexOf(p.stage);
-      return `<div class="ph-item">${head}<div class="ph-wait ph-steps">${PH_STEPS.map((label, k) =>
+      const STEPS = decks ? DK_STEPS : PH_STEPS;
+      const step = p.status === 'ready' ? STEPS.length - 1 : STEPS.indexOf(p.stage);
+      return `<div class="ph-item">${head}<div class="ph-wait ph-steps">${STEPS.map((label, k) =>
         `<div class="${k < step ? 'done' : k === step ? 'now' : ''}"><i>${k < step ? '✓' : k === step ? '<span class="spinner"></span>' : '•'}</i><span>${label}</span></div>`).join('')}
-        <p class="ph-why">${step < 0 ? 'Starting… ' : ''}Takes about 2–3 minutes: we check real native speech first instead of guessing.</p></div></div>`;
+        <p class="ph-why">${step < 0 ? 'Starting… ' : ''}${decks ? 'Takes a few minutes: every sentence gets stress marks, word-by-word meanings and a natural voice.' : 'Takes about 2–3 minutes: we check real native speech first instead of guessing.'}</p></div></div>`;
     }
     const chk = d.check?.verdict ? `<div class="ph-check ${d.check.verdict === 'natural' ? 'good' : 'bad'}"><b>Your Russian: ${esc(d.check.verdict)}.</b> ${esc(d.check.comment || '')}</div>` : '';
     const gendered = d.sentences.some(s => s.who);
-    return `<div class="ph-item">${head}${chk}${d.sentences.map((s, i) => {
+    const unsaved = d.sentences.filter((_, i) => !isSaved(`${p.id}:${i}`)).length;
+    const top = decks ? `<div class="dk-top"><span>Tap any word to hear it, see its meaning and save it.</span>
+      <button class="chip${unsaved ? ' on' : ''}" data-s="dk-save-all" data-id="${p.id}"${unsaved ? '' : ' disabled'}>${unsaved ? `☆ Save all ${unsaved} to Review` : '★ All in Review'}</button></div>` : '';
+    return `<div class="ph-item">${head}${chk}${top}${d.sentences.map((s, i) => {
       const ctx = s.context === 'polite' ? 'with strangers' : s.context || '';
       const who = s.who || (gendered ? 'man or woman' : '');
       const id = `${p.id}:${i}`;
       const heard = (s.matches || []).length ? `<div class="ph-heard"><b>🎬 Heard in ${s.matches.length} real video sentence${s.matches.length === 1 ? '' : 's'}</b>${s.matches.map(m =>
         `<button data-s="ph-heard" data-lesson="${esc(m.lesson)}" data-i="${m.i}">${esc(m.ru)}<span>${esc(m.title || '')}</span></button>`).join('')}</div>` : '';
       return `<div class="ph-v">
-        <div class="ph-top"><span class="ph-ctx">${esc(ctx)}${who ? ` · <em>${esc(who)}</em>` : ''}</span>
+        <div class="ph-top"><span class="ph-ctx">${esc(ctx)}${ctx && who ? ' · ' : ''}${who ? `<em>${esc(who)}</em>` : ''}</span>
           <button class="ph-star${isSaved(id) ? ' on' : ''}" data-s="ph-save" data-id="${p.id}" data-i="${i}" aria-label="Save to review">${isSaved(id) ? '★' : '☆'}</button></div>
         <div class="il">${tokensHTML(s.tokens, true, { i, ph: p.id })}</div>
         ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
@@ -1768,11 +1782,49 @@ function renderPhrases() {
         ${s.flag ? `<div class="ph-flag">⚠️ ${esc(s.flag)}</div>` : ''}
         <div class="ph-tools"><button class="chip" data-s="ph-say" data-id="${p.id}" data-i="${i}" data-rate="${RATE_NORMAL}">🔊 Normal</button>
           <button class="chip" data-s="ph-say" data-id="${p.id}" data-i="${i}" data-rate="${RATE_SLOW}">🐢 Slowly</button></div>
-        <p class="ph-hint">Tap any word to hear it, see its meaning and save it.</p>
+        ${decks ? '' : '<p class="ph-hint">Tap any word to hear it, see its meaning and save it.</p>'}
         ${heard}
       </div>`;
     }).join('')}</div>`;
-  }).join('') : '<div class="empty-card"><span class="big">💬</span><b>What do you want to be able to say?</b><span>Try “No worries, take your time” or “Can I get the check?”</span></div>';
+  }).join('') : decks ? '' : '<div class="empty-card"><span class="big">💬</span><b>What do you want to be able to say?</b><span>Try “No worries, take your time” or “Can I get the check?”</span></div>';
+}
+
+function dkSaveAll(pid) {
+  const d = phData[pid];
+  if (!d) return;
+  const now = Date.now(), ids = [];
+  d.sentences.forEach((s, i) => {
+    const id = `${pid}:${i}`;
+    if (isSaved(id)) return;
+    cards[id] = {
+      id, lesson: pid, title: d.input, i, start: 0, end: 0, ru: s.ru, tokens: s.tokens.map(({ w, g }) => ({ w, g })), en: s.en,
+      created: now + i, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
+    };
+    ids.push(id);
+  });
+  if (!ids.length) return;
+  cardsChanged(ids);
+  toast(`Added ${ids.length} sentences to Review ⭐`);
+  window.engage?.xp(3);
+  renderPhrases();
+  practiceShow();
+}
+
+let meAdmin = store.get('meAdmin', false);
+async function checkAdmin() {
+  try { meAdmin = !!(await api('me')).admin; store.set('meAdmin', meAdmin); renderPhrases(); } catch { /* offline */ }
+}
+
+async function dkImport() {
+  const btn = $('#dk-import');
+  btn.disabled = true;
+  try {
+    const { decks } = await api('decks', {});
+    phrases.unshift(...decks);
+    renderPhrases();
+    toast('Importing your Anki decks… this takes a few minutes');
+    phTimer = setTimeout(phRefresh, 4000);
+  } catch (e) { toast(e.message); } finally { btn.disabled = false; }
 }
 
 function phToggleSave(pid, i) {
@@ -1905,8 +1957,11 @@ document.addEventListener('click', e => {
   const id = el.dataset.id, i = Number(el.dataset.i);
   switch (el.dataset.s) {
     case 'pr-review': if (dueCards().length) startReview(); else toast('Nothing due right now. Save words and sentences to review them.'); break;
-    case 'ph-toggle': phSetOpen(phOpenId === id ? null : id); renderPhrases(); break;
+    case 'ph-toggle':
+      if (id.startsWith('dk-')) dkOpenId = dkOpenId === id ? null : id; else phSetOpen(phOpenId === id ? null : id);
+      renderPhrases(); break;
     case 'ph-del': phDelete(id); break;
+    case 'dk-save-all': dkSaveAll(id); break;
     case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); phStart(p.text); } break; }
     case 'ph-save': phToggleSave(id, i); break;
     case 'ph-say': { const d = phData[id]; if (d) saySentence({ ru: d.sentences[i].ru, lesson: id }, Number(el.dataset.rate)); break; }
@@ -1922,5 +1977,6 @@ document.addEventListener('click', e => {
   }
 });
 $('#ph-go').addEventListener('click', () => phStart());
+$('#dk-import').addEventListener('click', dkImport);
 $('#ph-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); phStart(); } });
 if ($('#screen-practice').classList.contains('active')) practiceShow();
