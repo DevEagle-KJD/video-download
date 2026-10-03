@@ -166,9 +166,9 @@ const guide = (() => {
       <b>${title}</b><p>${text}</p>
       <div class="tip-btns"><button data-tip="close" class="tip-ok">Got it</button><button data-s="help" data-sec="${sec}" class="tip-more">More help</button></div>`;
     card.addEventListener('click', e => {
-      if (e.target.closest('[data-tip="close"]') || e.target.closest('[data-s="help"]')) { mark(`tip:${name}`); card.remove(); }
+      // Only "Got it" or ✕ hide a tip for good; until then it shows on every visit.
+      if (e.target.closest('[data-tip="close"]')) { mark(`tip:${name}`); card.remove(); }
     });
-    mark(`tip:${name}`);   // shown once per person (it stays until you leave or close it)
     const where = name === 'lesson' ? $('#ls-transcript') : scr.querySelector('.content, .review-body');
     if (name === 'lesson') where?.before(card);
     else if (where) {
