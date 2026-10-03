@@ -10,8 +10,9 @@
 const engage = (() => {
   const today = () => new Date().toLocaleDateString('en-CA');          // YYYY-MM-DD, local time
   const dayBefore = d => { const t = new Date(`${d}T12:00:00`); t.setDate(t.getDate() - 1); return t.toLocaleDateString('en-CA'); };
-  let stats = Object.assign({ goal: 30, days: {}, total: 0, heard: {}, done: {}, best: 0, updated: 0, hidden: {} }, store.get('stats', {}));
+  let stats = Object.assign({ goal: 30, days: {}, total: 0, heard: {}, done: {}, best: 0, updated: 0, hidden: {}, guide: {} }, store.get('stats', {}));
   stats.hidden ||= {};
+  stats.guide ||= {};
   const heardSets = {};   // lessonId → Set of sentence indices (built lazily)
 
   const todayXp = () => stats.days[today()] || 0;
@@ -147,14 +148,22 @@ const engage = (() => {
     for (const [k, v] of Object.entries(remote.hidden || {})) {      // newest choice wins
       if (!stats.hidden[k] || v.t > stats.hidden[k].t) stats.hidden[k] = v;
     }
+    for (const [k, v] of Object.entries(remote.guide || {})) {       // tour / tips seen (newest wins)
+      if (!stats.guide[k] || v.t > stats.guide[k].t) stats.guide[k] = v;
+    }
     stats.total = Math.max(stats.total || 0, remote.total || 0);
     stats.best = Math.max(stats.best || 0, remote.best || 0);
     if ((remote.updated || 0) > (stats.updated || 0) && remote.goal) stats.goal = remote.goal;
   }
-  let pulledAt = 0;
-  async function pull() {
-    if (!session || !config || Date.now() - pulledAt < 60e3) return;
+  let pulledAt = 0, pulling = null;
+  async function pull(force = false) {
+    if (pulling) return pulling;
+    if (!session || !config || (!force && Date.now() - pulledAt < 60e3)) return;
     pulledAt = Date.now();
+    pulling = pullNow().finally(() => { pulling = null; });
+    return pulling;
+  }
+  async function pullNow() {
     try {
       const [row] = await db('user_stats?select=data');
       merge(row?.data);
@@ -183,7 +192,15 @@ const engage = (() => {
   const isHidden = (pid, i) => !!stats.hidden[`${pid}:${i}`]?.h;
   function setHidden(pid, i, h) { stats.hidden[`${pid}:${i}`] = { h, t: Date.now() }; save(); }
 
-  return { xp, heard, render, progressBar, pull, streak, isHidden, setHidden };
+  /* Welcome tour and per-screen tips (guide.js): key → { s: seen?, t: when }. */
+  const guideSeen = k => !!stats.guide[k]?.s;
+  function guideMark(k) { stats.guide[k] = { s: true, t: Date.now() }; save(); }
+  function guideReset() {
+    for (const k of Object.keys(stats.guide)) if (k.startsWith('tip:')) stats.guide[k] = { s: false, t: Date.now() };
+    save();
+  }
+
+  return { xp, heard, render, progressBar, pull, streak, isHidden, setHidden, guideSeen, guideMark, guideReset };
 })();
 window.engage = engage;
 engage.render();

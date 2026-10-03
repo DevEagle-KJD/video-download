@@ -239,6 +239,7 @@ async function stReopen(p) {
     else if (p.name === 'anki') openAnki();
     else if (p.name === 'phrases') openPhrasesPage();
     else if (p.name === 'channel' && p.id) openChannel(p.id);
+    else if (p.name === 'help') guide.openHelp(p.id);
     else return false;
     return true;
   } finally { pageRestoring = false; }
@@ -1790,7 +1791,7 @@ document.addEventListener('click', e => {
       break;
     case 'show-follow': prefs.follow = !prefs.follow; savePrefs(); syncChips(); break;
     case 'lesson-menu': lessonMenu(); break;
-    case 'lesson-help': closeSheet(); setTimeout(helpSheet, 350); break;
+    case 'lesson-help': closeSheet(); setTimeout(() => guide.openHelp('lesson'), 350); break;
     case 'delete-lesson': { const l = lessons.find(x => x.id === lesson?.id); closeSheet(); if (l) setTimeout(() => stRemoveLesson(l), 350); break; }
     case 'review': startReview(null, 'study', 'app'); break;
     case 'saved': openSaved(); break;

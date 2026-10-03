@@ -55,6 +55,7 @@
     <section class="screen" id="screen-study">
       <header class="navbar">
         <span class="navbar-title">Learn</span>
+        <button class="navbar-action help-q" data-s="help" data-sec="start" aria-label="How to use this screen">?</button>
         <button class="navbar-action" id="st-refresh" aria-label="Refresh">
           <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>
         </button>
@@ -75,7 +76,7 @@
 
     <!-- ───────── Explore ───────── -->
     <section class="screen" id="screen-practice">
-      <header class="navbar"><span class="navbar-title">Practice</span></header>
+      <header class="navbar"><span class="navbar-title">Practice</span><button class="navbar-action help-q" data-s="help" data-sec="review" aria-label="How to use this screen">?</button></header>
       <div class="content">
         <h1 class="large-title">Practice</h1>
         <div class="menu">
@@ -109,7 +110,7 @@
           <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
         </button>
         <span class="navbar-title page-title">Say it like a native</span>
-        <span style="width:60px"></span>
+        <span class="bar-right"><button class="navbar-action help-q" data-s="help" data-sec="phrases" aria-label="How to use this screen">?</button></span>
       </header>
       <div class="content">
         <h1 class="large-title">💬 Say it like a native</h1>
@@ -127,7 +128,7 @@
           <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
         </button>
         <span class="navbar-title page-title" id="ch-title-bar">Channel</span>
-        <span style="width:60px"></span>
+        <span class="bar-right"><button class="navbar-action help-q" data-s="help" data-sec="find" aria-label="How to use this screen">?</button></span>
       </header>
       <div class="content">
         <h1 class="large-title" id="ch-title">Channel</h1>
@@ -156,7 +157,7 @@
     </section>
 
     <section class="screen" id="screen-explore">
-      <header class="navbar"><span class="navbar-title">Explore</span></header>
+      <header class="navbar"><span class="navbar-title">Explore</span><button class="navbar-action help-q" data-s="help" data-sec="find" aria-label="How to use this screen">?</button></header>
       <div class="content">
         <h1 class="large-title">Explore</h1>
         <div id="ex-channels-box" hidden>
@@ -171,14 +172,36 @@
 
     <!-- ───────── Account ───────── -->
     <section class="screen" id="screen-account">
-      <header class="navbar"><span class="navbar-title">Account</span></header>
+      <header class="navbar"><span class="navbar-title">Account</span><button class="navbar-action help-q" data-s="help" data-sec="start" aria-label="How to use this screen">?</button></header>
       <div class="content">
         <h1 class="large-title">Account</h1>
         <div class="group kv">
           <div class="cell"><div class="k">Signed in as</div><span id="ac-email"></span></div>
           <div class="cell"><div class="k">Plan</div><b id="ac-plan">Free</b><div class="row-sub" id="ac-plan-note"></div></div>
         </div>
+        <button class="menu-card" id="ac-help" data-s="help">
+          <span class="mc-icon">❓</span>
+          <span class="mc-text"><b>How to use Nativnik</b><i>Step-by-step help with every button</i></span><em>›</em>
+        </button>
+        <div class="ac-links"><button class="text-button" data-s="tour-replay">Replay the welcome tour</button>
+          <button class="text-button" data-s="tips-reset">Show screen tips again</button></div>
         <button class="secondary-button destructive" id="ac-signout">Sign Out</button>
+      </div>
+    </section>
+
+    <!-- ───────── How to use Nativnik (guide.js fills it in) ───────── -->
+    <section class="screen page" id="screen-help">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
+        </button>
+        <span class="navbar-title page-title">How to use Nativnik</span>
+        <span style="width:60px"></span>
+      </header>
+      <div class="content">
+        <h1 class="large-title">How to use Nativnik</h1>
+        <p class="shelf-note">Tap a topic to jump to it.</p>
+        <div id="help-body"></div>
       </div>
     </section>
 
@@ -225,7 +248,7 @@
           <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
         </button>
         <span class="navbar-title page-title">Saved</span>
-        <span style="width:60px"></span>
+        <span class="bar-right"><button class="navbar-action help-q" data-s="help" data-sec="saved" aria-label="How to use this screen">?</button></span>
       </header>
       <div class="content saved-content">
         <div class="segmented two" id="sv-set" role="radiogroup" style="margin-top:4px" hidden>
@@ -303,5 +326,6 @@
   <script src="core.js"></script>
   <script src="study.js"></script>
   <script src="engage.js"></script>
+  <script src="guide.js"></script>
 </body>
 </html>

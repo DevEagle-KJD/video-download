@@ -50,7 +50,7 @@ function closeSheet() {
 $('#sheet-done').addEventListener('click', closeSheet);
 $('#sheet-backdrop').addEventListener('click', closeSheet);
 
-const PAGES = ['lesson', 'review', 'saved', 'anki', 'phrases', 'channel'];
+const PAGES = ['lesson', 'review', 'saved', 'anki', 'phrases', 'channel', 'help'];
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === `screen-${name}`));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.screen === name));
@@ -64,6 +64,7 @@ function showScreen(name) {
   if (name === 'explore' && window.exploreShow) window.exploreShow();
   if (name === 'practice' && window.practiceShow) window.practiceShow();
   if (name === 'account') renderAccount();
+  setTimeout(() => window.guide?.showTip(name), 400);   // first visit: a tip card (guide.js)
 }
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showScreen(t.dataset.screen)));
 
@@ -235,6 +236,7 @@ async function startApp() {
   const tab = store.get('tab', 'study');
   showScreen(['study', 'practice', 'explore', 'account'].includes(tab) ? tab : 'study');
   window.stRestorePages?.();   // reopen the page you were on, whichever tab it came from
+  window.guide?.auto();        // first sign-in: the welcome tour
 }
 
 window.addEventListener('hashchange', () => { if (config) signInFromLink().then(startApp); });

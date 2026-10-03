@@ -566,3 +566,86 @@ body {
 
 /* The saved word, when a word card opens its lesson */
 .sent .tok.hl b { background: rgba(255, 176, 32, 0.28); border-radius: 6px; padding: 0 3px; margin: 0 -3px; text-decoration: underline solid var(--blue); text-decoration-thickness: 3px; text-underline-offset: 6px; }
+
+/* Words the checks weren't sure of: wavy red-orange (dotted orange = "tap me") */
+.tok.unsure b, .tok.unsure[data-s="word"] b { text-decoration: underline wavy #ff6a55; text-decoration-thickness: 1.5px; text-underline-offset: 6px; }
+
+/* ───────── Help: ? buttons, tip cards, help page, welcome tour ───────── */
+.help-q {
+  width: 32px; height: 32px; border-radius: 16px; font-size: 18px; font-weight: 800; line-height: 1;
+  color: var(--blue); background: rgba(255, 176, 32, 0.14); box-shadow: inset 0 0 0 1.5px rgba(255, 176, 32, 0.5);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.navbar .help-q { bottom: 6px; }
+#screen-study .navbar .help-q { right: 58px; }   /* next to Refresh */
+.bar-right { width: 60px; display: flex; justify-content: flex-end; }
+.ac-links { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 6px 4px 18px; }
+#ac-help { margin-top: 18px; width: 100%; }
+
+.tip-card {
+  position: relative; margin: 6px 0 16px; padding: 14px 44px 14px 16px; border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 176, 32, 0.16), rgba(255, 122, 61, 0.10));
+  box-shadow: inset 0 0 0 1px rgba(255, 176, 32, 0.45); animation: phIn .3s ease-out;
+}
+#screen-lesson .tip-card { margin: 10px 12px 6px; }
+.tip-card b { font-size: 17px; }
+.tip-card p { margin: 6px 0 10px; font-size: 15px; line-height: 1.45; color: var(--label); }
+.tip-x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 15px; color: var(--secondary); font-size: 16px; }
+.tip-btns { display: flex; gap: 10px; }
+.tip-btns button { padding: 8px 16px; border-radius: 14px; font-weight: 700; font-size: 15px; }
+.tip-ok { background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent); }
+.tip-more { color: var(--blue); background: rgba(255, 176, 32, 0.12); }
+
+.help-index { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+.help-index button { padding: 9px 13px; border-radius: 16px; background: var(--cell); color: var(--label); font-size: 15px; font-weight: 600; }
+.help-sec { background: var(--cell); border-radius: 20px; padding: 16px 18px 6px; margin-bottom: 16px; }
+.help-sec h2 { font-size: 21px; margin: 0 0 8px; }
+.help-sec ol, .help-sec ul { padding-left: 22px; margin: 6px 0 12px; }
+.help-sec li { font-size: 16px; line-height: 1.5; margin: 8px 0; }
+.help-sec ul ul, .help-sec ol ul { margin: 4px 0; }
+.help-sec p { font-size: 16px; line-height: 1.5; color: var(--secondary); margin: 0 0 6px; }
+
+/* Little pictures of buttons */
+.gp { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+.gp-play, .gp-bigplay { width: 26px; height: 26px; border-radius: 13px; color: var(--on-accent); background: linear-gradient(135deg, var(--blue), var(--accent-2)); }
+.gp-bigplay { border-radius: 8px; }
+.gp-play svg, .gp-bigplay svg { width: 14px; height: 14px; fill: currentColor; margin-left: 2px; }
+.gp-star { font-size: 20px; color: var(--secondary); line-height: 1; }
+.gp-star.on { color: #ffcc00; }
+.gp-x { width: 24px; height: 24px; border-radius: 12px; font-size: 12px; font-weight: 800; color: var(--blue); box-shadow: inset 0 0 0 1.5px rgba(255, 176, 32, 0.6); }
+.gp-word { text-decoration: underline dotted rgba(255, 176, 32, 0.85); text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.gp-word.unsure { text-decoration: underline wavy #ff6a55; text-decoration-thickness: 1.5px; }
+.gp-chip { display: inline-block; padding: 2px 10px; border-radius: 12px; background: var(--fill); font-weight: 700; font-size: 14px; }
+.gp-chip.on { background: var(--blue); color: var(--on-accent); }
+
+/* Welcome tour */
+.tour { position: fixed; inset: 0; z-index: 1000; }
+.tour.dim { background: rgba(0, 0, 0, 0.72); }
+.tour-hole {
+  position: fixed; border-radius: 16px; pointer-events: none; display: none;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72), 0 0 0 3px var(--blue), 0 0 24px 6px rgba(255, 176, 32, 0.55);
+  transition: all .3s ease;
+}
+.tour-card {
+  position: fixed; left: 16px; right: 16px; top: 50%; transform: translateY(-50%); max-width: 460px; margin: 0 auto;
+  background: #1b1510; border-radius: 22px; padding: 20px 20px 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 176, 32, 0.35);
+  animation: phIn .25s ease-out;
+}
+.tour-card.top { top: calc(var(--safe-top) + 70px); transform: none; }
+.tour-card.bottom { top: auto; bottom: calc(var(--safe-bottom) + 24px); transform: none; }
+.tour-count { font-size: 13px; color: var(--blue); font-weight: 700; min-height: 16px; }
+.tour-title { display: block; font-size: 22px; margin: 4px 0 8px; }
+.tour-text { font-size: 17px; line-height: 1.5; margin: 0 0 16px; color: var(--label); }
+.tour-text .gp-play { width: 24px; height: 24px; }
+.tour-btns { display: flex; gap: 10px; }
+.tour-btns button { flex: 1; padding: 14px; border-radius: 16px; font-size: 17px; font-weight: 700; }
+.tour-next { background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent); }
+.tour-skip { background: var(--fill); color: var(--label); }
+.tour-x { position: absolute; top: 14px; right: 16px; color: var(--secondary); font-size: 14px; font-weight: 600; }
+.tour-demo { margin: 4px 0 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.04); padding: 4px 0; pointer-events: none; }
+.tour-demo .sent { margin: 0; }
+.tour-demo .replay, .tour-demo .star { display: flex; }
+.tour-demo.focus-word .tok b { color: var(--blue); animation: tapPulse 1.4s ease-in-out infinite; display: inline-block; }
+.tour-demo.focus-star .star { color: #ffcc00; animation: tapPulse 1.4s ease-in-out infinite; }
+.tour-demo.focus-star .star svg { fill: #ffcc00; }
+.tour-demo:not(.focus-word):not(.focus-star) .replay { animation: tapPulse 1.4s ease-in-out infinite; }

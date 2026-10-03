@@ -921,3 +921,8 @@ The owner chose the name **Nativski** and asked for this handoff. **They have NO
   the sentence and marks the word, remove-lesson sheet can also remove its review cards.
 - Offered, not done: enrich BATCH 25 → 12 (25s often hit max_tokens and get redone as halves; same quality, ~2–3 min
   faster); testers list (make given emails Pro); Modal account pending review (optional backup).
+- Help system (`web/public/guide.js`): welcome tour (10 cards, once per user; replay in Account / help page),
+  one tip card per screen on first visit (study, explore, practice, lesson, saved, phrases, channel, review),
+  "How to use Nativnik" page (`#screen-help`, sections start/find/lesson/words/saved/review/phrases/goal/pro/trouble),
+  `?` buttons in navbars. Seen state: `stats.guide` in user_stats (engage.js guideSeen/guideMark/guideReset).
+  Unsure words now have a wavy red underline (dotted orange = tappable).
