@@ -651,3 +651,17 @@ body {
 .tour-demo:not(.focus-word):not(.focus-star) .replay { animation: tapPulse 1.4s ease-in-out infinite; }
 
 #ac-plan-note { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.4; margin-top: 2px; }
+
+/* Supporting creators: Subscribe / Watch on YouTube */
+.creator-bar { display: flex; align-items: center; gap: 8px; margin: 12px 16px 0; font-size: 14px; color: var(--secondary); flex-wrap: wrap; }
+.creator-bar > span { flex: 1; min-width: 0; }
+.creator-bar b { color: var(--label); }
+.yt-sub, .yt-watch { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 700; font-size: 13px; padding: 6px 12px; border-radius: 14px; }
+.yt-sub { background: #ff3b30; color: #fff; }
+.yt-watch { background: var(--fill); color: var(--label); }
+.yt-sub.big, .yt-watch.big { font-size: 15px; padding: 11px 16px; border-radius: 16px; flex: 1; }
+.creator-btns { display: flex; gap: 10px; margin: 2px 0 16px; }
+.creator-end { margin: 18px 16px 28px; padding: 16px; border-radius: 18px; background: var(--cell); display: flex; flex-direction: column; gap: 6px; }
+.creator-end b { font-size: 17px; }
+.creator-end span { font-size: 15px; color: var(--secondary); line-height: 1.4; }
+.creator-end .creator-btns { margin: 8px 0 0; }

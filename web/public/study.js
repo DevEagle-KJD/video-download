@@ -33,7 +33,7 @@ const toLesson = row => {
     created: Date.parse(row.added_at || L.created_at) || Date.now(),
     state: L.status === 'ready' ? 'ready' : L.status === 'failed' ? 'failed' : 'processing',
     stage: L.stage, error: L.error,
-    meta: { title: L.title, channel: L.channel, thumbnail: L.thumbnail, duration: L.duration, count: L.sentence_count, video: false },
+    meta: { title: L.title, channel: L.channel, authorUrl: L.author_url, thumbnail: L.thumbnail, duration: L.duration, count: L.sentence_count, video: false },
   };
 };
 
@@ -474,11 +474,28 @@ function tokensHTML(tokens, withGloss, { i = null, hl = -1, ph = null } = {}) {
 
 const isSaved = id => cards[id] && !cards[id].deleted;
 
+// The creator: their name, Subscribe and Watch on YouTube (top of the lesson and at the end).
+const subscribeUrl = u => `${u}${u.includes('?') ? '&' : '?'}sub_confirmation=1`;
+function creatorBar() {
+  const m = lesson.meta || {};
+  if (!m.channel && !m.authorUrl) return '';
+  return `<div class="creator-bar"><span>🎬 From <b>${esc(m.channel || 'the creator')}</b></span>
+    ${m.authorUrl ? `<a href="${esc(subscribeUrl(m.authorUrl))}" target="_blank" rel="noopener" class="yt-sub">Subscribe</a>` : ''}
+    <a href="${esc(lesson.url)}" target="_blank" rel="noopener" class="yt-watch">YouTube ↗</a></div>`;
+}
+function creatorEnd() {
+  const m = lesson.meta || {};
+  return `<div class="creator-end"><b>Enjoyed this video?</b><span>Support ${esc(m.channel || 'the creator')}: watch it on YouTube and subscribe. It helps them keep making videos.</span>
+    <div class="creator-btns">${m.authorUrl ? `<a href="${esc(subscribeUrl(m.authorUrl))}" target="_blank" rel="noopener" class="yt-sub big">Subscribe</a>` : ''}
+    <a href="${esc(lesson.url)}" target="_blank" rel="noopener" class="yt-watch big">Watch on YouTube ↗</a></div></div>`;
+}
+
 function renderTranscript() {
   const { data } = lesson;
   const noMeanings = !data.enriched;
   $('#ls-transcript').innerHTML =
     (noMeanings ? `<p class="section-footer" style="margin:12px 16px">Translations for this lesson are still being added. Check back soon.</p>` : '') +
+    creatorBar() +
     '<p class="ls-hint">👆 Tap any underlined word to hear it, see its meaning and save it. ▶ plays the sentence.</p>' +
     data.sentences.map((s, i) => {
       const starred = cards[`${lesson.id}:${i}`] && !cards[`${lesson.id}:${i}`].deleted;
@@ -499,7 +516,7 @@ function renderTranscript() {
     }).join('') + (data.locked ? `<button class="lock-card" data-s="upgrade" data-why="lesson">
       <span class="lock-ic">🔒</span>
       <span class="lock-t"><b>${data.locked} more sentence${data.locked === 1 ? '' : 's'} in this lesson</b><i>Free shows the first ${data.sentences.length}. Unlock the whole video with Pro.</i></span>
-      <em>Go Pro</em></button>` : '');
+      <em>Go Pro</em></button>` : '') + creatorEnd();
   applyDisplayPrefs();
 }
 
@@ -1863,6 +1880,8 @@ function openChannel(url, name = '') {
   if (chOpen?.url !== url) chOpen = { url, name, videos: [], more: null, ver: '' };
   stOpenPage('channel', url);
   $('#ch-title').textContent = $('#ch-title-bar').textContent = chOpen.name || 'Channel';
+  $('#ch-yt').innerHTML = `<a href="${esc(subscribeUrl(url))}" target="_blank" rel="noopener" class="yt-sub big">Subscribe</a>
+    <a href="${esc(url)}" target="_blank" rel="noopener" class="yt-watch big">Open channel ↗</a>`;
   chRender();
   if (!chOpen.videos.length) chLoad();
 }
