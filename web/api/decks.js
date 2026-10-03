@@ -5,7 +5,10 @@
 import { randomBytes } from 'node:crypto';
 import { env, send, db, currentUser, isAdmin } from './_lib.js';
 
-const DECKS = { conversation: 'Russian Conversation', bible: 'Russian Bible (НРП)' };
+const DECKS = {
+  conversation: 'Russian Conversation', vocab: 'Russian Vocabulary',
+  bible: 'Russian Bible (НРП)', bible_vocab: 'Russian Bible Vocabulary (НРП)',
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Use POST' });
@@ -18,6 +21,9 @@ export default async function handler(req, res) {
     const made = [];
     for (const source of sources) {
       if (!DECKS[source]) return send(res, 400, { error: 'Unknown deck.' });
+      // Updating replaces the old copy of this deck (cards saved from it keep working:
+      // its files stay in storage).
+      await db(`phrases?user_id=eq.${user.id}&id=like.dk-${source}-*`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
       const id = `dk-${source}-${Array.from(randomBytes(6), b => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join('')}`;
       const [row] = await db('phrases', {
         method: 'POST',

@@ -811,8 +811,11 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
 - Setup guide for all accounts/keys: `web/README.md`.
 
 ### ▶ Where we left off (updated 2026-10-01)
-**Anki decks in Practice (2026-10-03, owner asked):** `web/decks/conversation.tsv` and
-`bible.tsv` are copies of `russian-study/anki/sentences.tsv` and `bible.tsv` (re-copy when the
+**Anki decks in Practice (2026-10-03, owner asked):** `web/decks/conversation.tsv`, `vocab.tsv`,
+`bible.tsv`, `bible_vocab.tsv` are copies of the same files in `russian-study/anki/`
+(sentences.tsv → conversation.tsv). The owner's CAPITAL syllables are applied as the final stress
+(`deck.py apply_owner_stress`). Vocabulary items with one word save as word cards; "Update"
+replaces the old copy of each deck (re-copy when the
 owner adds sentences there). Practice → "📚 My Anki decks" (admins: Import / Update button →
 `POST /api/decks` → `web-deck.yml`: `scripts/web/deck.py prepare` → enrich.py → `deck.py finish`
 (keeps the owner's own English; "— speaking to a girl/woman" / "— female speaker" → man/woman

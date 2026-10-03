@@ -1751,7 +1751,7 @@ function renderList(list, items, decks) {
     if (p.status === 'ready' && d) {
       const open = p.id === (decks ? dkOpenId : phOpenId);
       head = `<div class="ph-q ph-fold${open ? ' open' : ''}"><div class="ph-head" role="button" tabindex="0" data-s="ph-toggle" data-id="${p.id}" aria-expanded="${open}">
-        <span class="ph-chev"><svg viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></svg></span><span class="ph-title"><b>${decks ? `📚 ${esc(p.text)}` : `“${esc(p.text)}”`}</b>${open ? '' : `<small>${decks ? `${d.sentences.length} sentences · ${esc(d.sentences[0]?.ru || '')}` : `${esc(d.sentences[0]?.ru || '')}${d.sentences.length > 1 ? ` · ${d.sentences.length} ways` : ''}`}</small>`}</span></div>${del}</div>`;
+        <span class="ph-chev"><svg viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></svg></span><span class="ph-title"><b>${decks ? `📚 ${esc(p.text)}` : `“${esc(p.text)}”`}</b>${open ? '' : `<small>${decks ? `${d.sentences.length} ${d.vocab ? 'words' : 'sentences'} · ${esc(d.sentences[0]?.ru || '')}` : `${esc(d.sentences[0]?.ru || '')}${d.sentences.length > 1 ? ` · ${d.sentences.length} ways` : ''}`}</small>`}</span></div>${del}</div>`;
       if (!open) return `<div class="ph-item">${head}</div>`;
     }
     if (p.status === 'failed') return `<div class="ph-item">${head}<div class="ph-wait">⚠️ ${esc(p.error || 'Something went wrong.')} <button class="text-button" data-s="ph-retry" data-id="${p.id}">Try again</button></div></div>`;
@@ -1789,6 +1789,19 @@ function renderList(list, items, decks) {
   }).join('') : decks ? '' : '<div class="empty-card"><span class="big">💬</span><b>What do you want to be able to say?</b><span>Try “No worries, take your time” or “Can I get the check?”</span></div>';
 }
 
+// A saved item: a sentence card, or for a one-word vocabulary item a word card
+// (reviewed like words saved from lessons, with your English as its meaning).
+function deckCard(pid, i, now = Date.now()) {
+  const d = phData[pid], s = d.sentences[i], id = `${pid}:${i}`;
+  const base = { id, lesson: pid, title: d.input, i, start: 0, end: 0, ru: s.ru, tokens: s.tokens.map(({ w, g }) => ({ w, g })), en: s.en,
+    created: now + i, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0 };
+  if (d.vocab && s.tokens.length === 1) {
+    const t = s.tokens[0];
+    return { ...base, kind: 'word', k: 0, w: t.w, g: t.g || '', b: t.b || '', m: s.en || t.m || '' };
+  }
+  return base;
+}
+
 function dkSaveAll(pid) {
   const d = phData[pid];
   if (!d) return;
@@ -1796,15 +1809,12 @@ function dkSaveAll(pid) {
   d.sentences.forEach((s, i) => {
     const id = `${pid}:${i}`;
     if (isSaved(id)) return;
-    cards[id] = {
-      id, lesson: pid, title: d.input, i, start: 0, end: 0, ru: s.ru, tokens: s.tokens.map(({ w, g }) => ({ w, g })), en: s.en,
-      created: now + i, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
-    };
+    cards[id] = deckCard(pid, i, now);
     ids.push(id);
   });
   if (!ids.length) return;
   cardsChanged(ids);
-  toast(`Added ${ids.length} sentences to Review ⭐`);
+  toast(`Added ${ids.length} ${d.vocab ? 'words' : 'sentences'} to Review ⭐`);
   window.engage?.xp(3);
   renderPhrases();
   practiceShow();
@@ -1820,7 +1830,8 @@ async function dkImport() {
   btn.disabled = true;
   try {
     const { decks } = await api('decks', {});
-    phrases.unshift(...decks);
+    const replaced = new Set(decks.map(d => d.id.split('-').slice(0, -1).join('-')));   // "dk-<source>"
+    phrases = [...decks, ...phrases.filter(p => !(isDeck(p) && replaced.has(p.id.split('-').slice(0, -1).join('-'))))];
     renderPhrases();
     toast('Importing your Anki decks… this takes a few minutes');
     phTimer = setTimeout(phRefresh, 4000);
@@ -1836,11 +1847,7 @@ function phToggleSave(pid, i) {
     cards[id].updated = Date.now();
     toast('Removed from review');
   } else {
-    const now = Date.now();
-    cards[id] = {
-      id, lesson: pid, title: d.input, i, start: 0, end: 0, ru: s.ru, tokens: s.tokens.map(({ w, g }) => ({ w, g })), en: s.en,
-      created: now, updated: now, due: now, ivl: 0, ease: 2.5, reps: 0, seen: 0, lapses: 0,
-    };
+    cards[id] = deckCard(pid, i);
     toast('Saved for review ⭐');
     window.engage?.xp(3);
   }

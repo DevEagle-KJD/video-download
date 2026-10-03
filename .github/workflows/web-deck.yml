@@ -36,7 +36,7 @@ jobs:
 
       - name: Validate input
         run: |
-          [[ "$DECK_ID" =~ ^dk-[a-z0-9-]{8,40}$ ]] || { echo "::error::bad deck id"; exit 1; }
+          [[ "$DECK_ID" =~ ^dk-[a-z0-9_-]{8,40}$ ]] || { echo "::error::bad deck id"; exit 1; }
           [[ "$SOURCE" =~ ^[a-z0-9_-]{1,40}$ && -f "web/decks/$SOURCE.tsv" ]] || { echo "::error::unknown deck"; exit 1; }
           python3 scripts/web/supa.py pstage "$DECK_ID" "Reading your Anki sentences"
 
