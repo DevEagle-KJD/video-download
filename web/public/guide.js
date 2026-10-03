@@ -168,6 +168,7 @@ const guide = (() => {
     card.addEventListener('click', e => {
       if (e.target.closest('[data-tip="close"]') || e.target.closest('[data-s="help"]')) { mark(`tip:${name}`); card.remove(); }
     });
+    mark(`tip:${name}`);   // shown once per person (it stays until you leave or close it)
     const where = name === 'lesson' ? $('#ls-transcript') : scr.querySelector('.content, .review-body');
     if (name === 'lesson') where?.before(card);
     else if (where) {
