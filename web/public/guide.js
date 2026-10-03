@@ -283,9 +283,7 @@ const guide = (() => {
   // Scroll a topic to just under the top bar (with its title showing).
   function jumpTo(target) {
     const scr = $('#screen-help');
-    const banner = scr.querySelector('.help-banner');
-    // Below the top bar, and below the "Showing:" banner when it's there (it sticks under the bar).
-    const barBottom = scr.querySelector('.page-bar').getBoundingClientRect().bottom + (banner && !banner.hidden ? banner.offsetHeight + 8 : 0);
+    const barBottom = scr.querySelector('.page-bar').getBoundingClientRect().bottom;
     scr.scrollTop += target.getBoundingClientRect().top - barBottom - 12;
   }
 
@@ -296,20 +294,9 @@ const guide = (() => {
         ${HELP.map(([id, title, body]) => `<section class="help-sec" id="help-${id}"><div class="help-h"><h2>${title}</h2><button class="help-top" data-s="help-top">↑ All topics</button></div>${body}</section>`).join('')}
         <button class="primary-button" data-s="tour-replay" style="margin:8px 0 28px">▶ Replay the welcome tour</button>`;
       box.dataset.built = '1';
-      // Opened partway down (from a ?): a banner says there's more above.
-      const banner = document.createElement('button');
-      banner.className = 'help-banner'; banner.dataset.s = 'help-top'; banner.hidden = true;
-      $('#screen-help .page-bar').after(banner);
-      $('#screen-help').addEventListener('scroll', () => {
-        const idx = $('#help-body .help-index');
-        if (!banner.hidden && idx.getBoundingClientRect().bottom > $('#screen-help .page-bar').getBoundingClientRect().bottom) banner.hidden = true;
-      }, { passive: true });
     }
     stOpenPage('help', sec || null);
-    const banner = $('#screen-help .help-banner');
     const target = sec && $(`#help-${sec}`);
-    banner.hidden = !target;
-    if (target) banner.innerHTML = `<span>Showing: <b>${HELP.find(h => h[0] === sec)[1]}</b></span><em>↑ See all topics</em>`;
     requestAnimationFrame(() => {
       if (target) {
         jumpTo(target);
@@ -322,7 +309,7 @@ const guide = (() => {
     const b = e.target.closest('[data-s="help"], [data-s="help-top"], [data-s="help-jump"], [data-s="tour-replay"], [data-s="tips-reset"], [data-s="guide-reset-all"]');
     if (!b) return;
     if (b.dataset.s === 'help') { closeSheet?.(); openHelp(b.dataset.sec); }
-    if (b.dataset.s === 'help-top') { $('#screen-help .help-banner').hidden = true; $('#screen-help').scrollTo({ top: 0, behavior: 'smooth' }); }
+    if (b.dataset.s === 'help-top') $('#screen-help').scrollTo({ top: 0, behavior: 'smooth' });
     if (b.dataset.s === 'help-jump') { const t = $(`#help-${b.dataset.sec}`); if (t) jumpTo(t); }
     if (b.dataset.s === 'tour-replay') { document.body.classList.remove('in-page'); showScreen('study'); setTimeout(start, 300); }
     if (b.dataset.s === 'tips-reset') { window.engage?.guideReset(); toast('Tips will show again on each screen'); }
