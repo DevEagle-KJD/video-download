@@ -17,8 +17,8 @@ import sys
 
 OUT = "out"
 TITLES = {"conversation": "Russian Conversation", "vocab": "Russian Vocabulary",
-          "bible": "Russian Bible (НРП)", "bible_vocab": "Russian Bible Vocabulary (НРП)"}
-VOCAB = {"vocab", "bible_vocab"}
+          "bible": "Russian Bible (НРП)"}
+VOCAB = {"vocab"}
 WHO = [
     (r"speaking to a (boy|man)", "to a man"), (r"speaking to a (girl|woman)", "to a woman"),
     (r"speaking to (a group|several people|people|you all)", "to a group"),

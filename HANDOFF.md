@@ -812,7 +812,7 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
 
 ### ▶ Where we left off (updated 2026-10-01)
 **Anki decks in Practice (2026-10-03, owner asked):** `web/decks/conversation.tsv`, `vocab.tsv`,
-`bible.tsv`, `bible_vocab.tsv` are copies of the same files in `russian-study/anki/`
+`bible.tsv` are copies (owner asked to leave out the Bible vocabulary deck) of the same files in `russian-study/anki/`
 (sentences.tsv → conversation.tsv). The owner's CAPITAL syllables are applied as the final stress
 (`deck.py apply_owner_stress`). Vocabulary items with one word save as word cards; "Update"
 replaces the old copy of each deck (re-copy when the

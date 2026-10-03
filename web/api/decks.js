@@ -7,7 +7,7 @@ import { env, send, db, currentUser, isAdmin } from './_lib.js';
 
 const DECKS = {
   conversation: 'Russian Conversation', vocab: 'Russian Vocabulary',
-  bible: 'Russian Bible (НРП)', bible_vocab: 'Russian Bible Vocabulary (НРП)',
+  bible: 'Russian Bible (НРП)',
 };
 
 export default async function handler(req, res) {
