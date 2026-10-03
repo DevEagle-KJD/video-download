@@ -299,7 +299,11 @@ const player = {
     const d = this.mode === 'youtube' ? this.yt?.getDuration?.() : this.video.duration;
     return isFinite(d) && d > 0 ? d : (lesson?.data.duration || 0);
   },
-  seek(t) { if (this.mode === 'youtube') this.yt?.seekTo?.(t, true); else this.video.currentTime = t; },
+  seek(t) {
+    if (this.mode !== 'youtube') { this.video.currentTime = t; return; }
+    if (!this.ready) { this.pendingSeek = t; return; }   // still loading: done in onReady
+    this.yt?.seekTo?.(t, true);
+  },
   play() {
     if (this.mode === 'youtube') {
       this.want = true; this.playAt = Date.now();
@@ -312,6 +316,7 @@ const player = {
         if (!this.want || st === 1) return;
         if (st !== 3) this.yt?.playVideo?.();
         if (n) again(n - 1);
+        else if (st !== 3 && this.ready) { this.want = false; setPlayIcon(false); }   // never started (iPhone may need a tap on ▶)
       }, 700); };
       again(3);
     } else this.video.play().catch(() => {});
@@ -321,8 +326,10 @@ const player = {
     else this.video.pause();
   },
   setRate(r) { if (this.mode === 'youtube') this.yt?.setPlaybackRate?.(r); else this.video.playbackRate = r; },
-  async open(l) {
+  // start: seconds to begin at (e.g. a sentence opened from "Heard in").
+  async open(l, start = 0) {
     this.pause();
+    this.ready = false; this.pendingSeek = null;
     const id = youtubeId(l.url || lesson?.data.url);
     const box = $('#ls-yt');
     this.mode = 'youtube';
@@ -337,9 +344,14 @@ const player = {
       box.innerHTML = '<div id="ls-yt-frame"></div>';
       this.yt = new YT.Player('ls-yt-frame', {
         videoId: id,
-        playerVars: { playsinline: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, cc_load_policy: 0, controls: 1 },
+        playerVars: { playsinline: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, cc_load_policy: 0, controls: 1, ...(start > 0 ? { start: Math.floor(start) } : {}) },
         events: {
-          onReady: () => this.setRate(prefs.speed),
+          onReady: () => {
+            this.ready = true;
+            this.setRate(prefs.speed);
+            if (this.pendingSeek != null) { this.yt.seekTo(this.pendingSeek, true); this.pendingSeek = null; }
+            if (this.want) this.play();   // a play asked for while it was loading
+          },
           onStateChange: e => {
             // 1 playing, 3 buffering, 2 paused, 0 ended
             if (e.data === 1) { this.want = true; setPlayIcon(true); startTick(); }
@@ -372,7 +384,8 @@ let nextAfterStop = null;   // "Pause each": sentence to play on the next ▶
 let lockedIdx = null;       // while replaying one sentence, keep it highlighted
 let rafId = 0;
 
-async function openLesson(l) {
+// at: open at this sentence (cued in the video, highlighted and scrolled to).
+async function openLesson(l, at = null) {
   if (l.state === 'failed') {
     openSheet('Lesson couldn’t be made', `<p class="job-error" style="font-size:15px">${esc(l.error || 'Something went wrong.').replace(/\n/g, '<br>')}</p>
       <button class="primary-button" data-s="retry" data-id="${l.id}" style="margin-top:16px">Try Again</button>
@@ -403,7 +416,8 @@ async function openLesson(l) {
   // first sentence. The learner can switch it off for continuous playback.
   prefs.autopause = true;
   savePrefs();
-  player.open(l);
+  if (at != null && data.sentences[at]) store.set(`pos.${l.id}`, at);
+  player.open(l, at != null ? Math.max(0, (data.sentences[at]?.start || 0) - 0.3) : 0);
   $('#ls-title').textContent = data.title || 'Lesson';
   renderTranscript();
   syncChips();
@@ -1975,7 +1989,9 @@ function renderList(list, items, decks) {
       const ctx = s.context === 'polite' ? 'with strangers' : s.context || '';
       const who = s.who || (gendered ? 'man or woman' : '');
       const id = `${p.id}:${i}`;
-      const heard = (s.matches || []).length ? `<div class="ph-heard"><b>🎬 Heard in ${s.matches.length} real video sentence${s.matches.length === 1 ? '' : 's'}</b>${s.matches.map(m =>
+      const seenRu = new Set();   // the same line said again (e.g. "Да. Хорошо." ×3) shows once
+      const matches = (s.matches || []).filter(m => { const k = plainKey(m.ru); return !seenRu.has(k) && seenRu.add(k); });
+      const heard = matches.length ? `<div class="ph-heard"><b>🎬 Heard in ${matches.length} real video sentence${matches.length === 1 ? '' : 's'}</b>${matches.map(m =>
         `<button data-s="ph-heard" data-lesson="${esc(m.lesson)}" data-i="${m.i}">${esc(m.ru)}<span>${esc(m.title || '')}</span></button>`).join('')}</div>` : '';
       return `<div class="ph-v">
         <div class="ph-top"><span class="ph-ctx">${esc(ctx)}${ctx && who ? ' · ' : ''}${who ? `<em>${esc(who)}</em>` : ''}</span>
@@ -2201,9 +2217,8 @@ async function phOpenHeard(lessonId, i) {
     l = lessons.find(x => x.id === lessonId && x.state === 'ready');
     if (!l) return;
   }
-  store.set(`pos.${l.id}`, i);
-  await openLesson(l);
-  playSentence(i);
+  await openLesson(l, i);
+  if (lesson?.id === l.id) playSentence(i);
 }
 
 document.addEventListener('click', e => {
