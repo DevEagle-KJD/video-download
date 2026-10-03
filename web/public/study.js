@@ -85,16 +85,30 @@ async function stRefresh() {
 
 // Removes a lesson from your list (the shared lesson stays for everyone else;
 // your saved cards from it stay too).
-async function stRemoveLesson(l, ask = true) {
-  if (ask && !confirm('Remove this lesson from your list? Your saved words and sentences from it stay.')) return;
+// Removing a lesson: keep or also remove the words and sentences saved from it.
+function removeLessonSheet(l) {
+  const n = Object.values(cards).filter(c => !c.deleted && c.lesson === l.id).length;
+  openSheet('Remove lesson', `
+    <p style="font-size:17px;margin:4px 4px 16px">Remove <b>${esc(l.meta?.title || 'this lesson')}</b> from your lessons? You can add it again from Explore any time.</p>
+    ${n ? `<button class="secondary-button destructive" data-s="ls-remove" data-id="${esc(l.id)}" data-cards="1">Remove Lesson and Its ${n} Review Card${n === 1 ? '' : 's'}</button>` : ''}
+    <button class="secondary-button${n ? '' : ' destructive'}" data-s="ls-remove" data-id="${esc(l.id)}" data-cards="0">${n ? 'Remove Lesson, Keep My Review Cards' : 'Remove Lesson'}</button>
+    <button class="secondary-button" data-s="sheet-close">Cancel</button>`);
+}
+async function stRemoveLesson(l, ask = true, withCards = false) {
+  if (ask) { removeLessonSheet(l); return; }
   try {
     await db(`user_lessons?user_id=eq.${session.user.id}&video_id=eq.${l.id}`, { method: 'DELETE' });
+    if (withCards) {
+      const ids = Object.values(cards).filter(c => !c.deleted && c.lesson === l.id).map(c => c.id);
+      ids.forEach(cid => { cards[cid].deleted = true; cards[cid].updated = Date.now(); });
+      if (ids.length) cardsChanged(ids);
+    }
     lessons = lessons.filter(x => x.id !== l.id);
     saveLessons();
     closeSheet();
     if ($('#screen-lesson').classList.contains('active')) stBack();
     stRender();
-    toast('Removed from your lessons');
+    toast(withCards ? 'Lesson and its review cards removed' : 'Removed from your lessons');
   } catch (e) {
     toast(e.message);
   }
@@ -1697,6 +1711,7 @@ document.addEventListener('click', e => {
     case 'open': { const l = lessons.find(x => x.id === id); if (l) openLesson(l); break; }
     case 'retry': { const l = lessons.find(x => x.id === id); closeSheet(); if (l) stStart(l.url); break; }
     case 'forget': { const l = lessons.find(x => x.id === id); if (l) stRemoveLesson(l, false); break; }
+    case 'ls-remove': { const l = lessons.find(x => x.id === id); if (l) stRemoveLesson(l, false, el.dataset.cards === '1'); break; }
     case 'back': stBackButton(); break;
     case 'tap-play': hideTapToPlay(); playSentence(Math.max(0, cur)); break;
     case 'sent': playSentence(i); break;
@@ -1744,7 +1759,7 @@ document.addEventListener('click', e => {
     case 'show-follow': prefs.follow = !prefs.follow; savePrefs(); syncChips(); break;
     case 'lesson-menu': lessonMenu(); break;
     case 'lesson-help': closeSheet(); setTimeout(helpSheet, 350); break;
-    case 'delete-lesson': { const l = lessons.find(x => x.id === lesson?.id); if (l) stRemoveLesson(l); break; }
+    case 'delete-lesson': { const l = lessons.find(x => x.id === lesson?.id); closeSheet(); if (l) setTimeout(() => stRemoveLesson(l), 350); break; }
     case 'review': startReview(null, 'study', 'app'); break;
     case 'saved': openSaved(); break;
     case 'sv-open': openSavedCard(el.dataset.id); break;
