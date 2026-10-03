@@ -496,7 +496,7 @@ function renderTranscript() {
   $('#ls-transcript').innerHTML =
     (noMeanings ? `<p class="section-footer" style="margin:12px 16px">Translations for this lesson are still being added. Check back soon.</p>` : '') +
     creatorBar() +
-    '<p class="ls-hint">👆 Tap any underlined word to hear it, see its meaning and save it. ▶ plays the sentence.</p>' +
+    '<p class="ls-hint">👆 Tap any underlined word to hear it, see its meaning and save it.<br><span class="hint-ic play">▶</span> plays the sentence. <span class="hint-ic">☆</span> saves the whole sentence to review later.</p>' +
     data.sentences.map((s, i) => {
       const starred = cards[`${lesson.id}:${i}`] && !cards[`${lesson.id}:${i}`].deleted;
       return `<div class="sent${starred ? ' starred' : ''}" data-s="sent" data-i="${i}">
