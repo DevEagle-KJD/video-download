@@ -330,9 +330,12 @@ body {
 .ph-star { font-size: 22px; color: var(--secondary); line-height: 1; }
 .ph-star.on { color: #ffcc00; }
 .ph-acts { display: flex; align-items: center; gap: 6px; }
-.ph-vx { width: 32px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: var(--secondary); }
-.ph-vx svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
-.ph-vx:active { transform: scale(.9); color: var(--blue); }
+.ph-vx {
+  width: 36px; height: 36px; border-radius: 18px; display: flex; align-items: center; justify-content: center;
+  color: var(--blue); background: rgba(255, 176, 32, 0.16); box-shadow: inset 0 0 0 1.5px rgba(255, 176, 32, 0.55);
+}
+.ph-vx svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; }
+.ph-vx:active { transform: scale(.9); background: var(--blue); color: var(--on-accent); }
 .ph-restore { display: block; margin: 4px auto 10px; font-size: 15px; }
 .ph-v .en { margin: 8px 0 0; }
 .ph-note { font-size: 13px; color: var(--secondary); margin-top: 6px; }
