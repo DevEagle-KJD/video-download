@@ -1950,8 +1950,9 @@ function renderList(list, items, decks) {
     const d = phData[p.id];
     if (p.status === 'ready' && d) {
       const open = p.id === (decks ? dkOpenId : phOpenId);
+      const vis = d.sentences.filter((_, i) => !phHidden(p.id, i));
       head = `<div class="ph-q ph-fold${open ? ' open' : ''}"><div class="ph-head" role="button" tabindex="0" data-s="ph-toggle" data-id="${p.id}" aria-expanded="${open}">
-        <span class="ph-chev"><svg viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></svg></span><span class="ph-title"><b>${decks ? `📚 ${esc(p.text)}` : `“${esc(p.text)}”`}</b>${open ? '' : `<small>${decks ? `${d.sentences.length} ${d.vocab ? 'words' : 'sentences'} · ${esc(d.sentences[0]?.ru || '')}` : `${esc(d.sentences[0]?.ru || '')}${d.sentences.length > 1 ? ` · ${d.sentences.length} ways` : ''}`}</small>`}</span></div>${del}</div>`;
+        <span class="ph-chev"><svg viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></svg></span><span class="ph-title"><b>${decks ? `📚 ${esc(p.text)}` : `“${esc(p.text)}”`}</b>${open ? '' : `<small>${decks ? `${vis.length} ${d.vocab ? 'words' : 'sentences'} · ${esc(vis[0]?.ru || '')}` : `${esc(vis[0]?.ru || '')}${vis.length > 1 ? ` · ${vis.length} ways` : ''}`}</small>`}</span></div>${del}</div>`;
       if (!open) return `<div class="ph-item">${head}</div>`;
     }
     if (p.status === 'failed') return `<div class="ph-item">${head}<div class="ph-wait">⚠️ ${esc(p.error || 'Something went wrong.')} <button class="text-button" data-s="ph-retry" data-id="${p.id}">Try again</button></div></div>`;
@@ -1964,10 +1965,13 @@ function renderList(list, items, decks) {
     }
     const chk = d.check?.verdict ? `<div class="ph-check ${d.check.verdict === 'natural' ? 'good' : 'bad'}"><b>Your Russian: ${esc(d.check.verdict)}.</b> ${esc(d.check.comment || '')}</div>` : '';
     const gendered = d.sentences.some(s => s.who);
-    const unsaved = d.sentences.filter((_, i) => !isSaved(`${p.id}:${i}`)).length;
+    const unsaved = d.sentences.filter((_, i) => !isSaved(`${p.id}:${i}`) && !phHidden(p.id, i)).length;
+    const nHidden = d.sentences.filter((_, i) => phHidden(p.id, i)).length;
+    const restore = nHidden ? `<button class="text-button ph-restore" data-s="ph-unhide" data-id="${p.id}">Show ${nHidden} removed</button>` : '';
     const top = decks ? `<div class="dk-top"><span>Tap any word to hear it, see its meaning and save it.</span>
       <button class="chip${unsaved ? ' on' : ''}" data-s="dk-save-all" data-id="${p.id}"${unsaved ? '' : ' disabled'}>${unsaved ? `☆ Save all ${unsaved} to Review` : '★ All in Review'}</button></div>` : '';
     return `<div class="ph-item">${head}${chk}${top}${d.sentences.map((s, i) => {
+      if (phHidden(p.id, i)) return '';
       const ctx = s.context === 'polite' ? 'with strangers' : s.context || '';
       const who = s.who || (gendered ? 'man or woman' : '');
       const id = `${p.id}:${i}`;
@@ -1975,7 +1979,8 @@ function renderList(list, items, decks) {
         `<button data-s="ph-heard" data-lesson="${esc(m.lesson)}" data-i="${m.i}">${esc(m.ru)}<span>${esc(m.title || '')}</span></button>`).join('')}</div>` : '';
       return `<div class="ph-v">
         <div class="ph-top"><span class="ph-ctx">${esc(ctx)}${ctx && who ? ' · ' : ''}${who ? `<em>${esc(who)}</em>` : ''}</span>
-          <button class="ph-star${isSaved(id) ? ' on' : ''}" data-s="ph-save" data-id="${p.id}" data-i="${i}" aria-label="Save to review">${isSaved(id) ? '★' : '☆'}</button></div>
+          <span class="ph-acts"><button class="ph-star${isSaved(id) ? ' on' : ''}" data-s="ph-save" data-id="${p.id}" data-i="${i}" aria-label="Save to review">${isSaved(id) ? '★' : '☆'}</button>
+          <button class="ph-vx" data-s="ph-hide" data-id="${p.id}" data-i="${i}" aria-label="Remove this version"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button></span></div>
         <div class="il">${tokensHTML(s.tokens, true, { i, ph: p.id })}</div>
         ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
         ${s.note ? `<div class="ph-note">${esc(s.note)}</div>` : ''}
@@ -1985,7 +1990,7 @@ function renderList(list, items, decks) {
         ${decks ? '' : '<p class="ph-hint">Tap any word to hear it, see its meaning and save it.</p>'}
         ${heard}
       </div>`;
-    }).join('')}</div>`;
+    }).join('')}${restore}</div>`;
   }).join('') : decks ? '' : '<div class="empty-card"><span class="big">💬</span><b>What do you want to be able to say?</b><span>Try “No worries, take your time” or “Can I get the check?”</span></div>';
 }
 
@@ -2008,7 +2013,7 @@ function dkSaveAll(pid) {
   const now = Date.now(), ids = [];
   d.sentences.forEach((s, i) => {
     const id = `${pid}:${i}`;
-    if (isSaved(id)) return;
+    if (isSaved(id) || phHidden(pid, i)) return;
     cards[id] = deckCard(pid, i, now);
     ids.push(id);
   });
@@ -2036,6 +2041,25 @@ async function dkImport() {
     toast('Importing your Anki decks… this takes a few minutes');
     phTimer = setTimeout(phRefresh, 4000);
   } catch (e) { toast(e.message); } finally { btn.disabled = false; }
+}
+
+// Removing one version: hidden for this learner on every device (and out of Review).
+const phHidden = (pid, i) => !!window.engage?.isHidden(pid, i);
+function phHide(pid, i) {
+  const d = phData[pid];
+  if (!d) return;
+  engage.setHidden(pid, i, true);
+  const id = `${pid}:${i}`;
+  if (isSaved(id)) { cards[id].deleted = true; cards[id].updated = Date.now(); cardsChanged(id); }
+  toast('Removed');
+  renderPhrases();
+  practiceShow();
+}
+function phUnhide(pid) {
+  const d = phData[pid];
+  if (!d) return;
+  d.sentences.forEach((_, i) => { if (phHidden(pid, i)) engage.setHidden(pid, i, false); });
+  renderPhrases();
 }
 
 function phToggleSave(pid, i) {
@@ -2200,6 +2224,8 @@ document.addEventListener('click', e => {
     case 'sheet-close': closeSheet(); break;
     case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); phStart(p.text); } break; }
     case 'ph-save': phToggleSave(id, i); break;
+    case 'ph-hide': phHide(id, i); break;
+    case 'ph-unhide': phUnhide(id); break;
     case 'ph-say': { const d = phData[id]; if (d) saySentence({ ru: d.sentences[i].ru, lesson: id }, Number(el.dataset.rate)); break; }
     case 'ph-heard': phOpenHeard(el.dataset.lesson, i); break;
     case 'ph-word': {

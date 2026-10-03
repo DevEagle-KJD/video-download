@@ -10,7 +10,8 @@
 const engage = (() => {
   const today = () => new Date().toLocaleDateString('en-CA');          // YYYY-MM-DD, local time
   const dayBefore = d => { const t = new Date(`${d}T12:00:00`); t.setDate(t.getDate() - 1); return t.toLocaleDateString('en-CA'); };
-  let stats = Object.assign({ goal: 30, days: {}, total: 0, heard: {}, done: {}, best: 0, updated: 0 }, store.get('stats', {}));
+  let stats = Object.assign({ goal: 30, days: {}, total: 0, heard: {}, done: {}, best: 0, updated: 0, hidden: {} }, store.get('stats', {}));
+  stats.hidden ||= {};
   const heardSets = {};   // lessonId → Set of sentence indices (built lazily)
 
   const todayXp = () => stats.days[today()] || 0;
@@ -143,6 +144,9 @@ const engage = (() => {
       delete heardSets[id];
     }
     Object.assign(stats.done, remote.done || {});
+    for (const [k, v] of Object.entries(remote.hidden || {})) {      // newest choice wins
+      if (!stats.hidden[k] || v.t > stats.hidden[k].t) stats.hidden[k] = v;
+    }
     stats.total = Math.max(stats.total || 0, remote.total || 0);
     stats.best = Math.max(stats.best || 0, remote.best || 0);
     if ((remote.updated || 0) > (stats.updated || 0) && remote.goal) stats.goal = remote.goal;
@@ -174,7 +178,12 @@ const engage = (() => {
     if (el.dataset.e === 'goal') { stats.goal = Number(el.dataset.v); save(); render(); statsSheet(); }
   });
 
-  return { xp, heard, render, progressBar, pull, streak };
+  /* Versions of a "Say it like a native" phrase (or deck items) the learner removed.
+     Key "<phrase id>:<i>" → { h: removed?, t: when }, so the latest choice syncs. */
+  const isHidden = (pid, i) => !!stats.hidden[`${pid}:${i}`]?.h;
+  function setHidden(pid, i, h) { stats.hidden[`${pid}:${i}`] = { h, t: Date.now() }; save(); }
+
+  return { xp, heard, render, progressBar, pull, streak, isHidden, setHidden };
 })();
 window.engage = engage;
 engage.render();

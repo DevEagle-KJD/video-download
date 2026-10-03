@@ -329,6 +329,11 @@ body {
 .ph-ctx em { font-style: normal; color: var(--orange, #ff9f0a); }
 .ph-star { font-size: 22px; color: var(--secondary); line-height: 1; }
 .ph-star.on { color: #ffcc00; }
+.ph-acts { display: flex; align-items: center; gap: 6px; }
+.ph-vx { width: 32px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: var(--secondary); }
+.ph-vx svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+.ph-vx:active { transform: scale(.9); color: var(--blue); }
+.ph-restore { display: block; margin: 4px auto 10px; font-size: 15px; }
 .ph-v .en { margin: 8px 0 0; }
 .ph-note { font-size: 13px; color: var(--secondary); margin-top: 6px; }
 .ph-flag { font-size: 13px; color: var(--orange); margin-top: 6px; }
