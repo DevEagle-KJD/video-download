@@ -356,8 +356,8 @@ body {
   background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent);
 }
 .vid-play svg { width: 15px; height: 15px; fill: currentColor; margin-left: 2px; }
-/* Words in a phrase are tappable: a dotted amber underline says so. */
-.ph-v .il .tok b { text-decoration: underline dotted rgba(255, 176, 32, 0.75); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+/* Tappable words (phrases and lesson sentences): a dotted amber underline says so. */
+.ph-v .il .tok b, .tok[data-s="word"] b { text-decoration: underline dotted rgba(255, 176, 32, 0.75); text-decoration-thickness: 2px; text-underline-offset: 6px; }
 .ph-heard mark { background: none; color: var(--orange, #ff9f0a); font-weight: 600; }
 .ph-v .il .tok { cursor: pointer; }
 .ph-tools { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
@@ -532,3 +532,5 @@ body {
 .tap-play b { font-size: 18px; }
 .tap-play span { font-size: 15px; opacity: .85; max-width: 90%; }
 @keyframes tapPulse { 50% { transform: scale(1.08); } }
+
+.ls-hint { margin: 10px 16px 0; font-size: 13px; color: var(--secondary); }
