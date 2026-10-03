@@ -2619,7 +2619,12 @@ document.addEventListener('click', e => {
     case 'bv-next': bibleNextSheet(); break;
     case 'bv-literal': case 'bv-english': {   // like the lesson's Literal / English buttons (own setting)
       const k = el.dataset.s === 'bv-literal' ? 'bvLiteral' : 'bvEnglish';
-      prefs[k] = prefs[k] === false; savePrefs(); renderBible(); break;
+      prefs[k] = prefs[k] === false; savePrefs(); renderBible();
+      // The English sits under the whole verse, often off screen: show where it appeared.
+      const en = k === 'bvEnglish' && prefs.bvEnglish !== false && $('#bv-cur .en');
+      if (en) { en.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); en.classList.remove('flash'); void en.offsetWidth; en.classList.add('flash'); }
+      toast(`${k === 'bvEnglish' ? 'English' : 'Word-by-word meanings'} ${prefs[k] === false ? 'hidden' : 'shown'}`);
+      break;
     }
     case 'bv-fold': { const k = id; bvFold[k] = !(bvFold[k] ?? !k.startsWith('v:')); store.set('bvFold', bvFold); renderBible(); break; }
     case 'bvw-open': bvLoad(id).then(() => phOpenWord(id, Number(el.dataset.i), Number(el.dataset.k))).catch(e => toast(e.message)); break;

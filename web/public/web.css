@@ -734,3 +734,5 @@ body:not(.signed-out):not(.in-page)::after {
 .bv-old-ru { padding-bottom: 2px; }
 .bv-old .ph-tools { padding-bottom: 10px; }
 .bv-show { display: flex; gap: 8px; margin: 0 0 10px; }
+@keyframes bv-flash { 0%, 60% { background: rgba(255, 176, 32, 0.22); } 100% { background: transparent; } }
+.en.flash { animation: bv-flash 1.6s ease-out; border-radius: 8px; }
