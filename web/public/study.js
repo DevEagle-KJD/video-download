@@ -1732,7 +1732,8 @@ async function exploreShow() {
     }).join('') : '<p class="empty-note">No lessons in the library yet.</p>';
     $('#ex-channels').innerHTML = channels.length
       ? channels.map(c => `<a class="channel-pill" href="${esc(c.author_url)}" target="_blank" rel="noopener">${esc(c.name || c.author_url)}</a>`).join('')
-      : '<p class="empty-note">No channels yet.</p>';
+      : '';
+    $('#ex-channels-box').hidden = !channels.length;   // shown once a creator's channel is approved
   } catch (e) {
     list.innerHTML = `<p class="empty-note">${esc(e.message)}</p>`;
   }
