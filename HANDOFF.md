@@ -811,9 +811,12 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
 - Setup guide for all accounts/keys: `web/README.md`.
 
 ### ▶ Where we left off (updated 2026-10-01)
-**Practice layout (2026-10-03, owner: "cluttered"):** two tiles (Review = videos & phrases,
-Anki = due count / N decks) + a slim Saved row, then Say it like a native. Anki decks live on
-their own page `#screen-anki` (Review button, deck list, Import/Update for admins).
+**App structure (2026-10-03, owner: "cluttered… designing this to go public"):** each tab has one
+job. **Learn** = videos only (greeting/streak, Continue, Add a video, My lessons; no review bar,
+no badge). **Practice** = four big identical menu cards, each opening its own page: Review (lit
+amber with a count when cards are due; app group), Say it like a native (`#screen-phrases`),
+Saved, Anki decks (`#screen-anki`; only if the user has decks or is admin). The Practice tab badge
+counts all due cards.
 **Staying fresh:** Home Screen apps have no reload button and iOS resumes them, so on
 visibilitychange/pageshow/focus the app fetches `/sw.js`, compares its `CACHE` to the version it
 started with and reloads into a newer one (not during a review), else refreshes data

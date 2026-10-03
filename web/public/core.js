@@ -50,7 +50,7 @@ function closeSheet() {
 $('#sheet-done').addEventListener('click', closeSheet);
 $('#sheet-backdrop').addEventListener('click', closeSheet);
 
-const PAGES = ['lesson', 'review', 'saved', 'anki'];
+const PAGES = ['lesson', 'review', 'saved', 'anki', 'phrases'];
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === `screen-${name}`));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.screen === name));

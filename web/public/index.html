@@ -78,12 +78,41 @@
       <header class="navbar"><span class="navbar-title">Practice</span></header>
       <div class="content">
         <h1 class="large-title">Practice</h1>
-        <div class="pr-tiles">
-          <button class="pr-tile due" data-s="pr-review"><span class="pr-big" id="pr-due">0</span><b>Review</b><i id="pr-due-l">videos &amp; phrases</i></button>
-          <button class="pr-tile" id="pr-anki" data-s="open-anki" hidden><span class="pr-big" id="pr-due-anki">0</span><b>Anki</b><i id="pr-due-anki-l">your decks</i></button>
+        <div class="menu">
+          <button class="menu-card" id="mc-review" data-s="pr-review">
+            <span class="mc-icon">🔁</span>
+            <span class="mc-text"><b>Review</b><i id="mc-review-sub">Your saved words and sentences</i></span>
+            <span class="mc-count" id="mc-review-n" hidden></span><em>›</em>
+          </button>
+          <button class="menu-card" data-s="open-phrases">
+            <span class="mc-icon">💬</span>
+            <span class="mc-text"><b>Say it like a native</b><i id="mc-phrases-sub">Type it in English or Russian</i></span>
+            <em>›</em>
+          </button>
+          <button class="menu-card" data-s="saved">
+            <span class="mc-icon">⭐</span>
+            <span class="mc-text"><b>Saved</b><i id="mc-saved-sub">Words and sentences you saved</i></span>
+            <em>›</em>
+          </button>
+          <button class="menu-card" id="pr-anki" data-s="open-anki" hidden>
+            <span class="mc-icon">📚</span>
+            <span class="mc-text"><b>Anki decks</b><i id="pr-due-anki-l">Your decks</i></span>
+            <span class="mc-count" id="pr-due-anki" hidden></span><em>›</em>
+          </button>
         </div>
-        <button class="pr-row" data-s="saved"><span>⭐</span><b>Saved</b><i id="pr-saved">0</i><em>›</em></button>
-        <h2 class="shelf-title">💬 Say it like a native</h2>
+      </div>
+    </section>
+
+    <section class="screen page" id="screen-phrases">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
+        </button>
+        <span class="navbar-title page-title">Say it like a native</span>
+        <span style="width:60px"></span>
+      </header>
+      <div class="content">
+        <h1 class="large-title">💬 Say it like a native</h1>
         <div class="ph-box">
           <textarea id="ph-input" rows="2" maxlength="300" placeholder="Type it in English or Russian…" enterkeyhint="send"></textarea>
           <button id="ph-go">Show Me</button>

@@ -125,13 +125,13 @@ function stRender() {
   const due = dueCards('app').length, dueAll = due + dueCards('anki').length;
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   // Review: one slim bar, only once something is saved.
-  $('#st-review-card').innerHTML = live.length
+  $('#st-review-card').innerHTML = false
     ? `<button class="rv-bar${due ? ' due' : ''}" data-s="${due ? 'review' : 'saved'}">
          <span class="rv-bar-n">${due || '✓'}</span>
          <span class="rv-bar-t"><b>${due ? `${plural(due, 'card')} to review` : 'All caught up'}</b><i>${plural(live.length, 'saved card')}</i></span>
          <span class="rv-bar-go">${due ? 'Review' : 'See all'}</span>
        </button>` : '';
-  for (const [badge, n] of [[$('#st-badge'), due], [$('#pr-badge'), dueAll]]) {
+  for (const [badge, n] of [[$('#st-badge'), 0], [$('#pr-badge'), dueAll]]) {   // review lives in Practice
     if (!badge) continue;
     badge.hidden = !n;
     badge.textContent = n > 99 ? '99+' : n;
@@ -209,6 +209,7 @@ async function stReopen(p) {
       if (l) await openLesson(l); else return false;
     } else if (p.name === 'saved') openSaved();
     else if (p.name === 'anki') openAnki();
+    else if (p.name === 'phrases') openPhrasesPage();
     else return false;
     return true;
   } finally { pageRestoring = false; }
@@ -1767,6 +1768,11 @@ let phOpenId = store.get('phOpen', undefined);      // the one open result (null
 function phSetOpen(id) { phOpenId = id; store.set('phOpen', id); }
 let dkOpenId = null;                                // the open Anki deck (decks start closed: they're long)
 
+function openPhrasesPage() {
+  stOpenPage('phrases');
+  renderPhrases();
+  phRefresh();
+}
 function openAnki() {
   stOpenPage('anki');
   renderAnki();
@@ -1775,9 +1781,9 @@ function openAnki() {
 function renderAnki() {
   const n = dueCards('anki').length, decks = phrases.filter(isDeck).length;
   $('#pr-anki').hidden = !(decks || meAdmin);
+  $('#pr-due-anki').hidden = !n;
   $('#pr-due-anki').textContent = n;
-  $('#pr-due-anki-l').textContent = n ? 'due · your decks' : `${decks} deck${decks === 1 ? '' : 's'}`;
-  $('#pr-anki').classList.toggle('lit', n > 0);
+  $('#pr-due-anki-l').textContent = decks ? `${decks} deck${decks === 1 ? '' : 's'}${n ? ` · ${n} card${n === 1 ? '' : 's'} ready` : ''}` : 'Import your Anki decks';
   $('#ak-review').textContent = n ? `Review ${n} Anki Card${n === 1 ? '' : 's'}` : 'Anki: All Caught Up';
   $('#ak-review').classList.toggle('done', !n);
 }
@@ -1785,10 +1791,14 @@ function renderAnki() {
 function practiceShow() {
   const live = Object.values(cards).filter(c => !c.deleted);
   const due = dueCards('app').length, dueAnki = dueCards('anki').length;
-  $('#pr-due').textContent = due;
-  $('#pr-due-l').textContent = due ? 'due · videos & phrases' : 'videos & phrases';
-  $('.pr-tile.due')?.classList.toggle('lit', due > 0);
-  $('#pr-saved').textContent = live.length;
+  const saved = live.filter(c => cardSet(c) === 'app').length;
+  $('#mc-review-n').hidden = !due;
+  $('#mc-review-n').textContent = due;
+  $('#mc-review').classList.toggle('lit', due > 0);
+  $('#mc-review-sub').textContent = due ? `${due} card${due === 1 ? '' : 's'} ready` : saved ? 'All caught up. Nice work!' : 'Save words and sentences to review them';
+  $('#mc-saved-sub').textContent = live.length ? `${live.length} word${live.length === 1 ? '' : 's'} and sentences` : 'Words and sentences you saved';
+  const nph = phrases.filter(p => !isDeck(p)).length;
+  $('#mc-phrases-sub').textContent = nph ? `${nph} phrase${nph === 1 ? '' : 's'} · type a new one` : 'Type it in English or Russian';
   renderAnki();
   renderPhrases();
   phRefresh();
@@ -1838,6 +1848,8 @@ function renderPhrases() {
   renderList($('#dk-list'), phrases.filter(isDeck), true);
   renderList($('#ph-list'), phrases.filter(p => !isDeck(p)), false);
   $('#dk-import').hidden = !meAdmin;
+  const nph = phrases.filter(p => !isDeck(p)).length;
+  if ($('#mc-phrases-sub')) $('#mc-phrases-sub').textContent = nph ? `${nph} phrase${nph === 1 ? '' : 's'} · type a new one` : 'Type it in English or Russian';
   renderAnki();
   $('#dk-import').textContent = phrases.some(isDeck) ? 'Update My Anki Decks' : 'Import My Anki Decks';
 }
@@ -2098,6 +2110,7 @@ document.addEventListener('click', e => {
     case 'ph-del': phDelete(id); break;
     case 'dk-save-all': dkSaveAll(id); renderAnki(); break;
     case 'open-anki': openAnki(); break;
+    case 'open-phrases': openPhrasesPage(); break;
     case 'dk-remove': dkRemove(id, el.dataset.cards === '1'); break;
     case 'sheet-close': closeSheet(); break;
     case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); phStart(p.text); } break; }
