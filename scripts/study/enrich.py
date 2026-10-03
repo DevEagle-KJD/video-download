@@ -20,6 +20,9 @@ import unicodedata
 
 OUT = "out"
 BATCH = 25
+# Groups of BATCH sentences sent at the same time. Same batch size (so the same
+# context and quality), just more at once: a long video's groups all run together.
+WORKERS = int(os.environ.get("ENRICH_WORKERS") or 12)
 MODEL = os.environ.get("STUDY_MODEL") or "claude-sonnet-5"
 
 SYSTEM = """You prepare Russian video transcripts for an English speaker who learns Russian by sentence mining: real spoken sentences, heard and repeated, never grammar lessons.
@@ -226,7 +229,7 @@ def review(client, lesson_sentences):
 
     batches = [list(range(k, min(k + BATCH, len(lesson_sentences)))) for k in range(0, len(lesson_sentences), BATCH)]
     n_fix = n_en = n_flag = 0
-    with cf.ThreadPoolExecutor(max_workers=4) as pool:
+    with cf.ThreadPoolExecutor(max_workers=WORKERS) as pool:
         for fixes, ens, flags in pool.map(lambda b: review_batch(client, lesson_sentences, hints, b), batches):
             for f in fixes:
                 toks = lesson_sentences[f["i"]]["tokens"]
@@ -378,10 +381,10 @@ def main():
     if os.environ.get("ANTHROPIC_API_KEY"):
         import anthropic
 
-        client = anthropic.Anthropic(max_retries=4)
+        client = anthropic.Anthropic(max_retries=6)   # more at once: allow for brief rate limits
         print(f"Adding stress, literal meanings and translations with {MODEL} "
               f"({len(sentences)} sentences)…", flush=True)
-        with cf.ThreadPoolExecutor(max_workers=4) as pool:
+        with cf.ThreadPoolExecutor(max_workers=WORKERS) as pool:
             futures = [pool.submit(enrich_batch, client, title, sentences, start)
                        for start in range(0, len(sentences), BATCH)]
             for fut in cf.as_completed(futures):

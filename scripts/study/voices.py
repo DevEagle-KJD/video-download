@@ -22,7 +22,7 @@ from pathlib import Path
 OUT = Path("out")
 VOICE = os.environ.get("STUDY_VOICE") or "ru-RU-SvetlanaNeural"
 RATES = ["-25%", "-40%"]          # learner pace, then slower (as in russian-study)
-CONCURRENCY = 8
+CONCURRENCY = 16
 
 
 def speakable(text):
