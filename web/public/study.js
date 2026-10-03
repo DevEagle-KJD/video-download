@@ -177,6 +177,7 @@ function stRender() {
   const h = new Date().getHours();
   const [ru, en] = h < 5 ? ['Доброй ночи!', 'Good night'] : h < 12 ? ['Доброе утро!', 'Good morning'] : h < 18 ? ['Добрый день!', 'Good afternoon'] : ['Добрый вечер!', 'Good evening'];
   setHTML($('#st-hello'), `<b>${ru}</b> ${en}. Ready to sound native today?`);
+  if (chOpen && $('#screen-channel')?.classList.contains('active')) chRender();   // lesson progress on a channel page
 }
 
 function studyShow() {
@@ -223,6 +224,7 @@ async function stReopen(p) {
     } else if (p.name === 'saved') openSaved();
     else if (p.name === 'anki') openAnki();
     else if (p.name === 'phrases') openPhrasesPage();
+    else if (p.name === 'channel' && p.id) openChannel(p.id);
     else return false;
     return true;
   } finally { pageRestoring = false; }
@@ -262,6 +264,7 @@ async function stRestorePages() {
   }
   savePages();
 }
+window.stRestorePages = stRestorePages;
 
 /* ───────── Player: YouTube's embedded player (the `player` layer can also drive a <video>) ───────── */
 // Everything in the lesson page talks to `player`, never to a <video> directly,
@@ -1743,10 +1746,12 @@ async function exploreShow() {
         <span class="poster-sub">${esc(r.channel || '')}</span>
       </button>`;
     }).join('') : '<p class="empty-note">No lessons in the library yet.</p>');
-    setHTML($('#ex-channels'), channels.length
-      ? channels.map(c => `<a class="channel-pill" href="${esc(c.author_url)}" target="_blank" rel="noopener">${esc(c.name || c.author_url)}</a>`).join('')
-      : '');
+    setHTML($('#ex-channels'), channels.map(c => `<button class="menu-card" data-s="ex-channel" data-url="${esc(c.author_url)}" data-name="${esc(c.name || '')}">
+        <span class="mc-icon">📺</span>
+        <span class="mc-text"><b>${esc(c.name || 'Channel')}</b><i>All their videos, ready to learn from</i></span><em>›</em>
+      </button>`).join(''));
     $('#ex-channels-box').hidden = !channels.length;   // shown once a creator's channel is approved
+    $('#ex-ready-title').hidden = !rows.length || !channels.length;
   } catch (e) {
     setHTML(list, `<p class="empty-note">${esc(e.message)}</p>`);
   }
@@ -1756,6 +1761,72 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-s="ex-add"]');
   if (!b) return;
   stStart(`https://www.youtube.com/watch?v=${b.dataset.id}`).then(() => exploreShow());
+});
+
+/* ───────── A channel's page: every video of an approved channel ─────────
+   /api/channel reads the channel's videos (newest first, ~30 at a time) and
+   says which are lessons already. Tapping one opens it, adds it, or makes it. */
+var chOpen = null;          // { url, name, videos: [], more, ver } (var: stRender may run before this line)
+function openChannel(url, name = '') {
+  if (chOpen?.url !== url) chOpen = { url, name, videos: [], more: null, ver: '' };
+  stOpenPage('channel', url);
+  $('#ch-title').textContent = $('#ch-title-bar').textContent = chOpen.name || 'Channel';
+  chRender();
+  if (!chOpen.videos.length) chLoad();
+}
+async function chLoad(more = false) {
+  const c = chOpen;
+  if (!c || c.loading) return;
+  c.loading = true; chRender();
+  try {
+    const r = await api('channel', { url: c.url, more: more ? c.more : undefined, ver: c.ver });
+    if (chOpen !== c) return;
+    const seen = new Set(c.videos.map(v => v.id));
+    c.videos.push(...r.videos.filter(v => !seen.has(v.id)));
+    c.more = r.more; c.ver = r.ver || c.ver;
+    if (r.name && !c.name) { c.name = r.name; $('#ch-title').textContent = $('#ch-title-bar').textContent = r.name; }
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    c.loading = false;
+    if (chOpen === c) chRender();
+  }
+}
+function chRender() {
+  const c = chOpen;
+  if (!c) return;
+  const mine = new Map(lessons.map(l => [l.id, l]));
+  setHTML($('#ch-videos'), c.videos.length ? c.videos.map(v => {
+    const l = mine.get(v.id);
+    const state = l ? l.state : v.lesson;           // ready | processing | queued | failed | null
+    const busy = state === 'processing' || state === 'queued';
+    const badge = l && l.state === 'ready' ? '<span class="poster-add added">✓</span>'
+      : busy ? '' : '<span class="poster-add">+</span>';
+    const over = busy ? `<span class="poster-state"><span class="spinner"></span>${esc(l?.stage || 'Making the lesson')}…</span>` : '';
+    return `<button class="poster${busy ? ' busy' : ''}" data-s="ch-video" data-id="${esc(v.id)}">
+      <span class="poster-img">${posterImg(v.id)}${over}${v.duration ? `<span class="poster-time">${esc(v.duration)}</span>` : ''}${badge}</span>
+      <span class="poster-title">${esc(v.title)}</span>
+      <span class="poster-sub">${esc([v.views && `${v.views} views`, v.age].filter(Boolean).join(' · '))}</span>
+    </button>`;
+  }).join('') : c.loading ? '<p class="empty-note"><span class="spinner"></span> Loading their videos…</p>'
+    : '<p class="empty-note">No videos found.</p>');
+  $('#ch-more').hidden = !c.more || !c.videos.length;
+  $('#ch-more').disabled = !!c.loading;
+  $('#ch-more').textContent = c.loading && c.videos.length ? 'Loading…' : 'Show more videos';
+}
+async function chTapVideo(id) {
+  const l = lessons.find(x => x.id === id);
+  if (l) { openLesson(l); return; }
+  await stStart(`https://www.youtube.com/watch?v=${id}`);
+  const added = lessons.find(x => x.id === id);
+  if (added?.state === 'ready') openLesson(added); else chRender();
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-s="ex-channel"], [data-s="ch-video"], [data-s="ch-more"]');
+  if (!el) return;
+  if (el.dataset.s === 'ex-channel') openChannel(el.dataset.url, el.dataset.name);
+  else if (el.dataset.s === 'ch-video') chTapVideo(el.dataset.id);
+  else chLoad(true);
 });
 $('#st-url').addEventListener('keydown', e => { if (e.key === 'Enter') stStart($('#st-url').value); });
 $('#st-refresh').addEventListener('click', () => { stRefresh(); syncLoad(); });

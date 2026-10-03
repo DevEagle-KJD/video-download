@@ -121,7 +121,23 @@
       </div>
     </section>
 
-<section class="screen page" id="screen-anki">
+<section class="screen page" id="screen-channel">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
+        </button>
+        <span class="navbar-title page-title" id="ch-title-bar">Channel</span>
+        <span style="width:60px"></span>
+      </header>
+      <div class="content">
+        <h1 class="large-title" id="ch-title">Channel</h1>
+        <p class="shelf-note">Tap a video to study it. A new one takes a few minutes to make the first time.</p>
+        <div class="poster-grid" id="ch-videos"></div>
+        <button class="secondary-button" id="ch-more" data-s="ch-more" hidden>Show more videos</button>
+      </div>
+    </section>
+
+    <section class="screen page" id="screen-anki">
       <header class="navbar page-bar">
         <button class="back-btn" data-s="back">
           <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
@@ -143,11 +159,13 @@
       <header class="navbar"><span class="navbar-title">Explore</span></header>
       <div class="content">
         <h1 class="large-title">Explore</h1>
-        <div class="poster-grid" id="ex-lessons"></div>
         <div id="ex-channels-box" hidden>
           <h2 class="shelf-title">Channels</h2>
-          <div class="channel-list" id="ex-channels"></div>
+          <p class="shelf-note">Pick any of their videos and it becomes a lesson.</p>
+          <div class="menu" id="ex-channels"></div>
         </div>
+        <h2 class="shelf-title" id="ex-ready-title" hidden>Ready to study</h2>
+        <div class="poster-grid" id="ex-lessons"></div>
       </div>
     </section>
 

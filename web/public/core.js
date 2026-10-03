@@ -50,7 +50,7 @@ function closeSheet() {
 $('#sheet-done').addEventListener('click', closeSheet);
 $('#sheet-backdrop').addEventListener('click', closeSheet);
 
-const PAGES = ['lesson', 'review', 'saved', 'anki', 'phrases'];
+const PAGES = ['lesson', 'review', 'saved', 'anki', 'phrases', 'channel'];
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === `screen-${name}`));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.screen === name));
@@ -234,6 +234,7 @@ async function startApp() {
   document.body.classList.remove('signed-out');
   const tab = store.get('tab', 'study');
   showScreen(['study', 'practice', 'explore', 'account'].includes(tab) ? tab : 'study');
+  window.stRestorePages?.();   // reopen the page you were on, whichever tab it came from
 }
 
 window.addEventListener('hashchange', () => { if (config) signInFromLink().then(startApp); });

@@ -135,11 +135,9 @@ body.signed-out .tabbar { display: none; }
   border: 2px solid rgba(255, 255, 255, .25); border-top-color: #fff; animation: spin .8s linear infinite;
 }
 .empty-note { grid-column: 1 / -1; color: var(--secondary); font-size: 15px; margin: 4px 4px 20px; }
-.channel-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
-.channel-pill {
-  padding: 8px 14px; border-radius: 18px; background: var(--cell); color: var(--label);
-  text-decoration: none; font-size: 14px; font-weight: 500;
-}
+.shelf-note { color: var(--secondary); font-size: 15px; margin: -4px 4px 12px; }
+#ex-channels { margin-bottom: 26px; }
+#ch-more { margin: 4px 0 24px; }
 
 /* Streak + daily goal */
 .learn-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
