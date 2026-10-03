@@ -2061,8 +2061,20 @@ async function dkImport() {
 
 // Removing one version: hidden for this learner on every device (and out of Review).
 const phHidden = (pid, i) => !!window.engage?.isHidden(pid, i);
+function phHideSheet(pid, i) {
+  const s = phData[pid]?.sentences[i];
+  if (!s) return;
+  const starred = isSaved(`${pid}:${i}`);
+  openSheet('Remove this version?', `
+    <p style="font-size:22px;margin:4px 4px 6px"><b>${esc(s.ru)}</b></p>
+    ${s.en ? `<p style="font-size:15px;color:var(--secondary);margin:0 4px 14px">${esc(s.en)}</p>` : ''}
+    <p style="font-size:15px;margin:0 4px 16px">The other versions stay.${starred ? ' It also comes out of Review.' : ''} You can bring it back with “Show removed”.</p>
+    <button class="secondary-button destructive" data-s="ph-hide-yes" data-id="${esc(pid)}" data-i="${i}">Remove</button>
+    <button class="secondary-button" data-s="sheet-close">Cancel</button>`);
+}
 function phHide(pid, i) {
   const d = phData[pid];
+  closeSheet();
   if (!d) return;
   engage.setHidden(pid, i, true);
   const id = `${pid}:${i}`;
@@ -2239,7 +2251,8 @@ document.addEventListener('click', e => {
     case 'sheet-close': closeSheet(); break;
     case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); phStart(p.text); } break; }
     case 'ph-save': phToggleSave(id, i); break;
-    case 'ph-hide': phHide(id, i); break;
+    case 'ph-hide': phHideSheet(id, i); break;
+    case 'ph-hide-yes': phHide(id, i); break;
     case 'ph-unhide': phUnhide(id); break;
     case 'ph-say': { const d = phData[id]; if (d) saySentence({ ru: d.sentences[i].ru, lesson: id }, Number(el.dataset.rate)); break; }
     case 'ph-heard': phOpenHeard(el.dataset.lesson, i); break;
