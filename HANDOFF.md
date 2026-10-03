@@ -904,4 +904,8 @@ The owner chose the name **Nativski** and asked for this handoff. **They have NO
    **Started 2026-10-03:** Whisper runs on Modal (`scripts/modal/asr.py`, L4 GPU, deployed by
    `modal-deploy.yml`) when the `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` secrets exist; `transcribe.py`
    falls back to CPU on any Modal error. Measured before: transcribe 13 min of a 33-min lesson.
+   **Switched to Groq** (same day): `transcribe.py` `whisper_on_groq` (secret `GROQ_API_KEY`, ASR_ENGINE
+   default `groq` in web-lesson.yml). asr-compare.yml results vs the proofread lessons: Groq 5.2/10.9/4.5%
+   words different vs CPU 4.0/12.6/7.4% (overall 6.6% vs 8.7%); 8–30 s vs 6–21 min. Groq sometimes
+   transcribes quiet background talk the CPU's VAD skipped. Meaning batches: 12 at once; voices: 16.
 6. Admin page for channels/requests; landing page for marketing; "Import your own video".

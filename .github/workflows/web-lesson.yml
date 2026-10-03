@@ -83,9 +83,11 @@ jobs:
       - name: Transcribe
         env:
           WHISPER_MODEL: ${{ vars.WHISPER_MODEL }}
-          # Engine: Groq when ASR_ENGINE is "groq" (switched on only after scripts/study/asr_compare.py
-          # shows it's as accurate), else a Modal GPU when its secrets are set, else the CPU.
-          ASR_ENGINE: ${{ vars.ASR_ENGINE }}
+          # Engine: Groq (Whisper large-v3, ~30 s for a 28-min video). Chosen 2026-10-03 after
+          # asr-compare.yml on 3 lessons: 6.6% of words differed from the proofread lessons vs 8.7%
+          # for the CPU. Falls back to a Modal GPU (if its secrets exist), then the CPU, on any error.
+          # Set the repo variable ASR_ENGINE=cpu to switch back.
+          ASR_ENGINE: ${{ vars.ASR_ENGINE || 'groq' }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
