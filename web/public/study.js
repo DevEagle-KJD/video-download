@@ -614,6 +614,7 @@ function setPlayIcon(playing) {
   $('#ls-playicon').innerHTML = playing ? '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>' : '<path d="M7 4.5v15l12-7.5z"/>';
 }
 
+let seekWait = null;   // { to, until }: a jump back sent while playing; YouTube reports it a moment later
 function tick() {
   if (!lesson || player.paused) { rafId = 0; return; }
   const t = player.time;
@@ -633,7 +634,8 @@ function tick() {
     justStarted = false;
     returnToSentence(i);
   }
-  if (stopAt != null && t >= stopAt) {
+  if (seekWait && ((t >= seekWait.to - 0.6 && stopAt != null && t < stopAt) || Date.now() > seekWait.until)) seekWait = null;
+  if (stopAt != null && t >= stopAt && !seekWait) {
     if (prefs.loop && loopFrom != null) {
       player.seek(loopFrom);
     } else {
@@ -712,10 +714,18 @@ function playSentence(i) {
   // Already there (Pause each stopped right before this sentence): don't seek.
   // A seek makes YouTube re-buffer, which is slow and can swallow the play.
   const t = player.time;
-  if (!(player.mode === 'youtube' && t >= loopFrom - 0.6 && t <= loopFrom + 0.1)) player.seek(loopFrom);
+  const there = player.mode === 'youtube' && t >= loopFrom - 0.6 && t <= loopFrom + 0.1;
   setActive(i, false);
   returnToSentence(i);
-  player.play();
+  if (there) player.play();
+  else if (player.mode === 'youtube' && player.ready) {
+    // Paused YouTube on iPhone often drops a play that arrives while it's still
+    // seeking (you had to press ▶ twice). Play first, then jump back: it keeps
+    // playing through the jump. Until the jump shows up, don't stop at the end.
+    seekWait = { to: loopFrom, until: Date.now() + 2500 };
+    player.play();
+    player.seek(loopFrom);
+  } else { player.seek(loopFrom); player.play(); }
   startTick();
   store.set(`pos.${lesson.id}`, i);
 }
