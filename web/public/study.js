@@ -439,6 +439,8 @@ async function openLesson(l, at = null) {
   $('#screen-lesson').scrollTop = 0;
   const pos = store.get(`pos.${l.id}`, 0);
   if (pos > 0) setActive(pos, false);
+  // Opened at a sentence (a saved card, "Heard in"): scroll it to just under the video.
+  if (at != null && data.sentences[at]) requestAnimationFrame(() => returnToSentence(at));
 }
 
 // Word timings: from the lesson (Whisper), or estimated by word length.
@@ -1583,9 +1585,9 @@ function svReviewNow() {
 async function svOpenLesson() {
   const c = svOpen, l = lessons.find(x => x.id === c.lesson);
   if (!l) return;
-  store.set(`pos.${l.id}`, c.i);
   closeSheet();
-  await openLesson(l);
+  await openLesson(l, c.i);
+  if (lesson?.id === l.id && c.i >= lesson.data.sentences.length && lesson.data.locked) upgradeSheet('lesson');
 }
 
 $('#sv-kind').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { svKind = b.dataset.kind; renderSaved(); } });
