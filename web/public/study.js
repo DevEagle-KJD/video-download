@@ -408,7 +408,7 @@ async function openLesson(l, at = null) {
     return;
   }
   if (l.state !== 'ready') {
-    openSheet('Lesson in progress', `<p style="font-size:15px;color:var(--secondary)">${esc(l.stage || 'Waiting to start')}… Lessons take about 30–40 minutes the first time anyone adds a video; after that they’re instant for everyone.</p>
+    openSheet('Lesson in progress', `<p style="font-size:15px;color:var(--secondary)">${esc(l.stage || 'Waiting to start')}… A new lesson takes about 10 minutes the first time anyone adds the video; after that it’s instant for everyone.</p>
       <button class="secondary-button destructive" data-s="forget" data-id="${l.id}">Remove from My Lessons</button>`);
     return;
   }
