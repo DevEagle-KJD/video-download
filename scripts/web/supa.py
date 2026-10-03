@@ -7,6 +7,7 @@ SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY secrets).
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 
 URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -37,6 +38,41 @@ def upload(path, data, content_type, cache="max-age=31536000"):
          {"Content-Type": content_type, "x-upsert": "true", "Cache-Control": cache}, raw=True)
 
 
+PRIVATE = "lesson-data"   # video lessons' lesson.json: read only by the server (free plan sees part)
+
+
+def ensure_private_bucket():
+    try:
+        _req("POST", "/storage/v1/bucket", {"id": PRIVATE, "name": PRIVATE, "public": False})
+    except urllib.error.HTTPError as e:
+        if e.code not in (400, 409):   # already exists
+            raise
+
+
+def upload_private(path, data, content_type):
+    ensure_private_bucket()
+    _req("POST", f"/storage/v1/object/{PRIVATE}/{path}", data,
+         {"Content-Type": content_type, "x-upsert": "true", "Cache-Control": "no-cache"}, raw=True)
+
+
+def delete_public(path):
+    try:
+        _req("DELETE", f"/storage/v1/object/lessons/{path}")
+    except urllib.error.HTTPError:
+        pass
+
+
+def lesson_json(video_id):
+    """A video lesson's lesson.json (private bucket, else the old public copy)."""
+    for path in (f"/storage/v1/object/{PRIVATE}/{video_id}/lesson.json",
+                 f"/storage/v1/object/public/lessons/{video_id}/lesson.json"):
+        try:
+            return _req("GET", path)
+        except urllib.error.HTTPError:
+            continue
+    return None
+
+
 def update_phrase(phrase_id, **fields):
     from datetime import datetime, timezone
     fields["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -55,7 +91,9 @@ def download_library(language="ru", folder="out/library"):
     n = 0
     for r in rows:
         try:
-            data = _req("GET", f"/storage/v1/object/public/lessons/{r['video_id']}/lesson.json")
+            data = lesson_json(r["video_id"])
+            if data is None:
+                raise RuntimeError("no lesson.json")
             with open(os.path.join(folder, f"{r['video_id']}.json"), "wb") as f:
                 f.write(data)
             n += 1

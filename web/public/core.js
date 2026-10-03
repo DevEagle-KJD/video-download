@@ -223,8 +223,8 @@ async function renderAccount() {
   const pro = profile?.plan === 'pro';
   $('#ac-plan').textContent = pro ? 'Pro' : 'Free';
   $('#ac-plan-note').textContent = pro
-    ? 'Unlimited lessons. Thank you for supporting the app!'
-    : `${config.freeLessonsPerWeek} new lessons a week. Studying and review are unlimited.`;
+    ? 'Every lesson in full, new lessons and unlimited phrases. Thank you for supporting the app!'
+    : `The first ${config.freeSentences || 5} sentences of every lesson and ${config.freePhrasesPerWeek || 3} phrases a week. Pro unlocks everything.`;
 }
 $('#ac-signout').addEventListener('click', () => { if (confirm('Sign out on this device?')) signOut(); });
 

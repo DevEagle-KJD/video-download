@@ -46,3 +46,24 @@ export function youtubeId(url) {
 // "https://www.youtube.com/@EasyRussian/" → "https://www.youtube.com/@easyrussian"
 export const normChannel = url => String(url || '').trim().replace(/^http:/, 'https:')
   .replace('://youtube.com', '://www.youtube.com').replace(/\/+$/, '').toLowerCase();
+
+// What the user's plan unlocks: 'admin' and 'pro' get everything; 'free' gets
+// the first FREE_SENTENCES of each lesson and no new lessons (see lesson.js, lessons.js).
+export const FREE_SENTENCES = 5;
+export async function planOf(user) {
+  if (isAdmin(user)) return 'admin';
+  const [profile] = await db(`profiles?id=eq.${user.id}&select=plan`);
+  return profile?.plan === 'pro' ? 'pro' : 'free';
+}
+
+// A lesson's lesson.json from the private "lesson-data" bucket (older lessons:
+// the public "lessons" bucket). Read with the service key.
+export async function lessonFile(videoId) {
+  const key = env('SUPABASE_SERVICE_ROLE_KEY');
+  const headers = { apikey: key, ...(key.startsWith('eyJ') ? { Authorization: `Bearer ${key}` } : {}) };
+  for (const path of [`lesson-data/${videoId}/lesson.json`, `public/lessons/${videoId}/lesson.json`]) {
+    const r = await fetch(`${env('SUPABASE_URL')}/storage/v1/object/${path}`, { headers });
+    if (r.ok) return r.json();
+  }
+  return null;
+}

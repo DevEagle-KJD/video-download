@@ -52,8 +52,7 @@ async function stStart(url) {
       : l.state === 'ready' ? 'Added! This lesson is ready to study.' : 'Making your lesson… you can keep studying meanwhile.');
     stSchedule(5000);
   } catch (e) {
-    if (e.code === 'limit') openSheet('Free lessons used up', `<p style="font-size:16px">${esc(e.message)}</p>
-      <p class="section-footer">You can keep studying and reviewing everything you already have.</p>`);
+    if (e.code === 'pro' || e.code === 'limit') upgradeSheet('new');
     else toast(e.message);
   } finally {
     $('#st-make').disabled = false;
@@ -189,6 +188,7 @@ function studyShow() {
   stRefresh();
   syncLoad();
   stRestorePages();   // after a reload: reopen the page you were on
+  checkAdmin();       // plan (free / pro) and admin tools
 }
 window.studyShow = studyShow;
 
@@ -401,9 +401,7 @@ async function openLesson(l, at = null) {
 
   let data;
   try {
-    const res = await fetch(fileUrl(l.id, 'lesson.json'), { cache: 'no-cache' });
-    if (!res.ok) throw new Error(res.status);
-    data = await res.json();
+    data = await loadLessonData(l.id);
   } catch {
     toast('Couldn’t load the lesson. Check your connection and try again.');
     return;
@@ -477,7 +475,10 @@ function renderTranscript() {
           </button>
         </div>
       </div>`;
-    }).join('');
+    }).join('') + (data.locked ? `<button class="lock-card" data-s="upgrade" data-why="lesson">
+      <span class="lock-ic">🔒</span>
+      <span class="lock-t"><b>${data.locked} more sentence${data.locked === 1 ? '' : 's'} in this lesson</b><i>Free shows the first ${data.sentences.length}. Unlock the whole video with Pro.</i></span>
+      <em>Go Pro</em></button>` : '');
   applyDisplayPrefs();
 }
 
@@ -821,10 +822,19 @@ function speakable(text) {
   return String(text || '').normalize('NFD').replace(/\u0301/g, '').normalize('NFC')
     .replace(/[^\p{L}\p{N}_\s-]/gu, ' ').split(/\s+/).filter(Boolean).join(' ').toLowerCase();
 }
+// A lesson's content. Video lessons come from the server (/api/lesson), which
+// sends free users only the first sentences; phrases and decks are public files.
+async function loadLessonData(id) {
+  if (/^(ph|dk)-/.test(id)) {
+    const r = await fetch(fileUrl(id, 'lesson.json'), { cache: 'no-cache' });
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }
+  return api('lesson', { id });
+}
 function ensureAudio(lessonId) {
   if (!lessonId || audioMaps[lessonId] || audioLoads[lessonId]) return audioLoads[lessonId];
-  audioLoads[lessonId] = fetch(fileUrl(lessonId, 'lesson.json'), { cache: 'no-cache' })
-    .then(r => (r.ok ? r.json() : null))
+  audioLoads[lessonId] = loadLessonData(lessonId)
     .then(d => { audioMaps[lessonId] = d?.audio?.clips || {}; })
     .catch(() => { delete audioLoads[lessonId]; });
   return audioLoads[lessonId];
@@ -1758,6 +1768,7 @@ $('#st-make').addEventListener('click', () => stStart($('#st-url').value));
 /* ───────── Explore: every finished lesson and the channels in the library ───────── */
 async function exploreShow() {
   const list = $('#ex-lessons');
+  checkAdmin();
   try {
     const [rows, channels] = await Promise.all([
       db('lessons?status=eq.ready&select=video_id,title,channel,thumbnail,duration,sentence_count&order=updated_at.desc&limit=100'),
@@ -1828,8 +1839,9 @@ function chRender() {
     const l = mine.get(v.id);
     const state = l ? l.state : v.lesson;           // ready | processing | queued | failed | null
     const busy = state === 'processing' || state === 'queued';
+    const needsPro = !l && !state && mePlan === 'free';   // not made yet: making it is Pro
     const badge = l && l.state === 'ready' ? '<span class="poster-add added">✓</span>'
-      : busy ? '' : '<span class="poster-add">+</span>';
+      : busy ? '' : needsPro ? '<span class="poster-add pro">PRO</span>' : '<span class="poster-add">+</span>';
     const over = busy ? `<span class="poster-state"><span class="spinner"></span>${esc(l?.stage || 'Making the lesson')}…</span>` : '';
     return `<button class="poster${busy ? ' busy' : ''}" data-s="ch-video" data-id="${esc(v.id)}">
       <span class="poster-img">${posterImg(v.id)}${over}${v.duration ? `<span class="poster-time">${esc(v.duration)}</span>` : ''}${badge}</span>
@@ -1845,6 +1857,8 @@ function chRender() {
 async function chTapVideo(id) {
   const l = lessons.find(x => x.id === id);
   if (l) { openLesson(l); return; }
+  const v = chOpen?.videos.find(x => x.id === id);
+  if (mePlan === 'free' && v && !v.lesson) { upgradeSheet('new'); return; }
   await stStart(`https://www.youtube.com/watch?v=${id}`);
   const added = lessons.find(x => x.id === id);
   if (added?.state === 'ready') openLesson(added); else chRender();
@@ -1952,7 +1966,9 @@ async function phStart(textArg) {
     $('#ph-input').value = '';
     renderPhrases();
     phTimer = setTimeout(phRefresh, 4000);
-  } catch (e) { toast(e.message); } finally { $('#ph-go').disabled = false; }
+  } catch (e) {
+    if (e.code === 'pro') upgradeSheet('phrases'); else toast(e.message);
+  } finally { $('#ph-go').disabled = false; }
 }
 
 const isDeck = p => p.id.startsWith('dk-');
@@ -2056,9 +2072,42 @@ function dkSaveAll(pid) {
 }
 
 let meAdmin = store.get('meAdmin', false);
+var mePlan = store.get('mePlan', 'free');   // free | pro | admin (var: used by pages drawn before this line runs)
 async function checkAdmin() {
-  try { meAdmin = !!(await api('me')).admin; store.set('meAdmin', meAdmin); renderPhrases(); } catch { /* offline */ }
+  try {
+    const me = await api('me');
+    meAdmin = !!me.admin; mePlan = me.plan || 'free';
+    store.set('meAdmin', meAdmin); store.set('mePlan', mePlan);
+    renderPhrases();
+    if (chOpen) chRender();
+  } catch { /* offline */ }
 }
+
+/* Upgrade prompt: what Pro unlocks. Payments aren't switched on yet, so it says
+   Pro is coming soon (admins can set a profile's plan to 'pro' meanwhile). */
+const UPGRADE_WHY = {
+  lesson: ['Unlock the whole lesson', 'Free lessons show the first 5 sentences.'],
+  new: ['Make lessons from any video', 'Free accounts study lessons already in Explore.'],
+  phrases: ['Say anything like a native', 'Free accounts get 3 phrases a week.'],
+};
+function upgradeSheet(why = 'lesson') {
+  const [title, sub] = UPGRADE_WHY[why] || UPGRADE_WHY.lesson;
+  openSheet('Nativnik Pro', `
+    <div class="pro-hero"><span>⭐</span><b>${esc(title)}</b><i>${esc(sub)}</i></div>
+    <ul class="pro-list">
+      <li><b>Every sentence</b> of every lesson, with meanings, voices and review</li>
+      <li><b>New lessons</b> from any video on approved channels</li>
+      <li><b>Unlimited</b> “Say it like a native”</li>
+    </ul>
+    <button class="primary-button" data-s="pro-soon">Get Pro</button>
+    <button class="secondary-button" data-s="sheet-close">Not now</button>`);
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-s="upgrade"], [data-s="pro-soon"]');
+  if (!el) return;
+  if (el.dataset.s === 'upgrade') upgradeSheet(el.dataset.why);
+  else { closeSheet(); toast('Pro is coming very soon. Thanks for your interest!'); }
+});
 
 async function dkImport() {
   const btn = $('#dk-import');
@@ -2163,8 +2212,7 @@ async function phWordInVideos(t) {
   if (!want) return [];
   const vids = lessons.filter(l => l.state === 'ready');
   await Promise.all(vids.filter(l => !videoData[l.id]).map(l =>
-    fetch(fileUrl(l.id, 'lesson.json'), { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null))
-      .then(d => { if (d) videoData[l.id] = d; }).catch(() => {})));
+    loadLessonData(l.id).then(d => { if (d) videoData[l.id] = d; }).catch(() => {})));
   const found = [];
   for (const l of vids) {
     (videoData[l.id]?.sentences || []).forEach((s, i) => {
@@ -2246,7 +2294,9 @@ async function phOpenHeard(lessonId, i) {
     if (!l) return;
   }
   await openLesson(l, i);
-  if (lesson?.id === l.id) playSentence(i);
+  if (lesson?.id !== l.id) return;
+  if (i >= lesson.data.sentences.length && lesson.data.locked) { upgradeSheet('lesson'); return; }
+  playSentence(i);
 }
 
 document.addEventListener('click', e => {

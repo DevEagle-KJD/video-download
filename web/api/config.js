@@ -8,7 +8,8 @@ export default function handler(req, res) {
     appName: env('APP_NAME') || 'Nativnik',
     supabaseUrl: env('SUPABASE_URL'),
     supabaseAnonKey: env('SUPABASE_ANON_KEY'),
-    freeLessonsPerWeek: Number(env('FREE_LESSONS_PER_WEEK') || 3),
+    freeSentences: 5,
+    freePhrasesPerWeek: 3,
     languages: [{ code: 'ru', name: 'Russian', ready: true }, { code: 'es', name: 'Spanish', ready: false }],
   });
 }

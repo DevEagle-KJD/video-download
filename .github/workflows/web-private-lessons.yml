@@ -1,0 +1,25 @@
+name: Web private lessons
+
+# Moves video lessons' lesson.json into the private "lesson-data" bucket
+# (scripts/web/private_lessons.py). Safe to re-run.
+on:
+  push:
+    branches: [claude/iphone-video-downloader-pwqipq]
+    paths:
+      - scripts/web/private_lessons.py
+      - .github/workflows/web-private-lessons.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  move:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make lesson files private
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python3 scripts/web/private_lessons.py

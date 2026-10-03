@@ -1,8 +1,8 @@
-// POST /api/me: what the signed-in user may do (used to show admin-only tools).
-import { send, currentUser, isAdmin } from './_lib.js';
+// POST /api/me: what the signed-in user may do (admin tools; plan: free | pro | admin).
+import { send, currentUser, isAdmin, planOf } from './_lib.js';
 
 export default async function handler(req, res) {
   const user = await currentUser(req).catch(() => null);
   if (!user) return send(res, 401, { error: 'Please sign in again.' });
-  return send(res, 200, { admin: isAdmin(user) });
+  return send(res, 200, { admin: isAdmin(user), plan: await planOf(user).catch(() => 'free') });
 }

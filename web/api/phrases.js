@@ -4,7 +4,7 @@
 import { randomBytes } from 'node:crypto';
 import { env, send, db, currentUser, isAdmin } from './_lib.js';
 
-const FREE_PER_DAY = 10;
+const FREE_PER_WEEK = 3;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Use POST' });
@@ -19,10 +19,10 @@ export default async function handler(req, res) {
     if (!isAdmin(user)) {
       const [profile] = await db(`profiles?id=eq.${user.id}&select=plan`);
       if ((profile?.plan || 'free') !== 'pro') {
-        const since = new Date(Date.now() - 864e5).toISOString();
+        const since = new Date(Date.now() - 7 * 864e5).toISOString();
         const recent = await db(`phrases?user_id=eq.${user.id}&created_at=gte.${since}&select=id`);
-        if (recent.length >= FREE_PER_DAY) {
-          return send(res, 402, { error: `You’ve used your ${FREE_PER_DAY} free phrases today. Go Pro for unlimited.`, code: 'limit' });
+        if (recent.length >= FREE_PER_WEEK) {
+          return send(res, 402, { error: `You’ve used your ${FREE_PER_WEEK} free phrases this week. Nativnik Pro gives you unlimited.`, code: 'pro' });
         }
       }
     }

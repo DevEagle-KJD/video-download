@@ -31,15 +31,11 @@ export default async function handler(req, res) {
         await db('channel_requests', { method: 'POST', body: { user_id: user.id, author_url: channel, name: info.author_name, video_id: videoId } }).catch(() => {});
         return send(res, 403, { error: `“${info.author_name}” isn’t in our library yet. We’ve noted your request and will ask the creator.`, code: 'channel' });
       }
-      // Free plan: a few new lessons a week (studying and review stay unlimited).
+      // Free plan: lessons already in the library only; making a new one is Pro.
       const [profile] = await db(`profiles?id=eq.${user.id}&select=plan`);
-      if ((profile?.plan || 'free') !== 'pro' && !mine) {
-        const since = new Date(Date.now() - 7 * 864e5).toISOString();
-        const recent = await db(`user_lessons?user_id=eq.${user.id}&added_at=gte.${since}&select=video_id`);
-        const limit = Number(env('FREE_LESSONS_PER_WEEK') || 3);
-        if (recent.length >= limit) {
-          return send(res, 402, { error: `You’ve added your ${limit} free lessons this week. Go Pro for unlimited lessons.`, code: 'limit' });
-        }
+      const ready = existing && existing.status !== 'failed';
+      if ((profile?.plan || 'free') !== 'pro' && !ready) {
+        return send(res, 402, { error: 'Making new lessons from any video is part of Nativnik Pro. Lessons already in Explore are free to study.', code: 'pro' });
       }
     }
 
