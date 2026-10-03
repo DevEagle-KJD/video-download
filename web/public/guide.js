@@ -285,12 +285,19 @@ const guide = (() => {
   }
 
   document.addEventListener('click', e => {
-    const b = e.target.closest('[data-s="help"], [data-s="help-jump"], [data-s="tour-replay"], [data-s="tips-reset"]');
+    const b = e.target.closest('[data-s="help"], [data-s="help-jump"], [data-s="tour-replay"], [data-s="tips-reset"], [data-s="guide-reset-all"]');
     if (!b) return;
     if (b.dataset.s === 'help') { closeSheet?.(); openHelp(b.dataset.sec); }
     if (b.dataset.s === 'help-jump') { const t = $(`#help-${b.dataset.sec}`); if (t) jumpTo(t); }
     if (b.dataset.s === 'tour-replay') { document.body.classList.remove('in-page'); showScreen('study'); setTimeout(start, 300); }
     if (b.dataset.s === 'tips-reset') { window.engage?.guideReset(); toast('Tips will show again on each screen'); }
+    if (b.dataset.s === 'guide-reset-all') {
+      window.engage?.guideResetAll();
+      document.querySelectorAll('.tip-card').forEach(c => c.remove());
+      document.body.classList.remove('in-page');
+      showScreen('study');
+      setTimeout(start, 300);
+    }
   });
 
   // First sign-in: the tour, once (after the stats arrive, so it doesn't repeat on a new device).

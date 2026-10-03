@@ -2131,6 +2131,7 @@ async function checkAdmin() {
     const me = await api('me');
     meAdmin = !!me.admin; mePlan = me.plan || 'free';
     store.set('meAdmin', meAdmin); store.set('mePlan', mePlan);
+    const ab = $('#ac-admin-help'); if (ab) ab.hidden = !meAdmin;
     renderPhrases();
     if (chOpen) chRender();
   } catch { /* offline */ }

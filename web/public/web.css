@@ -649,3 +649,5 @@ body {
 .tour-demo.focus-star .star { color: #ffcc00; animation: tapPulse 1.4s ease-in-out infinite; }
 .tour-demo.focus-star .star svg { fill: #ffcc00; }
 .tour-demo:not(.focus-word):not(.focus-star) .replay { animation: tapPulse 1.4s ease-in-out infinite; }
+
+#ac-plan-note { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.4; margin-top: 2px; }

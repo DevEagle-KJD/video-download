@@ -221,8 +221,10 @@ async function renderAccount() {
   if (!session) return;
   $('#ac-email').textContent = session.user?.email || '';
   try { [profile] = await db(`profiles?id=eq.${session.user.id}&select=plan`); } catch { /* offline */ }
-  const pro = profile?.plan === 'pro';
-  $('#ac-plan').textContent = pro ? 'Pro' : 'Free';
+  const admin = store.get('meAdmin', false);
+  const pro = admin || profile?.plan === 'pro';
+  $('#ac-plan').textContent = admin ? 'Admin (everything unlocked)' : pro ? 'Pro' : 'Free';
+  $('#ac-admin-help').hidden = !store.get('meAdmin', false);   // admin testing tools
   $('#ac-plan-note').textContent = pro
     ? 'Every lesson in full, new lessons and unlimited phrases. Thank you for supporting the app!'
     : `The first ${config.freeSentences || 5} sentences of every lesson and ${config.freePhrasesPerWeek || 3} phrases a week. Pro unlocks everything.`;

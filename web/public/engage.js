@@ -200,7 +200,13 @@ const engage = (() => {
     save();
   }
 
-  return { xp, heard, render, progressBar, pull, streak, isHidden, setHidden, guideSeen, guideMark, guideReset };
+  // Admin testing: forget the tour and every tip, as for a brand-new user.
+  function guideResetAll() {
+    for (const k of Object.keys(stats.guide)) stats.guide[k] = { s: false, t: Date.now() };
+    save();
+  }
+
+  return { xp, heard, render, progressBar, pull, streak, isHidden, setHidden, guideSeen, guideMark, guideReset, guideResetAll };
 })();
 window.engage = engage;
 engage.render();
