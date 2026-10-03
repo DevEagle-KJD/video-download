@@ -79,22 +79,34 @@
       <div class="content">
         <h1 class="large-title">Practice</h1>
         <div class="pr-tiles">
-          <button class="pr-tile due" data-s="pr-review"><span class="pr-big" id="pr-due">0</span><b>Review</b><i id="pr-due-l">cards due now</i></button>
-          <button class="pr-tile" id="pr-anki" data-s="pr-review-anki" hidden><span class="pr-big" id="pr-due-anki">0</span><b>Anki Review</b><i id="pr-due-anki-l">due · Anki decks</i></button>
-          <button class="pr-tile" data-s="saved"><span class="pr-big" id="pr-saved">0</span><b>Saved</b><i>words &amp; sentences</i></button>
+          <button class="pr-tile due" data-s="pr-review"><span class="pr-big" id="pr-due">0</span><b>Review</b><i id="pr-due-l">videos &amp; phrases</i></button>
+          <button class="pr-tile" id="pr-anki" data-s="open-anki" hidden><span class="pr-big" id="pr-due-anki">0</span><b>Anki</b><i id="pr-due-anki-l">your decks</i></button>
         </div>
-        <div id="dk-section" hidden>
-          <h2 class="shelf-title">📚 My Anki decks</h2>
-          <div id="dk-list"></div>
-          <button class="secondary-button dk-import" id="dk-import" hidden>Import My Anki Decks</button>
-        </div>
+        <button class="pr-row" data-s="saved"><span>⭐</span><b>Saved</b><i id="pr-saved">0</i><em>›</em></button>
         <h2 class="shelf-title">💬 Say it like a native</h2>
-        <p class="hello">Type something you want to say, in English or Russian. Get how natives really say it.</p>
         <div class="ph-box">
-          <textarea id="ph-input" rows="2" maxlength="300" placeholder="e.g. No worries, take your time" enterkeyhint="send"></textarea>
+          <textarea id="ph-input" rows="2" maxlength="300" placeholder="Type it in English or Russian…" enterkeyhint="send"></textarea>
           <button id="ph-go">Show Me</button>
         </div>
         <div id="ph-list"></div>
+      </div>
+    </section>
+
+<section class="screen page" id="screen-anki">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
+        </button>
+        <span class="navbar-title page-title">Anki</span>
+        <span style="width:60px"></span>
+      </header>
+      <div class="content">
+        <h1 class="large-title">📚 Anki</h1>
+        <button class="primary-button" id="ak-review" data-s="pr-review-anki">Review</button>
+        <div id="dk-section">
+          <div id="dk-list"></div>
+          <button class="text-button dk-import" id="dk-import" hidden>Import My Anki Decks</button>
+        </div>
       </div>
     </section>
 

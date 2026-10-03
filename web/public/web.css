@@ -446,3 +446,26 @@ body {
 .pr-tiles.three .pr-tile[data-s="saved"] .pr-big { font-size: 28px; margin: 0; }
 .pr-tiles.three .pr-tile[data-s="saved"] i { margin-left: auto; }
 #sv-set { margin-bottom: 10px; }
+
+/* Pull to refresh */
+.ptr {
+  position: fixed; z-index: 70; left: 50%; top: calc(var(--safe-top) + 8px); transform: translate(-50%, -60px); opacity: 0;
+  display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 20px; pointer-events: none;
+  background: rgba(34, 27, 19, 0.95); box-shadow: 0 8px 24px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 190, 90, .2);
+  font-size: 14px; color: var(--label); transition: opacity .2s;
+}
+.ptr .spinner { border-color: rgba(255, 190, 90, .3); border-top-color: var(--blue); animation: none; }
+.ptr.busy .spinner { animation: spin .8s linear infinite; }
+
+/* Practice: two tiles + a slim Saved row; Anki has its own page */
+.pr-tiles { margin-bottom: 12px; }
+.pr-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 18px; margin-bottom: 30px; border-radius: 16px; text-align: left;
+  background: var(--cell); box-shadow: inset 0 0 0 1px rgba(255, 190, 90, 0.12); font-size: 17px;
+}
+.pr-row b { flex: 1; }
+.pr-row i { font-style: normal; color: var(--secondary); }
+.pr-row em { font-style: normal; color: var(--blue); font-size: 22px; line-height: 1; }
+#ak-review { margin: 4px 0 26px; }
+#ak-review.done { background: var(--cell); color: var(--secondary); box-shadow: none; }
+#screen-anki .dk-import { display: block; margin: 18px auto 0; color: var(--blue); font-weight: 600; }

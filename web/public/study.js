@@ -208,6 +208,7 @@ async function stReopen(p) {
       const l = lessons.find(x => x.id === p.id && x.state === 'ready');
       if (l) await openLesson(l); else return false;
     } else if (p.name === 'saved') openSaved();
+    else if (p.name === 'anki') openAnki();
     else return false;
     return true;
   } finally { pageRestoring = false; }
@@ -1551,8 +1552,81 @@ async function syncSave() {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && dirty.size) { clearTimeout(syncTimer); syncSave(); }
-  if (!document.hidden && $('#screen-study').classList.contains('active')) stRefresh();
 });
+
+/* ───────── Staying fresh (Home Screen apps have no reload button) ─────────
+   iOS often resumes a Home Screen app instead of restarting it, so: whenever the
+   app comes back on screen, check for a newer version (reload into it, unless
+   you're mid-review) and fetch the latest data. Plus pull-to-refresh on the tabs. */
+let appVersion = null;
+async function serverVersion() {
+  try {
+    const t = await (await fetch(`/sw.js?v=${Date.now()}`, { cache: 'no-store' })).text();
+    return t.match(/CACHE = '([^']+)'/)?.[1] || null;
+  } catch { return null; }
+}
+serverVersion().then(v => { appVersion = v; });
+const busy = () => $('#screen-review').classList.contains('active');   // don't lose a review session
+async function updateIfNewer() {
+  const v = await serverVersion();
+  if (!v || !appVersion || v === appVersion || busy()) return false;
+  toast('Updating Nativnik…');
+  if (dirty.size) await syncSave().catch(() => {});
+  setTimeout(() => location.reload(), 600);
+  return true;
+}
+function refreshData() {
+  if (!session) return;
+  stRefresh();
+  syncLoad();
+  window.engage?.pull();
+  if ($('#screen-practice')?.classList.contains('active')) practiceShow();
+  if ($('#screen-explore')?.classList.contains('active')) exploreShow();
+}
+let lastResume = Date.now();
+async function onResume() {
+  if (document.hidden || Date.now() - lastResume < 3000) return;
+  lastResume = Date.now();
+  if (await updateIfNewer()) return;
+  refreshData();
+}
+document.addEventListener('visibilitychange', onResume);
+window.addEventListener('pageshow', e => { if (e.persisted) onResume(); });
+window.addEventListener('focus', onResume);
+
+// Pull down at the top of a tab to refresh.
+(() => {
+  const ptr = document.createElement('div');
+  ptr.className = 'ptr';
+  ptr.innerHTML = '<span class="spinner"></span><b>Pull to refresh</b>';
+  document.body.appendChild(ptr);
+  let startY = null, pulled = 0, scroller = null;
+  const TABS = ['screen-study', 'screen-practice', 'screen-explore', 'screen-account'];
+  document.addEventListener('touchstart', e => {
+    scroller = e.target.closest('.screen.active');
+    startY = scroller && TABS.includes(scroller.id) && scroller.scrollTop <= 0 && !$('#sheet').classList.contains('open') ? e.touches[0].clientY : null;
+    pulled = 0;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (startY == null) return;
+    pulled = Math.max(0, e.touches[0].clientY - startY);
+    if (scroller.scrollTop > 0) { startY = null; pulled = 0; }
+    const d = Math.min(pulled, 120);
+    ptr.style.transform = `translate(-50%, ${d * 0.8 - 60}px)`;
+    ptr.style.opacity = Math.min(1, d / 70);
+    ptr.querySelector('b').textContent = d >= 80 ? 'Release to refresh' : 'Pull to refresh';
+  }, { passive: true });
+  document.addEventListener('touchend', async () => {
+    if (startY == null) return;
+    const go = pulled >= 80;
+    startY = null;
+    if (!go) { ptr.style.transform = ''; ptr.style.opacity = 0; return; }
+    ptr.classList.add('busy');
+    ptr.querySelector('b').textContent = 'Refreshing…';
+    if (!(await updateIfNewer())) refreshData();
+    setTimeout(() => { ptr.classList.remove('busy'); ptr.style.transform = ''; ptr.style.opacity = 0; }, 900);
+  });
+})();
 
 /* ───────── Wiring ───────── */
 document.addEventListener('click', e => {
@@ -1693,19 +1767,29 @@ let phOpenId = store.get('phOpen', undefined);      // the one open result (null
 function phSetOpen(id) { phOpenId = id; store.set('phOpen', id); }
 let dkOpenId = null;                                // the open Anki deck (decks start closed: they're long)
 
+function openAnki() {
+  stOpenPage('anki');
+  renderAnki();
+  renderPhrases();
+}
+function renderAnki() {
+  const n = dueCards('anki').length, decks = phrases.filter(isDeck).length;
+  $('#pr-anki').hidden = !(decks || meAdmin);
+  $('#pr-due-anki').textContent = n;
+  $('#pr-due-anki-l').textContent = n ? 'due · your decks' : `${decks} deck${decks === 1 ? '' : 's'}`;
+  $('#pr-anki').classList.toggle('lit', n > 0);
+  $('#ak-review').textContent = n ? `Review ${n} Anki Card${n === 1 ? '' : 's'}` : 'Anki: All Caught Up';
+  $('#ak-review').classList.toggle('done', !n);
+}
+
 function practiceShow() {
   const live = Object.values(cards).filter(c => !c.deleted);
   const due = dueCards('app').length, dueAnki = dueCards('anki').length;
-  const hasAnki = live.some(c => cardSet(c) === 'anki');
   $('#pr-due').textContent = due;
-  $('#pr-due-l').textContent = due ? 'videos & phrases' : 'all caught up';
+  $('#pr-due-l').textContent = due ? 'due · videos & phrases' : 'videos & phrases';
   $('.pr-tile.due')?.classList.toggle('lit', due > 0);
-  $('#pr-anki').hidden = !hasAnki;
-  $('#pr-due-anki').textContent = dueAnki;
-  $('#pr-due-anki-l').textContent = dueAnki ? 'your Anki decks' : 'all caught up';
-  $('#pr-anki').classList.toggle('lit', dueAnki > 0);
-  $('.pr-tiles').classList.toggle('three', hasAnki);
   $('#pr-saved').textContent = live.length;
+  renderAnki();
   renderPhrases();
   phRefresh();
   checkAdmin();
@@ -1753,8 +1837,8 @@ const DK_STEPS = ['Reading your Anki sentences', 'Adding stress marks and word-b
 function renderPhrases() {
   renderList($('#dk-list'), phrases.filter(isDeck), true);
   renderList($('#ph-list'), phrases.filter(p => !isDeck(p)), false);
-  $('#dk-section').hidden = !(phrases.some(isDeck) || meAdmin);
   $('#dk-import').hidden = !meAdmin;
+  renderAnki();
   $('#dk-import').textContent = phrases.some(isDeck) ? 'Update My Anki Decks' : 'Import My Anki Decks';
 }
 function renderList(list, items, decks) {
@@ -2012,7 +2096,8 @@ document.addEventListener('click', e => {
       if (id.startsWith('dk-')) dkOpenId = dkOpenId === id ? null : id; else phSetOpen(phOpenId === id ? null : id);
       renderPhrases(); break;
     case 'ph-del': phDelete(id); break;
-    case 'dk-save-all': dkSaveAll(id); break;
+    case 'dk-save-all': dkSaveAll(id); renderAnki(); break;
+    case 'open-anki': openAnki(); break;
     case 'dk-remove': dkRemove(id, el.dataset.cards === '1'); break;
     case 'sheet-close': closeSheet(); break;
     case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); phStart(p.text); } break; }

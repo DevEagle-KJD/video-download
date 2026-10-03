@@ -811,6 +811,15 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
 - Setup guide for all accounts/keys: `web/README.md`.
 
 ### ▶ Where we left off (updated 2026-10-01)
+**Practice layout (2026-10-03, owner: "cluttered"):** two tiles (Review = videos & phrases,
+Anki = due count / N decks) + a slim Saved row, then Say it like a native. Anki decks live on
+their own page `#screen-anki` (Review button, deck list, Import/Update for admins).
+**Staying fresh:** Home Screen apps have no reload button and iOS resumes them, so on
+visibilitychange/pageshow/focus the app fetches `/sw.js`, compares its `CACHE` to the version it
+started with and reloads into a newer one (not during a review), else refreshes data
+(`onResume`/`updateIfNewer`/`refreshData`). Pull-to-refresh on the four tabs does the same.
+Keep bumping `CACHE` in `web/public/sw.js` on every web change: that's what triggers updates.
+
 **Anki decks in Practice (2026-10-03, owner asked):** `web/decks/conversation.tsv`, `vocab.tsv`,
 `bible.tsv` are copies (owner asked to leave out the Bible vocabulary deck) of the same files in `russian-study/anki/`
 (sentences.tsv → conversation.tsv). The owner's CAPITAL syllables are applied as the final stress
