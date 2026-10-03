@@ -909,3 +909,15 @@ The owner chose the name **Nativski** and asked for this handoff. **They have NO
    words different vs CPU 4.0/12.6/7.4% (overall 6.6% vs 8.7%); 8–30 s vs 6–21 min. Groq sometimes
    transcribes quiet background talk the CPU's VAD skipped. Meaning batches: 12 at once; voices: 16.
 6. Admin page for channels/requests; landing page for marketing; "Import your own video".
+
+### 14.x Session 2026-10-03 — where things were left
+- Channels: `web/channels.tsv` + `web-channels.yml` (Easy Russian @easyrussianvideos approved; Everyday Russian off).
+  Explore → channel page (`api/channel.js`) lists the channel's videos; tap to add/make.
+- Free plan: first 5 sentences per lesson (server-enforced via private bucket `lesson-data` + `api/lesson.js`),
+  new lessons Pro only, 3 phrases/week. Pro sheet says "coming soon" (no payments yet; set profiles.plan='pro' by hand).
+- Transcription: Groq (see §13/roadmap note). Lesson time 22 → 12.6 min for a 16-min video.
+- Lesson UI: per-version phrase remove (✕ + confirm), dotted underlines + hint on tappable words, big ▶ per sentence,
+  "Tap to play" overlay when iPhone blocks autoplay, star-tap guards while the list moves, Open in Lesson jumps to
+  the sentence and marks the word, remove-lesson sheet can also remove its review cards.
+- Offered, not done: enrich BATCH 25 → 12 (25s often hit max_tokens and get redone as halves; same quality, ~2–3 min
+  faster); testers list (make given emails Pro); Modal account pending review (optional backup).
