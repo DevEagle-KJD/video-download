@@ -1,7 +1,7 @@
 // POST /api/lesson {id}: a video lesson's content for the signed-in user. Free
 // users get the first FREE_SENTENCES sentences (the rest is never sent, so it
 // can't be read some other way); Pro and admins get the whole lesson.
-import { send, currentUser, planOf, lessonFile, FREE_SENTENCES } from './_lib.js';
+import { send, currentUser, planOf, lessonFile, bibleAccess, FREE_SENTENCES } from './_lib.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { error: 'Use POST' });
@@ -10,6 +10,13 @@ export default async function handler(req, res) {
     if (!user) return send(res, 401, { error: 'Please sign in again.' });
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const id = String(body.id || '');
+    if (/^bv-[a-z0-9-]{5,30}$/.test(id)) {          // a Bible verse (Bible section only)
+      if (!bibleAccess(user)) return send(res, 403, { error: 'Unknown lesson.' });
+      const data = await lessonFile(id);
+      if (!data) return send(res, 404, { error: 'Couldn’t load the verse.' });
+      res.setHeader('Cache-Control', 'private, no-cache');
+      return send(res, 200, data);
+    }
     if (!/^[\w-]{11}$/.test(id)) return send(res, 400, { error: 'Unknown lesson.' });
     const [plan, data] = await Promise.all([planOf(user), lessonFile(id)]);
     if (!data) return send(res, 404, { error: 'Couldn’t load the lesson.' });

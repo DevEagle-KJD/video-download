@@ -38,6 +38,12 @@ export async function currentUser(req) {
 export const isAdmin = user => env('ADMIN_EMAILS').toLowerCase().split(/[\s,]+/).filter(Boolean)
   .includes(String(user?.email || '').toLowerCase());
 
+// The Bible section (one НРП verse at a time) is only for admins and the people in
+// BIBLE_EMAILS (Vercel env var, comma-separated; the owner's daughter).
+export const bibleAccess = user => isAdmin(user) || env('BIBLE_EMAILS').toLowerCase().split(/[\s,]+/).filter(Boolean)
+  .includes(String(user?.email || '').toLowerCase());
+export const BIBLE_START = 'MAT.1.18';
+
 export function youtubeId(url) {
   const m = String(url || '').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/);
   return m ? m[1] : null;

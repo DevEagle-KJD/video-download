@@ -151,6 +151,7 @@ const guide = (() => {
     saved: ['⭐ Saved', 'Everything you saved. Switch between <b>Words</b> and <b>Sentences</b> at the top. Tap one to hear it, review it, or open it in its lesson.', 'saved'],
     phrases: ['💬 Say it like a native', 'Type what you want to say, in English or Russian, and tap <b>Show Me</b>. The natural ways Russians say it appear in seconds; about a minute later they’re checked against real speech, with stress marks, word meanings and a natural voice.', 'phrases'],
     channel: ['📺 Channel', 'All of this channel’s videos. Tap one to study it. ✓ means it’s already in your lessons.', 'find'],
+    bible: ['📖 Bible verse', 'One verse at a time. Tap a word for its meaning, listen, and review it. When you still remember it after a week, the next verse unlocks by itself.', 'review'],
     review: ['🔁 Review', 'Try to remember, then tap <b>Show</b>. Be honest: <b>Again</b> if you forgot, <b>Good</b> if you got it. The app decides when you see it next.', 'review'],
   };
   const currentScreen = () => document.querySelector('.screen.active')?.id.replace('screen-', '');

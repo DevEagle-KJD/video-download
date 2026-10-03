@@ -1,0 +1,78 @@
+name: Web Bible verse
+
+# Nativnik: makes one Bible verse (НРП) into a lesson for the Bible section in
+# Practice (owner + daughter, one verse at a time). Started by web/api/bible.js for
+# one row of the phrases table (id "bv-…"): verse text from bible.com (bible.py),
+# stress marks / meanings / English (enrich.py), natural voice, private upload.
+run-name: "web bible ${{ inputs.ref }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      verse_id:
+        description: Row id in the phrases table (bv-…)
+        required: true
+      ref:
+        description: Verse, e.g. MAT.1.18
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSE_ID: ${{ inputs.verse_id }}
+      REF: ${{ inputs.ref }}
+      URL: ""
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      STUDY_MODEL: ${{ vars.STUDY_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate input
+        run: |
+          [[ "$VERSE_ID" =~ ^bv-[a-z0-9-]{5,30}$ ]] || { echo "::error::bad verse id"; exit 1; }
+          [[ "$REF" =~ ^[1-4A-Z]{3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || { echo "::error::bad verse"; exit 1; }
+          python3 scripts/web/supa.py pstage "$VERSE_ID" "Reading the verse"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: bible-pip-v1
+
+      - name: Install tools
+        run: python3 -m pip install -q anthropic ruaccent edge-tts
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: phrase-models-ruaccent
+
+      - name: Read the verse
+        run: python3 scripts/web/bible.py prepare "$REF"
+
+      - name: Stress marks, meanings and English
+        run: |
+          python3 scripts/web/supa.py pstage "$VERSE_ID" "Adding stress marks and word-by-word meanings"
+          python3 scripts/study/enrich.py
+          python3 scripts/web/deck.py finish
+
+      - name: Voices
+        continue-on-error: true
+        run: |
+          python3 scripts/web/supa.py pstage "$VERSE_ID" "Recording the natural voice"
+          python3 scripts/study/voices.py
+
+      - name: Publish
+        run: |
+          python3 scripts/web/supa.py pstage "$VERSE_ID" "Publishing"
+          python3 scripts/web/publish.py "$VERSE_ID" --bible
+
+      - name: Report failure
+        if: failure()
+        run: python3 scripts/web/supa.py pfail "$VERSE_ID" || true

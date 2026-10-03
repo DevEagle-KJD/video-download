@@ -10,9 +10,10 @@
 const engage = (() => {
   const today = () => new Date().toLocaleDateString('en-CA');          // YYYY-MM-DD, local time
   const dayBefore = d => { const t = new Date(`${d}T12:00:00`); t.setDate(t.getDate() - 1); return t.toLocaleDateString('en-CA'); };
-  let stats = Object.assign({ goal: 30, days: {}, total: 0, heard: {}, done: {}, best: 0, updated: 0, hidden: {}, guide: {} }, store.get('stats', {}));
+  let stats = Object.assign({ goal: 30, days: {}, total: 0, heard: {}, done: {}, best: 0, updated: 0, hidden: {}, guide: {}, bible: {} }, store.get('stats', {}));
   stats.hidden ||= {};
   stats.guide ||= {};
+  stats.bible ||= {};
   const heardSets = {};   // lessonId → Set of sentence indices (built lazily)
 
   const todayXp = () => stats.days[today()] || 0;
@@ -151,6 +152,7 @@ const engage = (() => {
     for (const [k, v] of Object.entries(remote.guide || {})) {       // tour / tips seen (newest wins)
       if (!stats.guide[k] || v.t > stats.guide[k].t) stats.guide[k] = v;
     }
+    if ((remote.bible?.t || 0) > (stats.bible.t || 0)) stats.bible = remote.bible;   // Bible: verse being learned
     stats.total = Math.max(stats.total || 0, remote.total || 0);
     stats.best = Math.max(stats.best || 0, remote.best || 0);
     if ((remote.updated || 0) > (stats.updated || 0) && remote.goal) stats.goal = remote.goal;
@@ -206,7 +208,11 @@ const engage = (() => {
     save();
   }
 
-  return { xp, heard, render, progressBar, pull, streak, isHidden, setHidden, guideSeen, guideMark, guideReset, guideResetAll };
+  /* Bible section: the verse being learned now ("MAT.1.18"), synced newest-wins. */
+  const bibleCur = () => stats.bible.cur || '';
+  function bibleSet(ref) { stats.bible = { cur: ref, t: Date.now() }; save(); }
+
+  return { xp, heard, render, progressBar, pull, streak, isHidden, setHidden, guideSeen, guideMark, guideReset, guideResetAll, bibleCur, bibleSet };
 })();
 window.engage = engage;
 engage.render();

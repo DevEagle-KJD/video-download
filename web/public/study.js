@@ -116,9 +116,10 @@ async function stRemoveLesson(l, ask = true, withCards = false) {
 }
 
 /* ───────── Study home ───────── */
-/* Two separate card groups, never mixed: "app" = video lessons + Say it like a
-   native; "anki" = cards from the owner's imported Anki decks (lesson id dk-…). */
-const cardSet = c => (String(c.lesson || '').startsWith('dk-') ? 'anki' : 'app');
+/* Separate card groups, never mixed: "app" = video lessons + Say it like a
+   native; "anki" = cards from the owner's imported Anki decks (lesson id dk-…);
+   "bible" = the Bible section's verses (bv-…), reviewed from its own page. */
+const cardSet = c => { const l = String(c.lesson || ''); return l.startsWith('dk-') ? 'anki' : l.startsWith('bv-') ? 'bible' : 'app'; };
 let reviewSet = 'app';                      // the group the current review session uses
 function dueCards(set = reviewSet) {
   const now = Date.now();
@@ -149,7 +150,7 @@ const posterImg = id => `<img src="${esc(thumbOf(id))}" referrerpolicy="no-refer
 
 function stRender() {
   const live = Object.values(cards).filter(c => !c.deleted && cardSet(c) === 'app');
-  const due = dueCards('app').length, dueAll = due + dueCards('anki').length;
+  const due = dueCards('app').length, dueAll = due + dueCards('anki').length + dueCards('bible').length;
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   // Review: one slim bar, only once something is saved.
   setHTML($('#st-review-card'), false
@@ -238,6 +239,7 @@ async function stReopen(p) {
       if (l) await openLesson(l); else return false;
     } else if (p.name === 'saved') openSaved();
     else if (p.name === 'anki') openAnki();
+    else if (p.name === 'bible') openBible();
     else if (p.name === 'phrases') openPhrasesPage();
     else if (p.name === 'channel' && p.id) openChannel(p.id);
     else if (p.name === 'help') guide.openHelp(p.id);
@@ -1254,6 +1256,10 @@ function schedule(c, grade) {
     if (c.state !== 'review') c.state = 'relearn';
   } else {
     const ivl = Math.max(1, c.ivl || 1);
+    // proven: the longest gap (days) the card was remembered across, until it's forgotten
+    // (the Bible section unlocks the next verse at a week).
+    const gap = Math.min(ivl, (now - (c.due - ivl * DAY)) / DAY);
+    c.proven = grade === 'again' ? 0 : Math.max(c.proven || 0, Math.round(gap * 10) / 10);
     if (grade === 'again') {
       c.lapses = (c.lapses || 0) + 1;
       c.ease = Math.max(1.3, c.ease - 0.2);
@@ -1429,6 +1435,7 @@ function grade(g) {
   reviewed++;
   qi++;
   cardsChanged(c.id);
+  if (cardSet(c) === 'bible') bibleRefresh(true);
   showCard();
 }
 
@@ -2002,6 +2009,7 @@ function practiceShow() {
   const nph = phrases.filter(p => !isDeck(p)).length;
   $('#mc-phrases-sub').textContent = nph ? `${nph} phrase${nph === 1 ? '' : 's'} · type a new one` : 'Type it in English or Russian';
   renderAnki();
+  renderBibleTile();
   renderPhrases();
   phRefresh();
   checkAdmin();
@@ -2024,7 +2032,7 @@ async function phRefresh() {
   if (!session) return;
   try {
     const before = new Map(phrases.map(p => [p.id, p.status]));
-    phrases = await db('phrases?select=id,text,status,stage,error,created_at&order=created_at.desc&limit=60');
+    phrases = await db('phrases?select=id,text,status,stage,error,created_at&id=not.like.bv-*&order=created_at.desc&limit=60');
     store.set('phrases', phrases);
     await Promise.all(phrases.filter(p => p.status === 'ready' && !phData[p.id]).map(async p => {
       try {
@@ -2181,13 +2189,174 @@ function dkSaveAll(pid) {
   practiceShow();
 }
 
+/* ───────── Bible: one НРП verse at a time (admins + BIBLE_EMAILS) ─────────
+   Each verse is made once on the server (api/bible.js → "Web Bible verse" workflow)
+   and goes straight into Review (its own "bible" group). The next verse in order
+   unlocks when the current one has been remembered across a gap of a week
+   (card.proven, see schedule()), or when the learner says they know it. The next
+   verse is made in advance, so it's ready the moment it unlocks. */
+const BIBLE_DAYS = 7;
+var meBible = store.get('meBible', false);   // var: used by pages drawn before this line runs
+var bvStart = store.get('bvStart', 'MAT.1.18');
+var bvState = {};            // ref → { status, stage, error } from the server
+var bvTimer = 0, bvBusy = null;
+const bvId = ref => `bv-${String(ref).toLowerCase().replace(/\./g, '-')}`;
+const bibleCur = () => window.engage?.bibleCur() || bvStart;
+const bvCard = ref => { const c = cards[`${bvId(ref)}:0`]; return c && !c.deleted ? c : null; };
+const bvLearned = c => !!c && (c.proven || 0) >= BIBLE_DAYS;
+const BV_STEPS = ['Reading the verse', 'Adding stress marks and word-by-word meanings', 'Recording the natural voice', 'Publishing'];
+
+async function bvLoad(id) {
+  if (phData[id]) return phData[id];
+  const d = await api('lesson', { id });
+  phData[id] = d;
+  audioMaps[id] = d.audio?.clips || {};
+  return d;
+}
+
+// Asks the server about the current verse (starting it if needed), loads it, adds
+// it to Review, makes the next one in advance, and moves on once it's learned.
+function bibleRefresh(quiet = false) {
+  if (!meBible || !session) return;
+  if (bvBusy) return bvBusy;
+  bvBusy = (async () => {
+    clearTimeout(bvTimer);
+    for (let hops = 0; hops < 3; hops++) {
+      const ref = bibleCur(), id = bvId(ref);
+      if (!phData[id] || bvState[ref]?.status !== 'ready') {
+        const r = await api('bible', { refs: [ref], make: true });
+        if (r.start && r.start !== bvStart) { bvStart = r.start; store.set('bvStart', bvStart); }
+        bvState[ref] = r.verses[0] || {};
+      }
+      if (bvState[ref].status !== 'ready') break;
+      const d = await bvLoad(id);
+      if (!cards[`${id}:0`]) {                    // unlocked: straight into Review
+        cards[`${id}:0`] = deckCard(id, 0);
+        cardsChanged(`${id}:0`);
+      }
+      const next = d.bible?.next;
+      if (next && !bvState[next]) {               // made in advance
+        api('bible', { refs: [next], make: true }).then(r => { bvState[next] = r.verses[0] || {}; }).catch(() => {});
+      }
+      if (!bvLearned(bvCard(ref)) || !next) break;
+      engage.bibleSet(next);                      // learned: on to the next verse
+      toast(`🎉 ${d.bible.label} learned! Next verse unlocked`);
+    }
+  })().catch(e => { if (!quiet) toast(e.message); })
+    .finally(() => {
+      bvBusy = null;
+      renderBible();
+      renderBibleTile();
+      const st = bvState[bibleCur()]?.status;
+      if ($('#screen-bible').classList.contains('active') && st && st !== 'ready' && st !== 'failed') bvTimer = setTimeout(bibleRefresh, 8000);
+    });
+  return bvBusy;
+}
+
+// "I know it": the next verse now (the current one stays in Review).
+async function bibleAdvance() {
+  const d = phData[bvId(bibleCur())];
+  const next = d?.bible?.next;
+  if (!next) { toast('That’s the last verse!'); return; }
+  engage.bibleSet(next);
+  toast('Next verse unlocked');
+  renderBible();
+  await bibleRefresh();
+}
+function bibleNextSheet() {
+  const d = phData[bvId(bibleCur())];
+  if (!d) return;
+  openSheet('Move to the next verse?', `
+    <p style="font-size:15px;margin:4px 4px 16px">${esc(d.bible?.label || '')} stays in your Bible review, so you keep practicing it. The next verse appears now.</p>
+    <button class="primary-button" data-s="bv-next-yes">Yes, Next Verse</button>
+    <button class="secondary-button" data-s="sheet-close">Not Yet</button>`);
+}
+
+function openBible() {
+  stOpenPage('bible');
+  renderBible();
+  bibleRefresh();
+  // Earlier verses: load them for the list (small files).
+  Object.values(cards).filter(c => !c.deleted && cardSet(c) === 'bible' && c.kind !== 'word')
+    .forEach(c => { if (!phData[c.lesson]) bvLoad(c.lesson).then(renderBible).catch(() => {}); });
+}
+
+function renderBibleTile() {
+  const tile = $('#pr-bible');
+  if (!tile) return;
+  tile.hidden = !meBible;
+  if (!meBible) return;
+  const n = dueCards('bible').length, d = phData[bvId(bibleCur())];
+  $('#pr-bible-n').hidden = !n;
+  $('#pr-bible-n').textContent = n;
+  $('#pr-bible-l').textContent = `${d?.bible?.label || 'One verse at a time'}${n ? ` · ${n} to review` : ''}`;
+}
+
+function bvProgress(c) {
+  if (!c) return 'Getting it ready…';
+  const p = c.proven || 0;
+  if (cardState(c) !== 'review') return 'Still new: review it a few times today.';
+  const days = Math.max(0, (c.due - Date.now()) / DAY);
+  const when = days < 1 ? 'today' : `in ${fmtIvl(c.due - Date.now()).replace('<', '')}`;
+  return p ? `Remembered after ${p >= 1 ? `${Math.floor(p)} day${Math.floor(p) === 1 ? '' : 's'}` : 'less than a day'} so far. Next review ${when}.`
+    : `Next review ${when}.`;
+}
+
+function renderBible() {
+  const box = $('#bv-cur');
+  if (!box) return;
+  const ref = bibleCur(), id = bvId(ref), st = bvState[ref], d = phData[id], c = bvCard(ref);
+  const n = dueCards('bible').length;
+  $('#bv-review').textContent = n ? `Review ${n} Bible Card${n === 1 ? '' : 's'}` : 'Bible: All Caught Up';
+  $('#bv-review').classList.toggle('done', !n);
+  let html;
+  if (d) {
+    const s = d.sentences[0];
+    const pct = Math.min(100, Math.round(((c?.proven || 0) / BIBLE_DAYS) * 100));
+    html = `<div class="ph-item bv-item">
+      <div class="ph-q"><b>📖 ${esc(d.bible?.label || d.title || '')}</b><span class="bv-tag">Learning now</span></div>
+      <div class="ph-v">
+        <div class="il">${tokensHTML(s.tokens, true, { i: 0, ph: id })}</div>
+        ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
+        ${s.flag ? `<div class="ph-flag">⚠️ ${esc(s.flag)}</div>` : ''}
+        <div class="ph-tools"><button class="chip" data-s="ph-say" data-id="${id}" data-i="0" data-rate="${RATE_NORMAL}">🔊 Normal</button>
+          <button class="chip" data-s="ph-say" data-id="${id}" data-i="0" data-rate="${RATE_SLOW}">🐢 Slowly</button></div>
+        <p class="ph-hint">👆 Tap any underlined word to hear it, see its meaning and save it.</p>
+      </div>
+      <div class="bv-prog"><div class="bv-bar"><i style="width:${pct}%"></i></div>
+        <p>${esc(bvProgress(c))} The next verse unlocks when you still remember this one after a week.</p></div>
+      <button class="text-button bv-next" data-s="bv-next">I already know it: next verse ›</button>
+    </div>`;
+  } else if (st?.status === 'failed') {
+    html = `<div class="ph-item"><div class="ph-q"><b>📖 Next verse</b></div><div class="ph-wait">⚠️ ${esc(st.error || 'Something went wrong.')} <button class="text-button" data-s="bv-retry">Try again</button></div></div>`;
+  } else {
+    const step = BV_STEPS.indexOf(st?.stage);
+    html = `<div class="ph-item"><div class="ph-q"><b>📖 Your next verse</b></div><div class="ph-wait ph-steps">${BV_STEPS.map((label, k) =>
+      `<div class="${k < step ? 'done' : k === step ? 'now' : ''}"><i>${k < step ? '✓' : k === step ? '<span class="spinner"></span>' : '•'}</i><span>${label}</span></div>`).join('')}
+      <p class="ph-why">${step < 0 ? 'Starting… ' : ''}Takes a few minutes the first time: the verse gets stress marks, word-by-word meanings and a natural voice.</p></div></div>`;
+  }
+  setHTML(box, html);
+  // Verses learned before (still in Review), newest first.
+  const done = Object.values(cards).filter(x => !x.deleted && cardSet(x) === 'bible' && x.kind !== 'word' && x.lesson !== id)
+    .sort((a, b) => (b.created || 0) - (a.created || 0));
+  setHTML($('#bv-done'), done.length ? `<h2 class="shelf-title">Verses you’ve learned</h2>${done.map(x => {
+    const v = phData[x.lesson];
+    return `<div class="bv-old"><div class="bv-old-t"><b>${esc(v?.bible?.label || x.title || '')}</b>${dueText(x)}</div>
+      <div class="bv-old-ru">${esc(x.ru)}</div>${x.en ? `<p class="en">${esc(x.en)}</p>` : ''}
+      ${v ? `<div class="ph-tools"><button class="chip" data-s="ph-say" data-id="${x.lesson}" data-i="0" data-rate="${RATE_NORMAL}">🔊 Listen</button></div>` : ''}</div>`;
+  }).join('')}` : '');
+  const copy = d?.bible?.copyright || '';
+  setHTML($('#bv-copy'), copy ? esc(copy.split(' The Holy Bible')[0]) : '');
+}
+
 let meAdmin = store.get('meAdmin', false);
 var mePlan = store.get('mePlan', 'free');   // free | pro | admin (var: used by pages drawn before this line runs)
 async function checkAdmin() {
   try {
     const me = await api('me');
-    meAdmin = !!me.admin; mePlan = me.plan || 'free';
-    store.set('meAdmin', meAdmin); store.set('mePlan', mePlan);
+    meAdmin = !!me.admin; mePlan = me.plan || 'free'; meBible = !!me.bible;
+    store.set('meAdmin', meAdmin); store.set('mePlan', mePlan); store.set('meBible', meBible);
+    renderBibleTile();
     const ab = $('#ac-admin-help'); if (ab) ab.hidden = !meAdmin;
     renderPhrases();
     if (chOpen) chRender();
@@ -2423,6 +2592,11 @@ document.addEventListener('click', e => {
     case 'ph-del': phDelete(id); break;
     case 'dk-save-all': dkSaveAll(id); renderAnki(); break;
     case 'open-anki': openAnki(); break;
+    case 'open-bible': openBible(); break;
+    case 'bv-review': if (dueCards('bible').length) startReview(null, 'practice', 'bible'); else toast('Nothing due right now. Come back later.'); break;
+    case 'bv-next': bibleNextSheet(); break;
+    case 'bv-next-yes': closeSheet(); bibleAdvance(true); break;
+    case 'bv-retry': bvState = {}; bibleRefresh(); break;
     case 'open-phrases': openPhrasesPage(); break;
     case 'dk-remove': dkRemove(id, el.dataset.cards === '1'); break;
     case 'sheet-close': closeSheet(); break;

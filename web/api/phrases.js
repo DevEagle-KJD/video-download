@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       const [profile] = await db(`profiles?id=eq.${user.id}&select=plan`);
       if ((profile?.plan || 'free') !== 'pro') {
         const since = new Date(Date.now() - 7 * 864e5).toISOString();
-        const recent = await db(`phrases?user_id=eq.${user.id}&created_at=gte.${since}&select=id`);
+        const recent = await db(`phrases?user_id=eq.${user.id}&id=like.ph-*&created_at=gte.${since}&select=id`);
         if (recent.length >= FREE_PER_WEEK) {
           return send(res, 402, { error: `You’ve used your ${FREE_PER_WEEK} free phrases this week. Nativnik Pro gives you unlimited.`, code: 'pro' });
         }

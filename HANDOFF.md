@@ -841,6 +841,22 @@ Saved has a Videos & Phrases | Anki switch, the Learn tab only shows app cards, 
 only pulls cards from its own group (`reviewSet`). Deck ✕ opens a sheet: remove the deck and its
 review cards, or keep the cards.
 
+**Bible section (2026-10-03, owner asked):** Practice → "📖 Bible verse", only for admins and
+the emails in the Vercel env var `BIBLE_EMAILS` (the owner's daughter). One НРП verse at a time,
+in order, starting at Matthew 1:18 (`BIBLE_START` in `_lib.js`); each person keeps their own place
+(`engage` stats `bible: {cur, t}`, newest wins). `POST /api/bible {refs, make}` makes a verse
+once for everyone (row `bv-mat-1-18` in the phrases table, hidden from phrase lists) →
+`web-bible.yml`: `scripts/web/bible.py prepare MAT.1.18` reads the verse from bible.com's own JSON
+(`nodejs.bible.com/api/bible/chapter/3.1?id=143`, footnotes and headings dropped; it also gives the
+next verse, across chapters and books) → enrich.py → `deck.py finish` → voices → `publish.py --bible`
+(lesson.json private, read via `/api/lesson`). A verse goes straight into Review in its own card
+group `bible` (reviewed from the Bible page). **Learned rule (owner chose):** the card was
+remembered across a gap of 7+ days (`card.proven`, set in `schedule()` from the real gap; reset
+by Again); then the next verse unlocks by itself. "I already know it: next verse" moves on by
+hand. The next verse is always made one ahead. If the owner's Anki syllables exist for that verse
+(`web/decks/bible.tsv`), their stress is applied. Note: the current НРП text of Matthew 1:18 has a
+second sentence ("Младенец… был от Святого Духа.") that the Anki card didn't have.
+
 **Sign-in email (2026-10-02):** Supabase SMTP = Resend (smtp.resend.com, sender
 `nativnik@wildidahopowersports.com`, name Nativnik; owner's only verified Resend domain; switch the
 sender to the Nativnik domain once bought). Templates (Magic Link + Confirm signup, subject

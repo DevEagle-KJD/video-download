@@ -100,6 +100,11 @@
             <span class="mc-text"><b>Anki decks</b><i id="pr-due-anki-l">Your decks</i></span>
             <span class="mc-count" id="pr-due-anki" hidden></span><em>›</em>
           </button>
+          <button class="menu-card" id="pr-bible" data-s="open-bible" hidden>
+            <span class="mc-icon">📖</span>
+            <span class="mc-text"><b>Bible verse</b><i id="pr-bible-l">One verse at a time</i></span>
+            <span class="mc-count" id="pr-bible-n" hidden></span><em>›</em>
+          </button>
         </div>
       </div>
     </section>
@@ -154,6 +159,23 @@
           <div id="dk-list"></div>
           <button class="text-button dk-import" id="dk-import" hidden>Import My Anki Decks</button>
         </div>
+      </div>
+    </section>
+
+    <section class="screen page" id="screen-bible">
+      <header class="navbar page-bar">
+        <button class="back-btn" data-s="back">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
+        </button>
+        <span class="navbar-title page-title">Bible</span>
+        <span style="width:60px"></span>
+      </header>
+      <div class="content">
+        <h1 class="large-title">📖 Bible</h1>
+        <button class="primary-button" id="bv-review" data-s="bv-review">Review</button>
+        <div id="bv-cur"></div>
+        <div id="bv-done"></div>
+        <p class="bv-copy" id="bv-copy"></p>
       </div>
     </section>
 

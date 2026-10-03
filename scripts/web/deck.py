@@ -120,6 +120,7 @@ def finish():
     lesson = json.load(open(os.path.join(OUT, "lesson.json"), encoding="utf-8"))
     lesson.update({"kind": "deck", "input": meta["title"], "title": meta["title"], "video": False, "url": ""})
     lesson["vocab"] = meta["source"] in VOCAB
+    lesson.update(meta.get("extra", {}))           # bible.py: the verse reference and the next verse
     fixed = 0
     for s, it in zip(lesson["sentences"], meta["items"]):
         if it.get("syl"):

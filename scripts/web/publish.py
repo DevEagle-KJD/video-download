@@ -13,7 +13,7 @@ import supa  # noqa: E402
 OUT = Path("out")
 
 
-def main(video_id, phrase=False):
+def main(video_id, phrase=False, bible=False):
     lesson = json.loads((OUT / "lesson.json").read_text(encoding="utf-8"))
     lesson["video"] = False                  # always played through YouTube (or none, for phrases)
     clips = sorted((OUT / "audio").glob("*.mp3")) if (OUT / "audio").is_dir() else []
@@ -33,12 +33,12 @@ def main(video_id, phrase=False):
         ok = sum(pool.map(put, clips))
     print(f"  {ok}/{len(clips)} uploaded")
     body = json.dumps(lesson, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    if phrase:   # a learner's own phrase or deck: public, like its voice clips
+    if phrase and not bible:   # a learner's own phrase or deck: public, like its voice clips
         supa.upload(f"{video_id}/lesson.json", body, "application/json", cache="no-cache")
-    else:        # a video lesson: private; the app gets it through /api/lesson (free plan sees part)
+    else:        # a video lesson or Bible verse: private; the app gets it through /api/lesson
         supa.upload_private(f"{video_id}/lesson.json", body, "application/json")
         supa.delete_public(f"{video_id}/lesson.json")
-    if phrase:
+    if phrase or bible:
         supa.update_phrase(video_id, status="ready", stage=None, error=None)
         print(f"Published phrase {video_id}")
         return
@@ -49,4 +49,4 @@ def main(video_id, phrase=False):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], phrase="--phrase" in sys.argv)
+    main(sys.argv[1], phrase="--phrase" in sys.argv, bible="--bible" in sys.argv)
