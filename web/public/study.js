@@ -566,6 +566,11 @@ let userScrolledAt = 0;
 // second tap (or a late one) then lands on another sentence's ☆. Stars ignore taps
 // for a moment after a jump.
 let jumpedAt = 0;
+// The list also glides by itself (Follow). A tap during that glide can land on the
+// ☆ of the sentence sliding up under the finger (the one below the highlighted one).
+let listMovedAt = 0;
+$('#screen-lesson').addEventListener('scroll', () => { listMovedAt = Date.now(); }, { passive: true });
+const starTapOk = () => Date.now() - jumpedAt > 900 && Date.now() - listMovedAt > 350;
 function returnToSentence(i) {
   const el = $(`#ls-transcript .sent[data-i="${i}"]`);
   if (!el) return;
@@ -1729,7 +1734,7 @@ document.addEventListener('click', e => {
     case 'w-report': reportMistake(wordOpen.i, wordOpen.k); break;
     case 'rv-say': speak(queue[qi].w, Number(el.dataset.rate) || RATE_SLOW, $('#rv-word'), queue[qi].lesson); break;
     case 'rv-word': playClip(queue[qi], 1, true); break;
-    case 'star': e.stopPropagation(); if (Date.now() - jumpedAt > 900) toggleStar(i); break;
+    case 'star': e.stopPropagation(); if (starTapOk()) toggleStar(i); break;
     case 'toggle': togglePlay(); break;
     case 'prev': playSentence(Math.max(0, cur - 1)); break;
     case 'next': playSentence(cur + 1); break;
