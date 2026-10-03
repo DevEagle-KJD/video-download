@@ -733,3 +733,4 @@ body:not(.signed-out):not(.in-page)::after {
 .bv-old .ph-fold { margin: 0; padding: 6px 0; }
 .bv-old-ru { padding-bottom: 2px; }
 .bv-old .ph-tools { padding-bottom: 10px; }
+.bv-show { display: flex; gap: 8px; margin: 0 0 10px; }

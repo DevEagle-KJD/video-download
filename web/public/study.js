@@ -2322,6 +2322,7 @@ function renderBible() {
     html = `<div class="ph-item bv-item">
       ${head('cur', `<b>📖 ${esc(d.bible?.label || d.title || '')}</b>`, '<span class="bv-tag">Learning now</span>', esc(s.ru))}
       ${open('cur') ? `<div class="ph-v">
+        <div class="bv-show"><button class="chip small${prefs.bvLiteral !== false ? ' on' : ''}" data-s="bv-literal">Literal</button><button class="chip small${prefs.bvEnglish !== false ? ' on' : ''}" data-s="bv-english">English</button></div>
         <div class="il">${tokensHTML(s.tokens, true, { i: 0, ph: id })}</div>
         ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
         ${s.flag ? `<div class="ph-flag">⚠️ ${esc(s.flag)}</div>` : ''}
@@ -2343,6 +2344,10 @@ function renderBible() {
       <p class="ph-why">${step < 0 ? 'Starting… ' : ''}Takes a few minutes the first time: the verse gets stress marks, word-by-word meanings and a natural voice.</p></div></div>`;
   }
   setHTML(box, html);
+  for (const el of [box, $('#bv-done')]) {
+    el.classList.toggle('hide-literal', prefs.bvLiteral === false);
+    el.classList.toggle('hide-english', prefs.bvEnglish === false);
+  }
   // Words saved from the verses: reviewed with them in the Bible review.
   const words = Object.values(cards).filter(x => !x.deleted && cardSet(x) === 'bible' && x.kind === 'word')
     .sort((a, b) => (b.created || 0) - (a.created || 0));
@@ -2612,6 +2617,10 @@ document.addEventListener('click', e => {
     case 'open-bible': openBible(); break;
     case 'bv-review': if (dueCards('bible').length) startReview(null, 'practice', 'bible'); else toast('Nothing due right now. Come back later.'); break;
     case 'bv-next': bibleNextSheet(); break;
+    case 'bv-literal': case 'bv-english': {   // like the lesson's Literal / English buttons (own setting)
+      const k = el.dataset.s === 'bv-literal' ? 'bvLiteral' : 'bvEnglish';
+      prefs[k] = prefs[k] === false; savePrefs(); renderBible(); break;
+    }
     case 'bv-fold': { const k = id; bvFold[k] = !(bvFold[k] ?? !k.startsWith('v:')); store.set('bvFold', bvFold); renderBible(); break; }
     case 'bvw-open': bvLoad(id).then(() => phOpenWord(id, Number(el.dataset.i), Number(el.dataset.k))).catch(e => toast(e.message)); break;
     case 'bv-next-yes': closeSheet(); bibleAdvance(true); break;
