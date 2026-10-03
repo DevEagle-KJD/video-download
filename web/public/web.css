@@ -514,3 +514,21 @@ body {
 .menu-card.lit .mc-text i, .menu-card.lit em { color: var(--on-accent); opacity: .8; }
 .menu-card.lit .mc-count { background: rgba(0, 0, 0, 0.18); color: var(--on-accent); }
 @media (min-width: 900px) { .menu { display: grid; grid-template-columns: 1fr 1fr; } }
+
+/* "Tap to play" over the video when iPhone won't start it on its own */
+.yt-box { position: relative; }
+.tap-play {
+  position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 16px; background: rgba(0, 0, 0, 0.62); color: #fff; text-align: center;
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.tap-play[hidden] { display: none; }
+.tap-play i {
+  width: 72px; height: 72px; border-radius: 36px; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--blue), var(--accent-2)); color: var(--on-accent);
+  box-shadow: 0 8px 30px rgba(255, 140, 40, 0.45); animation: tapPulse 1.4s ease-in-out infinite;
+}
+.tap-play i svg { width: 30px; height: 30px; fill: currentColor; margin-left: 4px; }
+.tap-play b { font-size: 18px; }
+.tap-play span { font-size: 15px; opacity: .85; max-width: 90%; }
+@keyframes tapPulse { 50% { transform: scale(1.08); } }

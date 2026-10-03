@@ -316,7 +316,7 @@ const player = {
         if (!this.want || st === 1) return;
         if (st !== 3) this.yt?.playVideo?.();
         if (n) again(n - 1);
-        else if (st !== 3 && this.ready) { this.want = false; setPlayIcon(false); }   // never started (iPhone may need a tap on ▶)
+        else if (st !== 3 && this.ready) { this.want = false; setPlayIcon(false); showTapToPlay(); }   // iPhone blocked it: ask for one tap
       }, 700); };
       again(3);
     } else this.video.play().catch(() => {});
@@ -341,7 +341,8 @@ const player = {
     try {
       const YT = await loadYouTubeApi();
       if (this.yt) { this.yt.destroy(); this.yt = null; }
-      box.innerHTML = '<div id="ls-yt-frame"></div>';
+      box.innerHTML = `<div id="ls-yt-frame"></div>
+        <button class="tap-play" id="ls-tap" data-s="tap-play" hidden><i><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></i><b>Tap to play</b><span id="ls-tap-text"></span></button>`;
       this.yt = new YT.Player('ls-yt-frame', {
         videoId: id,
         playerVars: { playsinline: 1, rel: 0, modestbranding: 1, iv_load_policy: 3, cc_load_policy: 0, controls: 1, ...(start > 0 ? { start: Math.floor(start) } : {}) },
@@ -354,7 +355,7 @@ const player = {
           },
           onStateChange: e => {
             // 1 playing, 3 buffering, 2 paused, 0 ended
-            if (e.data === 1) { this.want = true; setPlayIcon(true); startTick(); }
+            if (e.data === 1) { this.want = true; setPlayIcon(true); startTick(); hideTapToPlay(); }
             // A pause right after we asked to play is YouTube dropping the
             // request (see play()), not you pausing: keep trying.
             if (e.data === 2 && this.want && Date.now() - this.playAt < 1500) return;
@@ -560,6 +561,17 @@ function followSentence(el, force = false) {
   const offset = el.getBoundingClientRect().top - playerBottom - 12;
   if (Math.abs(offset) > 4) $('#screen-lesson').scrollBy({ top: offset, behavior: 'smooth' });
 }
+
+// iPhone only lets a video start with sound straight after a tap; when it refuses
+// (e.g. a sentence opened from "Heard in"), a big button over the video asks for one.
+function showTapToPlay() {
+  const b = $('#ls-tap');
+  if (!b || !lesson) return;
+  const s = lesson.data.sentences[Math.max(0, cur)];
+  $('#ls-tap-text').textContent = s ? s.tokens.map(t => t.w).join(' ') : '';
+  b.hidden = false;
+}
+function hideTapToPlay() { const b = $('#ls-tap'); if (b) b.hidden = true; }
 
 function setPlayIcon(playing) {
   $('#ls-playicon').innerHTML = playing ? '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>' : '<path d="M7 4.5v15l12-7.5z"/>';
@@ -1670,6 +1682,7 @@ document.addEventListener('click', e => {
     case 'retry': { const l = lessons.find(x => x.id === id); closeSheet(); if (l) stStart(l.url); break; }
     case 'forget': { const l = lessons.find(x => x.id === id); if (l) stRemoveLesson(l, false); break; }
     case 'back': stBackButton(); break;
+    case 'tap-play': hideTapToPlay(); playSentence(Math.max(0, cur)); break;
     case 'sent': playSentence(i); break;
     case 'replay': playSentence(i); break;
     case 'word': {
