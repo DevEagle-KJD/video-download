@@ -440,3 +440,9 @@ body {
 .dk-import { margin-top: 10px; }
 .dk-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 4px 12px; font-size: 13px; color: var(--secondary); }
 .dk-top .chip:disabled { opacity: .6; }
+
+/* Videos & phrases vs Anki: separate review tiles and Saved lists */
+.pr-tiles.three .pr-tile[data-s="saved"] { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 12px; padding: 14px 18px; }
+.pr-tiles.three .pr-tile[data-s="saved"] .pr-big { font-size: 28px; margin: 0; }
+.pr-tiles.three .pr-tile[data-s="saved"] i { margin-left: auto; }
+#sv-set { margin-bottom: 10px; }

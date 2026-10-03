@@ -80,6 +80,7 @@
         <h1 class="large-title">Practice</h1>
         <div class="pr-tiles">
           <button class="pr-tile due" data-s="pr-review"><span class="pr-big" id="pr-due">0</span><b>Review</b><i id="pr-due-l">cards due now</i></button>
+          <button class="pr-tile" id="pr-anki" data-s="pr-review-anki" hidden><span class="pr-big" id="pr-due-anki">0</span><b>Anki Review</b><i id="pr-due-anki-l">due · Anki decks</i></button>
           <button class="pr-tile" data-s="saved"><span class="pr-big" id="pr-saved">0</span><b>Saved</b><i>words &amp; sentences</i></button>
         </div>
         <div id="dk-section" hidden>
@@ -166,6 +167,11 @@
         <span style="width:60px"></span>
       </header>
       <div class="content saved-content">
+        <div class="segmented two" id="sv-set" role="radiogroup" style="margin-top:4px" hidden>
+          <span class="seg-thumb"></span>
+          <button role="radio" data-set="app" aria-checked="true">Videos &amp; Phrases</button>
+          <button role="radio" data-set="anki" aria-checked="false">Anki</button>
+        </div>
         <div class="segmented two" id="sv-kind" role="radiogroup" style="margin-top:4px">
           <span class="seg-thumb"></span>
           <button role="radio" data-kind="word" aria-checked="true">Words</button>

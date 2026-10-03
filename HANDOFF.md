@@ -821,7 +821,11 @@ owner adds sentences there). Practice → "📚 My Anki decks" (admins: Import /
 (keeps the owner's own English; "— speaking to a girl/woman" / "— female speaker" → man/woman
 labels; Bible refs as the label) → voices → storage `lessons/dk-…/`). Decks are rows in the
 `phrases` table with id `dk-<source>-…` (no new table needed). Open a deck → tap words, voices,
-☆ per sentence or "Save all N to Review". `POST /api/me` tells the app if the user is an admin.
+☆ per sentence or "Save all N to Review". `POST /api/me` tells the app if the user is an admin. **Kept separate (owner):** cards from decks (`lesson` dk-…) form the "anki" group, everything else
+(videos + phrases) the "app" group (`cardSet`); Practice has separate Review / Anki Review tiles,
+Saved has a Videos & Phrases | Anki switch, the Learn tab only shows app cards, and a review session
+only pulls cards from its own group (`reviewSet`). Deck ✕ opens a sheet: remove the deck and its
+review cards, or keep the cards.
 
 **Sign-in email (2026-10-02):** Supabase SMTP = Resend (smtp.resend.com, sender
 `nativnik@wildidahopowersports.com`, name Nativnik; owner's only verified Resend domain; switch the

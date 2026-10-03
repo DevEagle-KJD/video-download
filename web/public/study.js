@@ -102,9 +102,13 @@ async function stRemoveLesson(l, ask = true) {
 }
 
 /* ───────── Study home ───────── */
-function dueCards() {
+/* Two separate card groups, never mixed: "app" = video lessons + Say it like a
+   native; "anki" = cards from the owner's imported Anki decks (lesson id dk-…). */
+const cardSet = c => (String(c.lesson || '').startsWith('dk-') ? 'anki' : 'app');
+let reviewSet = 'app';                      // the group the current review session uses
+function dueCards(set = reviewSet) {
   const now = Date.now();
-  return Object.values(cards).filter(c => !c.deleted && c.due <= now).sort((a, b) => a.due - b.due);
+  return Object.values(cards).filter(c => !c.deleted && c.due <= now && cardSet(c) === set).sort((a, b) => a.due - b.due);
 }
 
 // Sharpest thumbnail YouTube has: 1280px, else 640px, else the 480px one.
@@ -117,8 +121,8 @@ window.thumbFallback = thumbFallback;
 const posterImg = id => `<img src="${esc(thumbOf(id))}" referrerpolicy="no-referrer" alt="" loading="lazy" onload="if (this.naturalWidth <= 120) thumbFallback(this)" onerror="thumbFallback(this)">`;
 
 function stRender() {
-  const live = Object.values(cards).filter(c => !c.deleted);
-  const due = dueCards().length;
+  const live = Object.values(cards).filter(c => !c.deleted && cardSet(c) === 'app');
+  const due = dueCards('app').length, dueAll = due + dueCards('anki').length;
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   // Review: one slim bar, only once something is saved.
   $('#st-review-card').innerHTML = live.length
@@ -127,10 +131,10 @@ function stRender() {
          <span class="rv-bar-t"><b>${due ? `${plural(due, 'card')} to review` : 'All caught up'}</b><i>${plural(live.length, 'saved card')}</i></span>
          <span class="rv-bar-go">${due ? 'Review' : 'See all'}</span>
        </button>` : '';
-  for (const badge of [$('#st-badge'), $('#pr-badge')]) {
+  for (const [badge, n] of [[$('#st-badge'), due], [$('#pr-badge'), dueAll]]) {
     if (!badge) continue;
-    badge.hidden = !due;
-    badge.textContent = due > 99 ? '99+' : due;
+    badge.hidden = !n;
+    badge.textContent = n > 99 ? '99+' : n;
   }
 
   window.engage?.render();
@@ -1057,7 +1061,9 @@ let queue = [], qi = 0, revealed = false, reviewed = 0;
 let learning = [], waitTimer = 0;
 const cardsLeft = () => queue.length - qi + learning.length;
 
-function startReview(list = dueCards().slice(0, 50), from = 'study') {
+function startReview(list, from = 'study', set = 'app') {
+  reviewSet = set;
+  list ||= dueCards(set).slice(0, 50);
   queue = list;
   [...new Set(queue.map(c => c.lesson))].forEach(ensureAudio);
   if (!queue.length) { toast('Nothing due right now'); return; }
@@ -1356,8 +1362,9 @@ function reviewDone() {
 
 /* ───────── Saved: every saved word and sentence in one list ───────── */
 let svKind = 'word';
+let svSet = 'app';                          // Saved page: which group is shown
 const liveCards = kind => Object.values(cards)
-  .filter(c => !c.deleted && (kind === 'word') === (c.kind === 'word'))
+  .filter(c => !c.deleted && (kind === 'word') === (c.kind === 'word') && cardSet(c) === svSet)
   .sort((a, b) => (b.created || 0) - (a.created || 0));
 
 function openSaved() {
@@ -1373,6 +1380,11 @@ function dueText(c) {
 }
 
 function renderSaved() {
+  const hasAnki = Object.values(cards).some(c => !c.deleted && cardSet(c) === 'anki');
+  if (!hasAnki) svSet = 'app';
+  $('#sv-set').hidden = !hasAnki;
+  document.querySelectorAll('#sv-set button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.set === svSet)));
+  $('#sv-set .seg-thumb').style.transform = `translateX(${svSet === 'app' ? 0 : 100}%)`;
   const btns = [...document.querySelectorAll('#sv-kind button')];
   btns.forEach(b => b.setAttribute('aria-checked', String(b.dataset.kind === svKind)));
   $('#sv-kind .seg-thumb').style.transform = `translateX(${svKind === 'word' ? 0 : 100}%)`;
@@ -1599,7 +1611,7 @@ document.addEventListener('click', e => {
     case 'lesson-menu': lessonMenu(); break;
     case 'lesson-help': closeSheet(); setTimeout(helpSheet, 350); break;
     case 'delete-lesson': { const l = lessons.find(x => x.id === lesson?.id); if (l) stRemoveLesson(l); break; }
-    case 'review': startReview(); break;
+    case 'review': startReview(null, 'study', 'app'); break;
     case 'saved': openSaved(); break;
     case 'sv-open': openSavedCard(el.dataset.id); break;
     case 'sv-say': speak(svOpen.w, Number(el.dataset.rate), $('#sv-word'), svOpen.lesson); break;
@@ -1609,7 +1621,7 @@ document.addEventListener('click', e => {
     case 'rv-undo': undoGrade(); break;
     case 'rv-now': clearTimeout(waitTimer); if (learning[0]) { learning[0].due = Date.now(); showCard(); } break;
     case 'sv-lesson': svOpenLesson(); break;
-    case 'sv-review-all': startReview(liveCards(svKind).sort((a, b) => a.due - b.due), 'saved'); break;
+    case 'sv-review-all': startReview(liveCards(svKind).sort((a, b) => a.due - b.due), 'saved', svSet); break;
     case 'rv-show': revealCard(); break;
     case 'rv-play': voicePlayer.pause(); playClip(queue[qi]); break;
     case 'rv-say-sent': $('#rv-video').pause(); saySentence(queue[qi], Number(el.dataset.rate)); break;
@@ -1682,11 +1694,18 @@ function phSetOpen(id) { phOpenId = id; store.set('phOpen', id); }
 let dkOpenId = null;                                // the open Anki deck (decks start closed: they're long)
 
 function practiceShow() {
-  const live = Object.values(cards).filter(c => !c.deleted).length, due = dueCards().length;
+  const live = Object.values(cards).filter(c => !c.deleted);
+  const due = dueCards('app').length, dueAnki = dueCards('anki').length;
+  const hasAnki = live.some(c => cardSet(c) === 'anki');
   $('#pr-due').textContent = due;
-  $('#pr-due-l').textContent = due ? `card${due === 1 ? '' : 's'} due now` : 'all caught up';
+  $('#pr-due-l').textContent = due ? 'videos & phrases' : 'all caught up';
   $('.pr-tile.due')?.classList.toggle('lit', due > 0);
-  $('#pr-saved').textContent = live;
+  $('#pr-anki').hidden = !hasAnki;
+  $('#pr-due-anki').textContent = dueAnki;
+  $('#pr-due-anki-l').textContent = dueAnki ? 'your Anki decks' : 'all caught up';
+  $('#pr-anki').classList.toggle('lit', dueAnki > 0);
+  $('.pr-tiles').classList.toggle('three', hasAnki);
+  $('#pr-saved').textContent = live.length;
   renderPhrases();
   phRefresh();
   checkAdmin();
@@ -1855,7 +1874,31 @@ function phToggleSave(pid, i) {
   renderPhrases();
 }
 
+function deckRemoveSheet(id) {
+  const p = phrases.find(x => x.id === id);
+  const n = Object.values(cards).filter(c => !c.deleted && c.lesson === id).length;
+  openSheet('Remove deck', `
+    <p style="font-size:17px;margin:4px 4px 16px">Remove <b>📚 ${esc(p?.text || 'this deck')}</b> from Nativnik? Your Anki app and files aren’t touched, and you can bring it back with Update My Anki Decks.</p>
+    ${n ? `<button class="secondary-button destructive" data-s="dk-remove" data-id="${esc(id)}" data-cards="1">Remove Deck and Its ${n} Review Card${n === 1 ? '' : 's'}</button>` : ''}
+    <button class="secondary-button${n ? '' : ' destructive'}" data-s="dk-remove" data-id="${esc(id)}" data-cards="0">${n ? 'Remove Deck, Keep My Review Cards' : 'Remove Deck'}</button>
+    <button class="secondary-button" data-s="sheet-close">Cancel</button>`);
+}
+async function dkRemove(id, withCards) {
+  closeSheet();
+  try { await db(`phrases?id=eq.${id}`, { method: 'DELETE' }); } catch (e) { toast(e.message); return; }
+  if (withCards) {
+    const ids = Object.values(cards).filter(c => !c.deleted && c.lesson === id).map(c => c.id);
+    ids.forEach(cid => { cards[cid].deleted = true; cards[cid].updated = Date.now(); });
+    if (ids.length) cardsChanged(ids);
+  }
+  phrases = phrases.filter(x => x.id !== id);
+  store.set('phrases', phrases);
+  toast('Deck removed');
+  practiceShow();
+}
+
 async function phDelete(id) {
+  if (id.startsWith('dk-')) { deckRemoveSheet(id); return; }
   if (!confirm('Delete this phrase? Anything you saved to Review stays.')) return;
   try { await db(`phrases?id=eq.${id}`, { method: 'DELETE' }); } catch (e) { toast(e.message); return; }
   phrases = phrases.filter(x => x.id !== id);
@@ -1963,12 +2006,15 @@ document.addEventListener('click', e => {
   if (!el) return;
   const id = el.dataset.id, i = Number(el.dataset.i);
   switch (el.dataset.s) {
-    case 'pr-review': if (dueCards().length) startReview(); else toast('Nothing due right now. Save words and sentences to review them.'); break;
+    case 'pr-review': if (dueCards('app').length) startReview(null, 'practice', 'app'); else toast('Nothing due right now. Save words and sentences to review them.'); break;
+    case 'pr-review-anki': if (dueCards('anki').length) startReview(null, 'practice', 'anki'); else toast('No Anki cards due right now.'); break;
     case 'ph-toggle':
       if (id.startsWith('dk-')) dkOpenId = dkOpenId === id ? null : id; else phSetOpen(phOpenId === id ? null : id);
       renderPhrases(); break;
     case 'ph-del': phDelete(id); break;
     case 'dk-save-all': dkSaveAll(id); break;
+    case 'dk-remove': dkRemove(id, el.dataset.cards === '1'); break;
+    case 'sheet-close': closeSheet(); break;
     case 'ph-retry': { const p = phrases.find(x => x.id === id); if (p) { phrases = phrases.filter(x => x !== p); phStart(p.text); } break; }
     case 'ph-save': phToggleSave(id, i); break;
     case 'ph-say': { const d = phData[id]; if (d) saySentence({ ru: d.sentences[i].ru, lesson: id }, Number(el.dataset.rate)); break; }
@@ -1985,5 +2031,6 @@ document.addEventListener('click', e => {
 });
 $('#ph-go').addEventListener('click', () => phStart());
 $('#dk-import').addEventListener('click', dkImport);
+$('#sv-set').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { svSet = b.dataset.set; renderSaved(); } });
 $('#ph-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); phStart(); } });
 if ($('#screen-practice').classList.contains('active')) practiceShow();
