@@ -261,6 +261,13 @@ const guide = (() => {
       </ul>`],
   ];
 
+  // Scroll a topic to just under the top bar (with its title showing).
+  function jumpTo(target) {
+    const scr = $('#screen-help');
+    const barBottom = scr.querySelector('.page-bar').getBoundingClientRect().bottom;
+    scr.scrollTop += target.getBoundingClientRect().top - barBottom - 12;
+  }
+
   function openHelp(sec) {
     const box = $('#help-body');
     if (!box.dataset.built) {
@@ -273,7 +280,7 @@ const guide = (() => {
     requestAnimationFrame(() => {
       const scr = $('#screen-help');
       const target = sec && $(`#help-${sec}`);
-      scr.scrollTop = target ? target.offsetTop - 70 : 0;
+      if (target) jumpTo(target); else scr.scrollTop = 0;
     });
   }
 
@@ -281,7 +288,7 @@ const guide = (() => {
     const b = e.target.closest('[data-s="help"], [data-s="help-jump"], [data-s="tour-replay"], [data-s="tips-reset"]');
     if (!b) return;
     if (b.dataset.s === 'help') { closeSheet?.(); openHelp(b.dataset.sec); }
-    if (b.dataset.s === 'help-jump') { const t = $(`#help-${b.dataset.sec}`); if (t) $('#screen-help').scrollTop = t.offsetTop - 70; }
+    if (b.dataset.s === 'help-jump') { const t = $(`#help-${b.dataset.sec}`); if (t) jumpTo(t); }
     if (b.dataset.s === 'tour-replay') { document.body.classList.remove('in-page'); showScreen('study'); setTimeout(start, 300); }
     if (b.dataset.s === 'tips-reset') { window.engage?.guideReset(); toast('Tips will show again on each screen'); }
   });
