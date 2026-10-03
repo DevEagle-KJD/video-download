@@ -65,7 +65,7 @@ const guide = (() => {
   const demoAudio = new Audio();
   function demoSay(name, hl) {
     demoAudio.pause();
-    demoAudio.src = `audio/tour-${name}.mp3`;
+    demoAudio.src = `audio/tour-${name}.mp3?v=2`;
     demoAudio.play().catch(() => {});
     el?.querySelectorAll('.tour-demo .now, .tour-demo .hl').forEach(x => x.classList.remove('now', 'hl'));
     hl?.classList.add(hl.classList.contains('sent') ? 'now' : 'hl');
