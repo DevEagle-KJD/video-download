@@ -1,6 +1,6 @@
 // Offline shell. App files are network-first (always the newest after a
 // reload); server calls, Supabase and YouTube are never cached here.
-const CACHE = 'web-v49';
+const CACHE = 'web-v50';
 const SHELL = ['/', 'index.html', 'style.css', 'web.css', 'core.js', 'study.js', 'engage.js', 'manifest.webmanifest', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {

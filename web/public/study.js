@@ -400,7 +400,7 @@ let lockedIdx = null;       // while replaying one sentence, keep it highlighted
 let rafId = 0;
 
 // at: open at this sentence (cued in the video, highlighted and scrolled to).
-async function openLesson(l, at = null) {
+async function openLesson(l, at = null, word = null) {
   if (l.state === 'failed') {
     openSheet('Lesson couldn’t be made', `<p class="job-error" style="font-size:15px">${esc(l.error || 'Something went wrong.').replace(/\n/g, '<br>')}</p>
       <button class="primary-button" data-s="retry" data-id="${l.id}" style="margin-top:16px">Try Again</button>
@@ -438,9 +438,13 @@ async function openLesson(l, at = null) {
   stOpenPage('lesson', l.id);
   $('#screen-lesson').scrollTop = 0;
   const pos = store.get(`pos.${l.id}`, 0);
-  if (pos > 0) setActive(pos, false);
-  // Opened at a sentence (a saved card, "Heard in"): scroll it to just under the video.
-  if (at != null && data.sentences[at]) requestAnimationFrame(() => returnToSentence(at));
+  if (at != null && data.sentences[at]) {
+    // Opened at a sentence (a saved card, "Heard in"), even the first one: highlight
+    // it, mark the saved word in it, and scroll it to just under the video.
+    setActive(at, false);
+    if (word != null) $(`#ls-transcript .sent[data-i="${at}"] .tok[data-k="${word}"]`)?.classList.add('hl');
+    requestAnimationFrame(() => returnToSentence(at));
+  } else if (pos > 0) setActive(pos, false);
 }
 
 // Word timings: from the lesson (Whisper), or estimated by word length.
@@ -1586,7 +1590,7 @@ async function svOpenLesson() {
   const c = svOpen, l = lessons.find(x => x.id === c.lesson);
   if (!l) return;
   closeSheet();
-  await openLesson(l, c.i);
+  await openLesson(l, c.i, c.kind === 'word' ? c.k : null);
   if (lesson?.id === l.id && c.i >= lesson.data.sentences.length && lesson.data.locked) upgradeSheet('lesson');
 }
 
