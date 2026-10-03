@@ -1345,7 +1345,7 @@ function showCard() {
       <div class="rv-front">${listen ? '<div class="listen-icon">🔊</div>' : `<div class="wc-word">${syllablesHTML(c.w)}</div>`}</div>
       <div class="rv-tools"><button class="chip" data-s="rv-say" data-rate="${RATE_NORMAL}">🔊 Normal</button><button class="chip" data-s="rv-say" data-rate="${RATE_SLOW}">🐢 Slowly</button></div>
       <button class="primary-button" data-s="rv-show">Show</button>`;
-    if (listen) speak(c.w, [RATE_NORMAL, RATE_SLOW], null, c.lesson);   // right away, inside the tap (iOS requires it)
+    if (listen) speak(c.w, [RATE_NORMAL], null, c.lesson);   // right away, inside the tap (iOS requires it)
     return;
   }
 
@@ -1406,7 +1406,7 @@ function revealCard() {
         ${hasVideo ? `<button class="chip" data-s="rv-word">🎬 Word</button><button class="chip" data-s="rv-play">▶ Sentence</button>` : ''}
       </div>
       ${grades}`;
-    speak(c.w, [RATE_NORMAL, RATE_SLOW], $('#rv-word'), c.lesson);
+    speak(c.w, [RATE_NORMAL], $('#rv-word'), c.lesson);
     return;
   }
   $('#rv-body').innerHTML = `
@@ -1779,7 +1779,7 @@ document.addEventListener('click', e => {
     case 'word': {
       openWord(i, Number(el.dataset.k));
       const w = lesson.data.sentences[i].tokens[Number(el.dataset.k)].w;
-      speak(w, [RATE_NORMAL, RATE_SLOW], $('#wc-word'));   // inside the tap, so iOS allows it
+      speak(w, [RATE_NORMAL], $('#wc-word'));   // inside the tap, so iOS allows it
       break;
     }
     case 'w-say': speak(lesson.data.sentences[wordOpen.i].tokens[wordOpen.k].w, Number(el.dataset.rate), $('#wc-word')); break;
@@ -2610,7 +2610,7 @@ document.addEventListener('click', e => {
     case 'ph-word': {
       phOpenWord(id, i, Number(el.dataset.k));
       const t = phData[id]?.sentences[i]?.tokens[Number(el.dataset.k)];
-      if (t) speak(t.w, [RATE_NORMAL, RATE_SLOW], $('#wc-word'), id);   // inside the tap, so iOS allows it
+      if (t) speak(t.w, [RATE_NORMAL], $('#wc-word'), id);   // inside the tap, so iOS allows it
       break;
     }
     case 'phw-say': { const t = phData[phWordOpen.pid].sentences[phWordOpen.i].tokens[phWordOpen.k]; speak(t.w, Number(el.dataset.rate), $('#wc-word'), phWordOpen.pid); break; }
