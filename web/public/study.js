@@ -2063,7 +2063,7 @@ function renderList(list, items, decks) {
   if (!decks && (phOpenId === undefined || (phOpenId !== null && !phrases.some(p => p.id === phOpenId)))) {
     phOpenId = items.find(p => p.status === 'ready' && phData[p.id])?.id;
   }
-  list.innerHTML = items.length ? items.map(p => {
+  setHTML(list, items.length ? items.map(p => {   // unchanged: left alone (no blink while waiting)
     const del = `<button class="ph-x" data-s="ph-del" data-id="${p.id}" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>`;
     let head = `<div class="ph-q"><b>${decks ? `📚 ${esc(p.text)}` : `“${esc(p.text)}”`}</b>${del}</div>`;
     const d = phData[p.id];
@@ -2112,7 +2112,7 @@ function renderList(list, items, decks) {
         ${heard}
       </div>`;
     }).join('')}${restore}</div>`;
-  }).join('') : decks ? '' : '<div class="empty-card"><span class="big">💬</span><b>What do you want to be able to say?</b><span>Try “No worries, take your time” or “Can I get the check?”</span></div>';
+  }).join('') : decks ? '' : '<div class="empty-card"><span class="big">💬</span><b>What do you want to be able to say?</b><span>Try “No worries, take your time” or “Can I get the check?”</span></div>');
 }
 
 // A saved item: a sentence card, or for a one-word vocabulary item a word card

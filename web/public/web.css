@@ -441,7 +441,6 @@ body {
   .ph-fold.open .ph-head:hover .ph-chev { transform: rotate(90deg) scale(1.08); }
   .ph-x:hover { color: #fff; background: rgba(255, 90, 60, 0.85); transform: rotate(90deg); }
 }
-.ph-item { animation: phIn .3s ease-out; }
 @keyframes phIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* Drawn icons (owner: a real arrow; no dark hover; no red) */
