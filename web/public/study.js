@@ -2009,6 +2009,16 @@ function practiceShow() {
 window.practiceShow = practiceShow;
 
 let phTimer = null;
+/* Quick first answer (api/phrase-quick.js): shown in seconds while the full check runs,
+   then replaced by the checked phrase. Kept per phrase id (also lessons/<id>/quick.json). */
+const phQuick = store.get('phQuick', {});
+async function phGetQuick(id) {
+  try {
+    const { quick } = await api('phrase-quick', { id });
+    if (quick?.versions?.length) { phQuick[id] = quick; store.set('phQuick', phQuick); renderPhrases(); }
+  } catch { /* the full answer still comes */ }
+}
+
 async function phRefresh() {
   clearTimeout(phTimer);
   if (!session) return;
@@ -2025,6 +2035,14 @@ async function phRefresh() {
         if (before.has(p.id) && before.get(p.id) !== 'ready') phSetOpen(p.id);   // just finished: show it
       } catch { /* next time */ }
     }));
+    // Still being checked: the quick answer, if there is one (e.g. after a reload).
+    await Promise.all(phrases.filter(p => (p.status === 'queued' || p.status === 'processing') && !phQuick[p.id] && p.id.startsWith('ph-')).map(async p => {
+      try {
+        const r = await fetch(fileUrl(p.id, 'quick.json'), { cache: 'no-cache' });
+        const q = r.ok ? await r.json() : null;
+        if (Array.isArray(q?.versions) && q.versions.length) { phQuick[p.id] = q; store.set('phQuick', phQuick); }
+      } catch { /* not there */ }
+    }));
     renderPhrases();
   } catch (e) { console.warn('phrases', e); }
   if (phrases.some(p => p.status === 'queued' || p.status === 'processing')) phTimer = setTimeout(phRefresh, 6000);
@@ -2040,6 +2058,7 @@ async function phStart(textArg) {
     phrases.unshift(phrase);
     $('#ph-input').value = '';
     renderPhrases();
+    phGetQuick(phrase.id);
     phTimer = setTimeout(phRefresh, 4000);
   } catch (e) {
     if (e.code === 'pro') upgradeSheet('phrases'); else toast(e.message);
@@ -2075,6 +2094,21 @@ function renderList(list, items, decks) {
       if (!open) return `<div class="ph-item">${head}</div>`;
     }
     if (p.status === 'failed') return `<div class="ph-item">${head}<div class="ph-wait">⚠️ ${esc(p.error || 'Something went wrong.')} <button class="text-button" data-s="ph-retry" data-id="${p.id}">Try again</button></div></div>`;
+    const q = !decks && p.status !== 'ready' && Array.isArray(phQuick[p.id]?.versions) && phQuick[p.id];
+    if (q) {
+      // Quick answer while the full check runs: readable now, tappable and voiced once checked.
+      const gendered = q.versions.some(v => v.who);
+      const chk = q.check?.verdict ? `<div class="ph-check ${q.check.verdict === 'natural' ? 'good' : 'bad'}"><b>Your Russian: ${esc(q.check.verdict)}.</b> ${esc(q.check.comment || '')}</div>` : '';
+      return `<div class="ph-item">${head}
+        <div class="ph-checking"><span class="spinner"></span><span><b>Checking it against real native speech…</b><i>${esc(p.stage || 'Starting')}. Stress marks, word meanings and the voice appear in about a minute.</i></span></div>
+        ${chk}${q.versions.map(v => {
+          const ctx = v.context === 'polite' ? 'with strangers' : v.context || '';
+          const who = v.who || (gendered ? 'man or woman' : '');
+          return `<div class="ph-v quick"><div class="ph-top"><span class="ph-ctx">${esc(ctx)}${ctx && who ? ' · ' : ''}${who ? `<em>${esc(who)}</em>` : ''}</span></div>
+            <div class="ph-ru">${esc(v.ru)}</div>
+            ${v.en ? `<p class="en">${esc(v.en)}</p>` : ''}${v.note ? `<div class="ph-note">${esc(v.note)}</div>` : ''}</div>`;
+        }).join('')}</div>`;
+    }
     if (p.status !== 'ready' || !d) {
       const STEPS = decks ? DK_STEPS : PH_STEPS;
       const step = p.status === 'ready' ? STEPS.length - 1 : STEPS.indexOf(p.stage);
@@ -2082,6 +2116,7 @@ function renderList(list, items, decks) {
         `<div class="${k < step ? 'done' : k === step ? 'now' : ''}"><i>${k < step ? '✓' : k === step ? '<span class="spinner"></span>' : '•'}</i><span>${label}</span></div>`).join('')}
         <p class="ph-why">${step < 0 ? 'Starting… ' : ''}${decks ? 'Takes a few minutes: every sentence gets stress marks, word-by-word meanings and a natural voice.' : 'Takes about 2–3 minutes: we check real native speech first instead of guessing.'}</p></div></div>`;
     }
+    const checked = !decks && phQuick[p.id] ? '<div class="ph-checked">✓ Checked against real native speech</div>' : '';
     const chk = d.check?.verdict ? `<div class="ph-check ${d.check.verdict === 'natural' ? 'good' : 'bad'}"><b>Your Russian: ${esc(d.check.verdict)}.</b> ${esc(d.check.comment || '')}</div>` : '';
     const gendered = d.sentences.some(s => s.who);
     const unsaved = d.sentences.filter((_, i) => !isSaved(`${p.id}:${i}`) && !phHidden(p.id, i)).length;
@@ -2089,7 +2124,7 @@ function renderList(list, items, decks) {
     const restore = nHidden ? `<button class="text-button ph-restore" data-s="ph-unhide" data-id="${p.id}">Show ${nHidden} removed</button>` : '';
     const top = decks ? `<div class="dk-top"><span>Tap any word to hear it, see its meaning and save it.</span>
       <button class="chip${unsaved ? ' on' : ''}" data-s="dk-save-all" data-id="${p.id}"${unsaved ? '' : ' disabled'}>${unsaved ? `☆ Save all ${unsaved} to Review` : '★ All in Review'}</button></div>` : '';
-    return `<div class="ph-item">${head}${chk}${top}${d.sentences.map((s, i) => {
+    return `<div class="ph-item">${head}${checked}${chk}${top}${d.sentences.map((s, i) => {
       if (phHidden(p.id, i)) return '';
       const ctx = s.context === 'polite' ? 'with strangers' : s.context || '';
       const who = s.who || (gendered ? 'man or woman' : '');

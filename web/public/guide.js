@@ -149,7 +149,7 @@ const guide = (() => {
     practice: ['🔁 Practice', '<b>Review</b> quizzes you on what you saved. <b>Say it like a native</b> turns English into natural Russian. <b>Saved</b> lists everything you kept.', 'review'],
     lesson: ['🎧 How this page works', `Tap the orange ${pic.play} to hear one sentence (it stops after it). Tap an underlined word for its meaning. ${pic.star} saves the sentence.`, 'lesson'],
     saved: ['⭐ Saved', 'Everything you saved. Switch between <b>Words</b> and <b>Sentences</b> at the top. Tap one to hear it, review it, or open it in its lesson.', 'saved'],
-    phrases: ['💬 Say it like a native', 'Type what you want to say, in English or Russian, and tap <b>Show Me</b>. In a minute or two you’ll get the natural ways Russians say it.', 'phrases'],
+    phrases: ['💬 Say it like a native', 'Type what you want to say, in English or Russian, and tap <b>Show Me</b>. The natural ways Russians say it appear in seconds; about a minute later they’re checked against real speech, with stress marks, word meanings and a natural voice.', 'phrases'],
     channel: ['📺 Channel', 'All of this channel’s videos. Tap one to study it. ✓ means it’s already in your lessons.', 'find'],
     review: ['🔁 Review', 'Try to remember, then tap <b>Show</b>. Be honest: <b>Again</b> if you forgot, <b>Good</b> if you got it. The app decides when you see it next.', 'review'],
   };
@@ -253,7 +253,8 @@ const guide = (() => {
     ['phrases', '💬 Say it like a native', `
       <ol>
         <li>Go to <b>Practice</b> → <b>Say it like a native</b>.</li>
-        <li>Type what you want to say, in English (or your Russian, to check it), and tap <b>Show Me</b>. It takes a minute or two.</li>
+        <li>Type what you want to say, in English (or your Russian, to check it), and tap <b>Show Me</b>. A first answer appears in a few seconds, marked <b>“Checking…”</b>.</li>
+        <li>About a minute later it’s <b>✓ Checked</b> against real native speech, and gets stress marks, tap-a-word meanings and a natural voice. If the check improves a version, the better one replaces it.</li>
         <li>You get several versions. The orange label says when to use each: <b>anywhere</b>, <b>with friends</b>, <b>with strangers</b>. Some say <b>to a man / to a woman</b> or <b>if you’re a man / a woman</b>, because Russian changes with that.</li>
         <li><b>🔊 Normal / 🐢 Slowly</b> say it. Tap any word for its meaning.</li>
         <li><b>🎬 Heard in real videos</b>: tap one to watch a real person say it.</li>

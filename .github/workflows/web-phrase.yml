@@ -36,6 +36,11 @@ jobs:
           [[ "$PHRASE_ID" =~ ^ph-[a-z0-9]{8,32}$ ]] || { echo "::error::bad phrase id"; exit 1; }
           python3 scripts/web/supa.py pstage "$PHRASE_ID" "Gathering real sentences from our videos"
 
+      - uses: actions/cache@v4      # pip downloads kept between runs (faster start)
+        with:
+          path: ~/.cache/pip
+          key: phrase-pip-v1
+
       - name: Install tools
         run: python3 -m pip install -q anthropic ruaccent edge-tts
 

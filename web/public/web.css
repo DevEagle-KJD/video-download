@@ -681,3 +681,11 @@ body {
 .help-top { flex: none; font-size: 13px; font-weight: 700; color: var(--blue); }
 .help-sec.glow { animation: helpGlow 2.2s ease-out; }
 @keyframes helpGlow { 0%, 40% { box-shadow: 0 0 0 2px var(--blue), 0 0 24px rgba(255, 176, 32, 0.45); } 100% { box-shadow: none; } }
+
+/* Say it like a native: quick answer while the full check runs */
+.ph-checking { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 12px; padding: 12px 14px; border-radius: 16px; background: rgba(255, 176, 32, 0.10); box-shadow: inset 0 0 0 1px rgba(255, 176, 32, 0.35); }
+.ph-checking .spinner { border-color: rgba(255, 190, 90, .3); border-top-color: var(--blue); margin-top: 3px; }
+.ph-checking b { display: block; font-size: 15px; }
+.ph-checking i { display: block; font-style: normal; font-size: 13px; color: var(--secondary); margin-top: 2px; }
+.ph-v.quick .ph-ru { font-size: 26px; font-weight: 500; margin: 2px 0 4px; }
+.ph-checked { font-size: 13px; font-weight: 700; color: var(--green); margin: 2px 4px 10px; }
