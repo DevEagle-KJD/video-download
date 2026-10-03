@@ -2204,6 +2204,7 @@ const bvId = ref => `bv-${String(ref).toLowerCase().replace(/\./g, '-')}`;
 const bibleCur = () => window.engage?.bibleCur() || bvStart;
 const bvCard = ref => { const c = cards[`${bvId(ref)}:0`]; return c && !c.deleted ? c : null; };
 const bvLearned = c => !!c && (c.proven || 0) >= BIBLE_DAYS;
+var bvFold = store.get('bvFold', {});   // heading → open? (verse, words, learned, each learned verse)
 const BV_STEPS = ['Reading the verse', 'Adding stress marks and word-by-word meanings', 'Recording the natural voice', 'Publishing'];
 
 async function bvLoad(id) {
@@ -2309,13 +2310,18 @@ function renderBible() {
   const n = dueCards('bible').length;
   $('#bv-review').textContent = n ? `Review ${n} Bible Card${n === 1 ? '' : 's'}` : 'Bible: All Caught Up';
   $('#bv-review').classList.toggle('done', !n);
+  // Folding (tap a heading): the verse, the word list, the learned verses and each
+  // learned verse. Remembered on this device.
+  const open = k => bvFold[k] ?? !k.startsWith('v:');
+  const chev = '<span class="ph-chev"><svg viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></svg></span>';
+  const head = (k, title, right = '', sub = '') => `<div class="ph-q ph-fold bv-fold${open(k) ? ' open' : ''}"><div class="ph-head" role="button" tabindex="0" data-s="bv-fold" data-id="${esc(k)}" aria-expanded="${open(k)}">${chev}<span class="ph-title">${title}${sub && !open(k) ? `<small>${sub}</small>` : ''}</span></div>${right}</div>`;
   let html;
   if (d) {
     const s = d.sentences[0];
     const pct = Math.min(100, Math.round(((c?.proven || 0) / BIBLE_DAYS) * 100));
     html = `<div class="ph-item bv-item">
-      <div class="ph-q"><b>📖 ${esc(d.bible?.label || d.title || '')}</b><span class="bv-tag">Learning now</span></div>
-      <div class="ph-v">
+      ${head('cur', `<b>📖 ${esc(d.bible?.label || d.title || '')}</b>`, '<span class="bv-tag">Learning now</span>', esc(s.ru))}
+      ${open('cur') ? `<div class="ph-v">
         <div class="il">${tokensHTML(s.tokens, true, { i: 0, ph: id })}</div>
         ${s.en ? `<p class="en">${esc(s.en)}</p>` : ''}
         ${s.flag ? `<div class="ph-flag">⚠️ ${esc(s.flag)}</div>` : ''}
@@ -2325,7 +2331,8 @@ function renderBible() {
       </div>
       <div class="bv-prog"><div class="bv-bar"><i style="width:${pct}%"></i></div>
         <p>${esc(bvProgress(c))} The next verse unlocks when you still remember this one after a week.</p></div>
-      <button class="text-button bv-next" data-s="bv-next">I already know it: next verse ›</button>
+      <button class="text-button bv-next" data-s="bv-next">I already know it: next verse ›</button>`
+      : `<div class="bv-bar bv-bar-mini"><i style="width:${pct}%"></i></div>`}
     </div>`;
   } else if (st?.status === 'failed') {
     html = `<div class="ph-item"><div class="ph-q"><b>📖 Next verse</b></div><div class="ph-wait">⚠️ ${esc(st.error || 'Something went wrong.')} <button class="text-button" data-s="bv-retry">Try again</button></div></div>`;
@@ -2339,18 +2346,21 @@ function renderBible() {
   // Words saved from the verses: reviewed with them in the Bible review.
   const words = Object.values(cards).filter(x => !x.deleted && cardSet(x) === 'bible' && x.kind === 'word')
     .sort((a, b) => (b.created || 0) - (a.created || 0));
-  setHTML($('#bv-words'), `<h2 class="shelf-title">My Bible words</h2>${words.length ? `<div class="bv-words">${words.map(x =>
+  setHTML($('#bv-words'), `<div class="ph-item bv-sec">${head('words', `<b>My Bible words${words.length ? ` (${words.length})` : ''}</b>`, '',
+    words.slice(0, 6).map(x => esc(plainWord(x.w))).join(', '))}
+    ${!open('words') ? '' : words.length ? `<div class="bv-words">${words.map(x =>
     `<button class="bv-word" data-s="bvw-open" data-id="${esc(x.lesson)}" data-i="${x.i}" data-k="${x.k}"><b>${esc(x.w.replace(/[.,!?…:;«»"“”()]+/g, ''))}</b><i>${esc(x.m || x.g || '')}</i>${dueText(x)}</button>`).join('')}</div>`
-    : '<p class="bv-none">Tap any underlined word in the verse and choose <b>☆ Save to My Bible Words</b>. Only the words you save are added to your Bible review.</p>'}`);
-  // Verses learned before (still in Review), newest first.
+    : '<p class="bv-none">Tap any underlined word in the verse and choose <b>☆ Save to My Bible Words</b>. Only the words you save are added to your Bible review.</p>'}</div>`);
+  // Verses learned before (still in Review), newest first; each folded until tapped.
   const done = Object.values(cards).filter(x => !x.deleted && cardSet(x) === 'bible' && x.kind !== 'word' && x.lesson !== id)
     .sort((a, b) => (b.created || 0) - (a.created || 0));
-  setHTML($('#bv-done'), done.length ? `<h2 class="shelf-title">Verses you’ve learned</h2>${done.map(x => {
-    const v = phData[x.lesson];
-    return `<div class="bv-old"><div class="bv-old-t"><b>${esc(v?.bible?.label || x.title || '')}</b>${dueText(x)}</div>
-      <div class="bv-old-ru">${esc(x.ru)}</div>${x.en ? `<p class="en">${esc(x.en)}</p>` : ''}
-      ${v ? `<div class="ph-tools"><button class="chip" data-s="ph-say" data-id="${x.lesson}" data-i="0" data-rate="${RATE_NORMAL}">🔊 Listen</button></div>` : ''}</div>`;
-  }).join('')}` : '');
+  setHTML($('#bv-done'), done.length ? `<div class="ph-item bv-sec">${head('done', `<b>Verses you’ve learned (${done.length})</b>`)}
+    ${open('done') ? done.map(x => {
+      const v = phData[x.lesson], k = `v:${x.lesson}`;
+      return `<div class="bv-old">${head(k, `<b>${esc(v?.bible?.label || x.title || '')}</b>`, dueText(x), esc(x.ru))}
+        ${open(k) ? `<div class="bv-old-ru">${esc(x.ru)}</div>${x.en ? `<p class="en">${esc(x.en)}</p>` : ''}
+        ${v ? `<div class="ph-tools"><button class="chip" data-s="ph-say" data-id="${x.lesson}" data-i="0" data-rate="${RATE_NORMAL}">🔊 Listen</button></div>` : ''}` : ''}</div>`;
+    }).join('') : ''}</div>` : '');
   const copy = d?.bible?.copyright || '';
   setHTML($('#bv-copy'), copy ? esc(copy.split(' The Holy Bible')[0]) : '');
 }
@@ -2602,6 +2612,7 @@ document.addEventListener('click', e => {
     case 'open-bible': openBible(); break;
     case 'bv-review': if (dueCards('bible').length) startReview(null, 'practice', 'bible'); else toast('Nothing due right now. Come back later.'); break;
     case 'bv-next': bibleNextSheet(); break;
+    case 'bv-fold': { const k = id; bvFold[k] = !(bvFold[k] ?? !k.startsWith('v:')); store.set('bvFold', bvFold); renderBible(); break; }
     case 'bvw-open': bvLoad(id).then(() => phOpenWord(id, Number(el.dataset.i), Number(el.dataset.k))).catch(e => toast(e.message)); break;
     case 'bv-next-yes': closeSheet(); bibleAdvance(true); break;
     case 'bv-retry': bvState = {}; bibleRefresh(); break;
