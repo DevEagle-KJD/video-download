@@ -776,7 +776,7 @@ sentence heard, +3 save, +2 review card, +20 lesson finished at 90% heard), dail
 - **Content:** creators of approved channels give **permission** (email / one-page agreement) but
   do **not** send files (owner's firm position: per-creator file requests are too much work).
   Approved channels live in `channels` (edit `web/channels.tsv` and push; workflow
-  `web-channels.yml` upserts it — one row approves the whole channel. First: @everydayrussian, 2026-10-03); others are logged in `channel_requests`. Lessons play
+  `web-channels.yml` upserts it — one row approves the whole channel. First: Easy Russian @easyrussianvideos, 2026-10-03); others are logged in `channel_requests`. Lessons play
   **live in the YouTube embed** (creators keep views/ads; ads are a known downside; YouTube
   Premium users see none). Each video is processed **once**: its audio is downloaded from YouTube
   behind the scenes (still against YouTube's terms and blockable: queue + retries; fallbacks
