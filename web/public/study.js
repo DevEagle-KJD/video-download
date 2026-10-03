@@ -1991,8 +1991,8 @@ function renderList(list, items, decks) {
       const id = `${p.id}:${i}`;
       const seenRu = new Set();   // the same line said again (e.g. "Да. Хорошо." ×3) shows once
       const matches = (s.matches || []).filter(m => { const k = plainKey(m.ru); return !seenRu.has(k) && seenRu.add(k); });
-      const heard = matches.length ? `<div class="ph-heard"><b>🎬 Heard in ${matches.length} real video sentence${matches.length === 1 ? '' : 's'}</b>${matches.map(m =>
-        `<button data-s="ph-heard" data-lesson="${esc(m.lesson)}" data-i="${m.i}">${esc(m.ru)}<span>${esc(m.title || '')}</span></button>`).join('')}</div>` : '';
+      const heard = matches.length ? `<div class="ph-heard"><b>🎬 Heard in ${matches.length} real video${matches.length === 1 ? '' : 's'}</b><small>Tap one to watch that moment</small>${matches.map(m =>
+        `<button data-s="ph-heard" data-lesson="${esc(m.lesson)}" data-i="${m.i}"><span class="vid-t">${esc(m.ru)}<span>${esc(m.title || '')}</span></span><i class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></i></button>`).join('')}</div>` : '';
       return `<div class="ph-v">
         <div class="ph-top"><span class="ph-ctx">${esc(ctx)}${ctx && who ? ' · ' : ''}${who ? `<em>${esc(who)}</em>` : ''}</span>
           <span class="ph-acts"><button class="ph-star${isSaved(id) ? ' on' : ''}" data-s="ph-save" data-id="${p.id}" data-i="${i}" aria-label="Save to review">${isSaved(id) ? '★' : '☆'}</button>
@@ -2003,7 +2003,7 @@ function renderList(list, items, decks) {
         ${s.flag ? `<div class="ph-flag">⚠️ ${esc(s.flag)}</div>` : ''}
         <div class="ph-tools"><button class="chip" data-s="ph-say" data-id="${p.id}" data-i="${i}" data-rate="${RATE_NORMAL}">🔊 Normal</button>
           <button class="chip" data-s="ph-say" data-id="${p.id}" data-i="${i}" data-rate="${RATE_SLOW}">🐢 Slowly</button></div>
-        ${decks ? '' : '<p class="ph-hint">Tap any word to hear it, see its meaning and save it.</p>'}
+        ${decks ? '' : '<p class="ph-hint">👆 Tap any underlined word to hear it, see its meaning and save it.</p>'}
         ${heard}
       </div>`;
     }).join('')}${restore}</div>`;
@@ -2189,8 +2189,10 @@ function phOpenWord(pid, i, k) {
   phWordInVideos(t).then(found => {
     const box = $('#phw-videos');
     if (!box || phWordOpen?.pid !== pid || phWordOpen.i !== i || phWordOpen.k !== k) return;
+    const seen = new Set();   // the same line said again shows once
+    found = found.filter(f => { const key = plainKey(f.s.ru || f.s.tokens.map(x => x.w).join(' ')); return !seen.has(key) && seen.add(key); });
     box.innerHTML = found.length
-      ? `<b>🎬 In your videos</b>${found.map(f => `<button data-s="ph-heard" data-lesson="${esc(f.lesson)}" data-i="${f.i}">${f.s.tokens.map((x, j) => (j === f.k ? `<mark>${esc(x.w)}</mark>` : esc(x.w))).join(' ')}<span>${esc(f.title)}</span></button>`).join('')}`
+      ? `<b>🎬 In your videos</b><small>Tap one to watch that moment</small>${found.map(f => `<button data-s="ph-heard" data-lesson="${esc(f.lesson)}" data-i="${f.i}"><span class="vid-t">${f.s.tokens.map((x, j) => (j === f.k ? `<mark>${esc(x.w)}</mark>` : esc(x.w))).join(' ')}<span>${esc(f.title)}</span></span><i class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></i></button>`).join('')}`
       : '<b>Not in your videos yet.</b> Add more lessons and it may turn up.';
   });
 }
