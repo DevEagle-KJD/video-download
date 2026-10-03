@@ -548,10 +548,15 @@ let userScrolledAt = 0;
 // leftover finger-flick momentum), and resumes auto-follow straight away.
 // This happens even with Follow off (Follow only controls scrolling along
 // while the video plays).
+// When the list jumps to a sentence, what was under the finger moves; on iPhone a
+// second tap (or a late one) then lands on another sentence's ☆. Stars ignore taps
+// for a moment after a jump.
+let jumpedAt = 0;
 function returnToSentence(i) {
   const el = $(`#ls-transcript .sent[data-i="${i}"]`);
   if (!el) return;
   userScrolledAt = 0;
+  jumpedAt = Date.now();
   const scroller = $('#screen-lesson');
   const playerBottom = $('#screen-lesson .player').getBoundingClientRect().bottom;
   scroller.scrollTop += el.getBoundingClientRect().top - playerBottom - 12;
@@ -1709,7 +1714,7 @@ document.addEventListener('click', e => {
     case 'w-report': reportMistake(wordOpen.i, wordOpen.k); break;
     case 'rv-say': speak(queue[qi].w, Number(el.dataset.rate) || RATE_SLOW, $('#rv-word'), queue[qi].lesson); break;
     case 'rv-word': playClip(queue[qi], 1, true); break;
-    case 'star': e.stopPropagation(); toggleStar(i); break;
+    case 'star': e.stopPropagation(); if (Date.now() - jumpedAt > 900) toggleStar(i); break;
     case 'toggle': togglePlay(); break;
     case 'prev': playSentence(Math.max(0, cur - 1)); break;
     case 'next': playSentence(cur + 1); break;

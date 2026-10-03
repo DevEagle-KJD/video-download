@@ -536,7 +536,7 @@ body {
 .ls-hint { margin: 10px 16px 0; font-size: 13px; color: var(--secondary); }
 
 /* Replay a sentence: a clear orange ▶ button beside each sentence */
-.sent-side { gap: 10px; }
+.sent-side { gap: 22px; }   /* ▶ and ☆ well apart so one isn't tapped for the other */
 .replay {
   width: 42px; height: 42px; border-radius: 21px; color: var(--on-accent);
   background: linear-gradient(135deg, var(--blue), var(--accent-2)); box-shadow: 0 4px 14px rgba(255, 140, 40, 0.3);
