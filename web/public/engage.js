@@ -67,7 +67,7 @@ const engage = (() => {
     if (!el) return;
     const x = todayXp(), g = stats.goal, s = streak();
     const pct = Math.min(1, x / g), C = 2 * Math.PI * 15;
-    el.innerHTML = `
+    const html = `
       <button class="streak${x >= g ? ' lit' : ''}" data-e="stats">
         <span class="flame">🔥</span><b>${s}</b><span class="streak-l">day${s === 1 ? '' : 's'}</span>
       </button>
@@ -76,6 +76,7 @@ const engage = (() => {
           <circle cx="18" cy="18" r="15" class="goal-fg" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pct)}"/></svg>
         <span><b>${Math.min(x, g)}</b>/${g}</span>
       </button>`;
+    if (el._html !== html) { el._html = html; el.innerHTML = html; }   // unchanged: leave it (no blink)
   }
 
   function statsSheet() {

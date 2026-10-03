@@ -112,10 +112,23 @@ function dueCards(set = reviewSet) {
 }
 
 // Sharpest thumbnail YouTube has: 1280px, else 640px, else the 480px one.
-const thumbOf = id => `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+// Remembers which size worked for each video, so redrawn pictures load straight
+// from the cache instead of flickering through the larger sizes again.
+const thumbSize = store.get('thumbSize', {});
+const thumbOf = id => `https://i.ytimg.com/vi/${id}/${thumbSize[id] || 'maxresdefault'}.jpg`;
 function thumbFallback(img) {
-  const next = { maxresdefault: 'sddefault', sddefault: 'hqdefault' }[img.src.match(/\/(\w+)\.jpg/)?.[1]];
-  if (next) img.src = img.src.replace(/\w+\.jpg$/, `${next}.jpg`); else img.remove();
+  const [, id, size] = img.src.match(/\/vi\/([^/]+)\/(\w+)\.jpg/) || [];
+  const next = { maxresdefault: 'sddefault', sddefault: 'hqdefault' }[size];
+  if (!next) { img.remove(); return; }
+  thumbSize[id] = next; store.set('thumbSize', thumbSize);
+  img.src = img.src.replace(/\w+\.jpg$/, `${next}.jpg`);
+}
+// Replaces an element's HTML only when it changed, so pictures and videos
+// already on screen aren't torn down and reloaded (that made tabs blink).
+function setHTML(el, html) {
+  if (!el || el._html === html) return;
+  el._html = html;
+  el.innerHTML = html;
 }
 window.thumbFallback = thumbFallback;
 const posterImg = id => `<img src="${esc(thumbOf(id))}" referrerpolicy="no-referrer" alt="" loading="lazy" onload="if (this.naturalWidth <= 120) thumbFallback(this)" onerror="thumbFallback(this)">`;
@@ -125,12 +138,12 @@ function stRender() {
   const due = dueCards('app').length, dueAll = due + dueCards('anki').length;
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   // Review: one slim bar, only once something is saved.
-  $('#st-review-card').innerHTML = false
+  setHTML($('#st-review-card'), false
     ? `<button class="rv-bar${due ? ' due' : ''}" data-s="${due ? 'review' : 'saved'}">
          <span class="rv-bar-n">${due || '✓'}</span>
          <span class="rv-bar-t"><b>${due ? `${plural(due, 'card')} to review` : 'All caught up'}</b><i>${plural(live.length, 'saved card')}</i></span>
          <span class="rv-bar-go">${due ? 'Review' : 'See all'}</span>
-       </button>` : '';
+       </button>` : '');
   for (const [badge, n] of [[$('#st-badge'), 0], [$('#pr-badge'), dueAll]]) {   // review lives in Practice
     if (!badge) continue;
     badge.hidden = !n;
@@ -140,15 +153,15 @@ function stRender() {
   window.engage?.render();
   // Continue: the lesson you opened last.
   const last = lessons.find(l => l.id === store.get('lastLesson') && l.state === 'ready');
-  $('#st-continue').innerHTML = last ? `
+  setHTML($('#st-continue'), last ? `
     <button class="hero" data-s="open" data-id="${esc(last.id)}">
       ${posterImg(last.id, last.meta)}
       <span class="hero-shade"></span>
       <span class="hero-text"><i>Continue</i><b>${esc(last.meta?.title || 'Lesson')}</b></span>
       <span class="hero-play"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
-    </button>` : '';
+    </button>` : '');
 
-  $('#st-lessons').innerHTML = lessons.length ? lessons.map(l => {
+  setHTML($('#st-lessons'), lessons.length ? lessons.map(l => {
     const m = l.meta || {};
     const over = l.state === 'ready' ? ''
       : l.state === 'failed' ? '<span class="poster-state failed">Couldn’t be made</span>'
@@ -159,11 +172,11 @@ function stRender() {
       <span class="poster-sub">${esc(m.channel || '')}</span>
     </button>`;
   }).join('') : `<div class="empty-card"><span class="big">🎬</span><b>Your first lesson is one link away</b>
-      <span>Paste a YouTube link above, or pick a video in Explore.</span></div>`;
+      <span>Paste a YouTube link above, or pick a video in Explore.</span></div>`);
   // A friendly hello, Russian first.
   const h = new Date().getHours();
   const [ru, en] = h < 5 ? ['Доброй ночи!', 'Good night'] : h < 12 ? ['Доброе утро!', 'Good morning'] : h < 18 ? ['Добрый день!', 'Good afternoon'] : ['Добрый вечер!', 'Good evening'];
-  $('#st-hello').innerHTML = `<b>${ru}</b> ${en}. Ready to sound native today?`;
+  setHTML($('#st-hello'), `<b>${ru}</b> ${en}. Ready to sound native today?`);
 }
 
 function studyShow() {
@@ -1720,7 +1733,7 @@ async function exploreShow() {
       db('channels?select=name,author_url&order=name'),
     ]);
     const mine = new Set(lessons.map(l => l.id));
-    list.innerHTML = rows.length ? rows.map(r => {
+    setHTML(list, rows.length ? rows.map(r => {
       const m = { thumbnail: r.thumbnail };
       const added = mine.has(r.video_id);
       return `<button class="poster" data-s="${added ? 'open' : 'ex-add'}" data-id="${esc(r.video_id)}">
@@ -1729,13 +1742,13 @@ async function exploreShow() {
         <span class="poster-title">${esc(r.title || 'Lesson')}</span>
         <span class="poster-sub">${esc(r.channel || '')}</span>
       </button>`;
-    }).join('') : '<p class="empty-note">No lessons in the library yet.</p>';
-    $('#ex-channels').innerHTML = channels.length
+    }).join('') : '<p class="empty-note">No lessons in the library yet.</p>');
+    setHTML($('#ex-channels'), channels.length
       ? channels.map(c => `<a class="channel-pill" href="${esc(c.author_url)}" target="_blank" rel="noopener">${esc(c.name || c.author_url)}</a>`).join('')
-      : '';
+      : '');
     $('#ex-channels-box').hidden = !channels.length;   // shown once a creator's channel is approved
   } catch (e) {
-    list.innerHTML = `<p class="empty-note">${esc(e.message)}</p>`;
+    setHTML(list, `<p class="empty-note">${esc(e.message)}</p>`);
   }
 }
 window.exploreShow = exploreShow;

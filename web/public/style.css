@@ -71,7 +71,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   overscroll-behavior-y: contain;
   display: none;
 }
-.screen.active { display: block; animation: fade .18s ease-out; }
+.screen.active { display: block; }
+.screen.page.active { animation: fade .18s ease-out; }   /* tabs switch instantly, without a blink */
 @keyframes fade { from { opacity: .4; } to { opacity: 1; } }
 
 .navbar {
