@@ -900,5 +900,8 @@ The owner chose the name **Nativski** and asked for this handoff. **They have NO
 3. Reminder notifications (web push) and streak freeze; weekly recap.
 4. **Spanish** pipeline (second ASR for Spanish, generic enrich prompt, no stress marks).
 5. Move the worker off GitHub Actions to a **serverless GPU (Modal)** before charging money
+   **Started 2026-10-03:** Whisper runs on Modal (`scripts/modal/asr.py`, L4 GPU, deployed by
+   `modal-deploy.yml`) when the `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` secrets exist; `transcribe.py`
+   falls back to CPU on any Modal error. Measured before: transcribe 13 min of a 33-min lesson.
    (faster, and GitHub's terms don't fit a commercial service); Azure Speech instead of edge-tts.
 6. Admin page for channels/requests; landing page for marketing; "Import your own video".

@@ -135,6 +135,10 @@ def from_whisper(video):
     subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", video,
                     "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
 
+    words = whisper_on_modal(wav)
+    if words is not None:
+        return group_whisper(words)
+
     model = WhisperModel(os.environ.get("WHISPER_MODEL") or "large-v3", device="cpu", compute_type="int8",
                          cpu_threads=os.cpu_count() or 4)
     segments, info = model.transcribe(
@@ -150,6 +154,33 @@ def from_whisper(video):
             print(f"  transcribed {seg.end / 60:.1f} / {info.duration / 60:.1f} min "
                   f"({time.time() - t0:.0f}s elapsed)", flush=True)
 
+    return group_whisper(words)
+
+
+def whisper_on_modal(wav):
+    """Whisper large-v3 on a Modal GPU (scripts/modal/asr.py) when the Modal
+    secrets are set; None means "do it here on the CPU instead"."""
+    if not (os.environ.get("MODAL_TOKEN_ID") and os.environ.get("MODAL_TOKEN_SECRET")):
+        return None
+    try:
+        import modal
+        from types import SimpleNamespace
+
+        opus = os.path.join(OUT, "audio.ogg")   # ~20x smaller than the WAV to send
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", wav,
+                        "-c:a", "libopus", "-b:a", "48k", opus], check=True)
+        t0 = time.time()
+        print("Transcribing on a Modal GPU…", flush=True)
+        fn = modal.Function.from_name("nativnik-asr", "whisper")
+        raw = fn.remote(open(opus, "rb").read(), ".ogg", "ru")
+        print(f"  done in {time.time() - t0:.0f}s ({len(raw)} words)", flush=True)
+        return [SimpleNamespace(word=w, start=a, end=b, probability=p) for w, a, b, p in raw]
+    except Exception as e:  # noqa: BLE001
+        print(f"::warning::Modal GPU unavailable ({e}); transcribing on the CPU instead", flush=True)
+        return None
+
+
+def group_whisper(words):
     sentences, cur = [], []
 
     def flush():

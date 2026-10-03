@@ -1,0 +1,31 @@
+name: Modal deploy
+
+# Puts scripts/modal/asr.py (Whisper on a GPU) onto Modal whenever it changes.
+# Needs the MODAL_TOKEN_ID and MODAL_TOKEN_SECRET secrets (skips quietly until
+# they exist). Lessons use it automatically once it's deployed.
+on:
+  push:
+    branches: [claude/iphone-video-downloader-pwqipq]
+    paths:
+      - scripts/modal/**
+      - .github/workflows/modal-deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy the GPU transcriber
+        run: |
+          if [ -z "$MODAL_TOKEN_ID" ] || [ -z "$MODAL_TOKEN_SECRET" ]; then
+            echo "Modal secrets not set yet; nothing to deploy."; exit 0
+          fi
+          python3 -m pip install -q modal
+          modal deploy scripts/modal/asr.py
