@@ -135,7 +135,9 @@ def from_whisper(video):
     subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", video,
                     "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
 
-    words = whisper_on_modal(wav)
+    words = whisper_on_groq(wav) if os.environ.get("ASR_ENGINE") == "groq" else None
+    if words is None:
+        words = whisper_on_modal(wav)
     if words is not None:
         return group_whisper(words)
 
@@ -177,6 +179,92 @@ def whisper_on_modal(wav):
         return [SimpleNamespace(word=w, start=a, end=b, probability=p) for w, a, b, p in raw]
     except Exception as e:  # noqa: BLE001
         print(f"::warning::Modal GPU unavailable ({e}); transcribing on the CPU instead", flush=True)
+        return None
+
+
+GROQ_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+GROQ_CHUNK = 20 * 60       # seconds per upload (keeps each file well under Groq's size limit)
+
+
+def _plain(w):
+    return re.sub(r"[^\w-]", "", w.lower().replace("ё", "е"))
+
+
+def _groq_request(path, key):
+    """One audio file → Groq's verbose JSON (segments with punctuation + word timings)."""
+    import urllib.request
+    import uuid
+
+    boundary = uuid.uuid4().hex
+    fields = [("model", "whisper-large-v3"), ("language", "ru"), ("response_format", "verbose_json"),
+              ("temperature", "0"), ("timestamp_granularities[]", "word"), ("timestamp_granularities[]", "segment")]
+    body = b"".join(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode()
+                    for k, v in fields)
+    body += (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.ogg"\r\n'
+             f"Content-Type: audio/ogg\r\n\r\n").encode() + open(path, "rb").read() + f"\r\n--{boundary}--\r\n".encode()
+    req = urllib.request.Request(GROQ_URL, data=body, method="POST", headers={
+        "Authorization": f"Bearer {key}", "Content-Type": f"multipart/form-data; boundary={boundary}",
+        "User-Agent": "nativnik-lessons"})
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as r:
+                return json.load(r)
+        except Exception as e:  # noqa: BLE001 (rate limits / network: retry)
+            if attempt == 3:
+                raise
+            print(f"  Groq retry after: {e}", flush=True)
+            time.sleep(5 * (attempt + 1))
+
+
+def groq_words(resp, offset=0.0):
+    """Groq's words have no punctuation; the segment text has it. Put each segment's
+    punctuated words onto the timed words (matched by spelling), so sentence splitting
+    works as with the CPU run. Probability: the segment's average confidence."""
+    import difflib
+    import math
+
+    words = resp.get("words") or []
+    out = []
+    for seg in resp.get("segments") or []:
+        inside = [w for w in words if seg["start"] - 0.05 <= w["start"] < seg["end"] + 0.05 and not w.get("_used")]
+        for w in inside:
+            w["_used"] = True
+        prob = round(math.exp(seg.get("avg_logprob", 0.0)), 3)
+        text = seg.get("text", "").split()
+        a, b = [_plain(x) for x in text], [_plain(w["word"]) for w in inside]
+        spelled = {}
+        for op, i1, i2, j1, j2 in difflib.SequenceMatcher(a=a, b=b, autojunk=False).get_opcodes():
+            if op == "equal" or (op == "replace" and i2 - i1 == j2 - j1):
+                for k in range(i2 - i1):
+                    spelled[j1 + k] = text[i1 + k]
+        for j, w in enumerate(inside):
+            out.append([" " + spelled.get(j, w["word"].strip()), w["start"] + offset, w["end"] + offset, prob])
+    return out
+
+
+def whisper_on_groq(wav):
+    """Whisper large-v3 on Groq (fast hosted). None means "use another engine"."""
+    key = os.environ.get("GROQ_API_KEY")
+    if not key:
+        return None
+    try:
+        from types import SimpleNamespace
+
+        t0 = time.time()
+        print("Transcribing on Groq…", flush=True)
+        dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", wav],
+                                   capture_output=True, text=True, check=True).stdout.strip() or 0)
+        raw, start = [], 0.0
+        while start < dur:
+            part = os.path.join(OUT, f"groq_{int(start)}.ogg")
+            subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-ss", str(start), "-t", str(GROQ_CHUNK),
+                            "-i", wav, "-c:a", "libopus", "-b:a", "48k", part], check=True)
+            raw += groq_words(_groq_request(part, key), offset=start)
+            start += GROQ_CHUNK
+        print(f"  done in {time.time() - t0:.0f}s ({len(raw)} words)", flush=True)
+        return [SimpleNamespace(word=w, start=a, end=b, probability=p) for w, a, b, p in raw]
+    except Exception as e:  # noqa: BLE001
+        print(f"::warning::Groq unavailable ({e}); using another engine", flush=True)
         return None
 
 

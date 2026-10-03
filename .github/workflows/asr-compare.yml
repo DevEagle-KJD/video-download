@@ -1,0 +1,88 @@
+name: ASR compare
+
+# Accuracy check before switching lesson transcription to Groq: for every
+# finished web lesson, transcribes the audio with the CPU engine and with Groq
+# and compares both with the finished lesson (scripts/study/asr_compare.py).
+# Runs when that script, this file or .github/triggers/asr-compare changes.
+on:
+  push:
+    branches: [claude/iphone-video-downloader-pwqipq]
+    paths:
+      - scripts/study/asr_compare.py
+      - .github/workflows/asr-compare.yml
+      - .github/triggers/asr-compare
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      videos: ${{ steps.list.outputs.videos }}
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          if [ -z "$GROQ_API_KEY" ]; then echo "No GROQ_API_KEY secret yet."; echo 'videos=[]' >> "$GITHUB_OUTPUT"; exit 0; fi
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, sys
+          sys.path.insert(0, "scripts/web")
+          import supa
+          rows = json.loads(supa._req("GET", "/rest/v1/lessons?status=eq.ready&select=video_id&order=created_at"))
+          print("videos=" + json.dumps([r["video_id"] for r in rows]))
+          PY
+
+  compare:
+    needs: list
+    if: needs.list.outputs.videos != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        video: ${{ fromJson(needs.list.outputs.videos) }}
+    services:
+      pot:
+        image: brainicism/bgutil-ytdlp-pot-provider
+        ports:
+          - 4416:4416
+    env:
+      VIDEO_ID: ${{ matrix.video }}
+      URL: https://www.youtube.com/watch?v=${{ matrix.video }}
+      QUALITY: audio
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+          python3 -m pip install -q --pre -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
+          python3 -m pip install -q "faster-whisper>=1.1" "av<19"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: study-models-ai-large-v3-gigaam
+          restore-keys: study-models-ai-
+      - name: Download
+        env:
+          COOKIES: ${{ secrets.YTDLP_COOKIES }}
+        run: bash scripts/download.sh
+      - name: Compare CPU and Groq
+        run: python3 scripts/study/asr_compare.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compare-${{ matrix.video }}
+          path: out/compare.json
+          if-no-files-found: ignore

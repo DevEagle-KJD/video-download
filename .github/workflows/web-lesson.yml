@@ -83,7 +83,10 @@ jobs:
       - name: Transcribe
         env:
           WHISPER_MODEL: ${{ vars.WHISPER_MODEL }}
-          # Whisper on a Modal GPU (scripts/modal/asr.py) when these are set; CPU otherwise.
+          # Engine: Groq when ASR_ENGINE is "groq" (switched on only after scripts/study/asr_compare.py
+          # shows it's as accurate), else a Modal GPU when its secrets are set, else the CPU.
+          ASR_ENGINE: ${{ vars.ASR_ENGINE }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: |
