@@ -930,17 +930,23 @@ function analyzeClip(url) {
       audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
       const audio = await new Promise((ok, bad) => audioCtx.decodeAudioData(buf, ok, bad));
       const data = audio.getChannelData(0), hop = Math.round(audio.sampleRate / 100);
-      const env = new Float32Array(Math.floor(data.length / hop));
+      const env = new Float32Array(Math.floor(data.length / hop)), zcr = new Float32Array(env.length);
       for (let f = 0; f < env.length; f++) {
-        let sum = 0;
-        for (let j = f * hop; j < (f + 1) * hop; j++) sum += data[j] * data[j];
+        let sum = 0, z = 0;
+        for (let j = f * hop; j < (f + 1) * hop; j++) {
+          sum += data[j] * data[j];
+          if (j > f * hop && (data[j] >= 0) !== (data[j - 1] >= 0)) z++;   // hissy sounds (с, ш) cross zero often
+        }
         env[f] = Math.sqrt(sum / hop);
+        zcr[f] = z / hop;
       }
       const max = env.reduce((m, x) => Math.max(m, x), 0) || 1;
       const loud = max * 0.08;
       let a = env.findIndex(x => x > loud), b = env.length - 1;
       while (b > a && env[b] <= loud) b--;
-      return { start: Math.max(0, a) / 100, end: (b + 1) / 100, env, buf: audio };
+      // Quiet endings ("-сь", "-ть") fade slowly: follow them down further.
+      while (b + 1 < env.length && env[b + 1] > max * 0.025) b++;
+      return { start: Math.max(0, a) / 100, end: (b + 1) / 100, env, zcr, buf: audio };
     })().catch(() => null));
   }
   return sylMaps.get(url);
@@ -975,6 +981,72 @@ function sylTimes(info, els) {
    of the whole word at the quiet dips found above, so it sounds like it does
    inside the word. */
 const sylHint = () => `<div class="syl-hint">👆 Tap a syllable to hear it <button class="chip small${prefs.sylSlow ? ' on' : ''}" data-s="syl-slow">🐢 Slow</button></div>`;
+// Where each syllable starts, by lining up the word's letters with the recording
+// (Viterbi over 10 ms frames; each letter scored by how loud / hissy it should
+// sound: vowels loud, р л м н softer, с ш hissy, т к п silent just before their
+// burst). Cuts at the start of a syllable's first consonant, so "сто" keeps its
+// "с" and "т". Falls back to sylTimes() if the word doesn't fit.
+const KIND = c => 'аеёиоуыэюя'.includes(c) ? 'v' : 'мнлрй'.includes(c) ? 'n' : 'зжв'.includes(c) ? 'z' : 'сшщфхцч'.includes(c) ? 's' : 'пткбдг'.includes(c) ? 't' : 'n';
+function alignSyllables(info, els) {
+  const syls = els.map(e => e.textContent), N = syls.length;
+  if (N < 2 || !info.zcr) return sylTimes(info, els);
+  const a = Math.round(info.start * 100), T = Math.round(info.end * 100) - a;
+  const E = [], Z = [];
+  let max = 0;
+  for (let t = 0; t < T; t++) {
+    let s = 0, c = 0;
+    for (let k = a + t - 1; k <= a + t + 1; k++) if (info.env[k] != null) { s += info.env[k]; c++; }
+    E.push(s / c); Z.push(info.zcr[a + t] || 0); max = Math.max(max, s / c);
+  }
+  for (let t = 0; t < T; t++) E[t] /= max || 1;
+  const kinds = [], sylOf = [];
+  syls.forEach((sy, k) => { for (const c of sy.toLowerCase().replace(/[^а-яё]|[ьъ]/g, '')) { kinds.push(KIND(c)); sylOf.push(k); } });
+  const cost = (kind, t) => {
+    const e = E[t], z = Z[t];
+    if (kind === 'v') return (1 - e) * 1.6 + Math.max(0, z - 0.12) * 6;
+    if (kind === 'n') return Math.abs(e - 0.4) * 1.4 + Math.max(0, z - 0.15) * 5;
+    if (kind === 'z') return Math.abs(e - 0.3) + Math.abs(z - 0.2) * 3;
+    if (kind === 's') return Math.max(0, 0.22 - z) * 6 + Math.max(0, e - 0.45) * 1.5;
+    return e * 1.8;
+  };
+  const states = [];   // each letter held for its shortest length: vowels 3 frames, others 2
+  kinds.forEach((k, i) => { const n = k === 'v' ? 3 : 2; for (let r = 0; r < n; r++) states.push({ k, i, last: r === n - 1 }); });
+  const S = states.length;
+  if (S > T || !S) return sylTimes(info, els);
+  let dp = new Float64Array(S).fill(Infinity);
+  dp[0] = cost(states[0].k, 0);
+  const back = [];
+  for (let t = 1; t < T; t++) {
+    const nd = new Float64Array(S).fill(Infinity), bk = new Int32Array(S);
+    for (let s = 0; s < S; s++) {
+      const stay = states[s].last ? dp[s] : Infinity, move = s > 0 ? dp[s - 1] : Infinity;
+      const best = Math.min(stay, move);
+      if (best === Infinity) continue;
+      nd[s] = best + cost(states[s].k, t);
+      bk[s] = stay <= move ? s : s - 1;
+    }
+    back.push(bk); dp = nd;
+  }
+  if (dp[S - 1] === Infinity) return sylTimes(info, els);
+  const startOf = new Array(kinds.length).fill(0);
+  for (let t = T - 1, s = S - 1; t > 0; t--) {
+    const p = back[t - 1][s];
+    if (states[p].i !== states[s].i) startOf[states[s].i] = t;
+    s = p;
+  }
+  const times = [info.start];
+  // The alignment can slip on long runs of vowels and р/л/н, squeezing a syllable
+  // to almost nothing: then that cut comes from the loudness dips instead.
+  const dip = sylTimes(info, els);
+  const w = els.map(e => Math.max(1, e.textContent.replace(/[^\p{L}]/gu, '').length) * (e.classList.contains('stress') ? 1.4 : 1));
+  const total = w.reduce((x, y) => x + y, 0), exp = w.map(x => (info.end - info.start) * x / total);
+  for (let k = 1; k < N; k++) { const i = sylOf.indexOf(k); times.push(i < 0 ? dip[k] : (a + startOf[i]) / 100); }
+  for (let k = 0; k < N; k++) {
+    const end = k + 1 < N ? times[k + 1] : info.end;
+    if (end - times[k] < exp[k] * 0.35) { if (k + 1 < N) times[k + 1] = Math.max(times[k] + exp[k] * 0.35, dip[k + 1]); else times[k] = Math.min(times[k], dip[k]); }
+  }
+  return times;
+}
 let sylSrc = null;
 async function playSyllable(el) {
   const root = el.closest('.wc-word'), els = [...root.querySelectorAll('.syl')], n = els.indexOf(el);
@@ -990,8 +1062,9 @@ async function playSyllable(el) {
   const url = fileUrl(lessonId, `audio/${clips[prefs.sylSlow ? 1 : 0]}`);
   const info = await analyzeClip(url);
   if (!info?.buf) { toast('Couldn’t play that syllable'); return; }
-  const times = sylTimes(info, els);
-  const a = Math.max(0, times[n] - 0.02), b = Math.min(info.buf.duration, (times[n + 1] ?? info.end) + 0.04);
+  const times = alignSyllables(info, els);
+  // A little room either side, so a syllable's first and last sounds aren't clipped.
+  const a = Math.max(0, times[n] - 0.05), b = Math.min(info.buf.duration, n + 1 < times.length ? times[n + 1] + 0.03 : info.end + 0.1);
   try { sylSrc?.stop(); } catch { /* already stopped */ }
   const src = audioCtx.createBufferSource(), gain = audioCtx.createGain(), t0 = audioCtx.currentTime + 0.01;
   src.buffer = info.buf;

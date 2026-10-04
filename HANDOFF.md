@@ -859,7 +859,7 @@ second sentence ("Младенец… был от Святого Духа.") tha
 
 **Tap a syllable (2026-10-04, owner asked):** in every word card (lesson, phrase/deck/Bible, Saved,
 Review answer) each syllable is tappable: `playSyllable()` cuts that syllable out of the word's
-natural recording (Web Audio, boundaries from `sylTimes()` / `analyzeClip()`, short fades) and plays
+natural recording (Web Audio; cut points from `alignSyllables()`, a letter-to-sound Viterbi alignment that cuts before a syllable’s first consonant, with `sylTimes()` loudness dips as fallback; 50 ms extra before, 30 ms after, short fades) and plays
 it; the "🐢 Slow" chip next to the hint switches to the slow recording (`prefs.sylSlow`).
 Words saved earlier play only if their lesson has recordings.
 
