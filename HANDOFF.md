@@ -857,6 +857,15 @@ hand. The next verse is always made one ahead. Words saved from a verse (button 
 (`web/decks/bible.tsv`), their stress is applied. Note: the current НРП text of Matthew 1:18 has a
 second sentence ("Младенец… был от Святого Духа.") that the Anki card didn't have.
 
+**Syllables recorded on their own (2026-10-04, owner asked after cut syllables sounded clipped):**
+each syllable is its own natural-voice recording, shared app-wide: storage `lessons/syl/<sha1("<letters>|<0|1>")[:16]>.mp3`
+(letters = lowercase а-я/ё only, stress dropped; 0 normal −25%, 1 slow −40%, voice as voices.py).
+Made by `scripts/web/syllables.py` (its `syllables()` is an exact port of study.js's): every
+lesson/phrase/deck/verse workflow runs it on out/lesson.json after Publish (continue-on-error);
+`web-syllables.yml` (trigger file `.github/triggers/syllables`) backfills everything. The app plays
+the recording if it exists, else falls back to cutting it out of the word (below). Trade-off the
+owner accepted: an isolated syllable has a full vowel (unstressed о sounds "o", not "a").
+
 **Tap a syllable (2026-10-04, owner asked):** in every word card (lesson, phrase/deck/Bible, Saved,
 Review answer) each syllable is tappable: `playSyllable()` cuts that syllable out of the word's
 natural recording (played as a small WAV through `voicePlayer`, so the silent switch doesn’t mute it; clips are decoded with an OfflineAudioContext, never a live AudioContext, which on iPhone could leave all voices muted until restart; `navigator.audioSession.type = playback`; cut points from `alignSyllables()`, a letter-to-sound Viterbi alignment that cuts before a syllable’s first consonant, with `sylTimes()` loudness dips as fallback; 50 ms extra before, 30 ms after, short fades) and plays

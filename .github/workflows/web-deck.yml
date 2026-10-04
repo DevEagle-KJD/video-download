@@ -68,6 +68,11 @@ jobs:
           python3 scripts/web/supa.py pstage "$DECK_ID" "Publishing"
           python3 scripts/web/publish.py "$DECK_ID" --phrase
 
+      - name: Syllables (each recorded on its own)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: python3 scripts/web/syllables.py out/lesson.json
+
       - name: Report failure
         if: failure()
         run: python3 scripts/web/supa.py pfail "$DECK_ID" || true

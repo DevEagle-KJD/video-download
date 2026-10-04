@@ -126,6 +126,11 @@ jobs:
           python3 scripts/web/supa.py stage "$VIDEO_ID" "Publishing lesson"
           python3 scripts/web/publish.py "$VIDEO_ID"
 
+      - name: Syllables (each recorded on its own)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: python3 scripts/web/syllables.py out/lesson.json
+
       - name: Report failure
         if: failure()
         run: python3 scripts/web/supa.py fail "$VIDEO_ID" || true

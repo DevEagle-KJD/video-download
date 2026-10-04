@@ -1,0 +1,29 @@
+name: Web syllables
+
+# Nativnik: records every syllable on its own (scripts/web/syllables.py) for all
+# lessons, phrases, decks and Bible verses made so far. New ones record their own
+# syllables at the end of their workflow. Run by changing .github/triggers/syllables.
+run-name: "web syllables (all)"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/iphone-video-downloader-pwqipq]
+    paths: [.github/triggers/syllables]
+
+permissions:
+  contents: read
+
+jobs:
+  syllables:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: python3 -m pip install -q edge-tts
+      - name: Record syllables
+        run: python3 scripts/web/syllables.py --all

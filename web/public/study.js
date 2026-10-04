@@ -979,10 +979,10 @@ function sylTimes(info, els) {
   return times;
 }
 
-/* Tap one syllable of a word to hear just that part of the natural recording
-   (normal speed, or the slow recording with "🐢 Slow"). The syllable is cut out
-   of the whole word at the quiet dips found above, so it sounds like it does
-   inside the word. */
+/* Tap one syllable of a word to hear it (normal speed, or slow with "🐢 Slow").
+   Each syllable is recorded on its own in the same voice (owner's choice: never
+   cut off; lessons/syl/, made by scripts/web/syllables.py). Until a syllable is
+   recorded, it's cut out of the word's recording instead. */
 const sylHint = () => `<div class="syl-hint">👆 Tap a syllable to hear it <button class="chip small${prefs.sylSlow ? ' on' : ''}" data-s="syl-slow">🐢 Slow</button></div>`;
 // Where each syllable starts, by lining up the word's letters with the recording
 // (Viterbi over 10 ms frames; each letter scored by how loud / hissy it should
@@ -1061,6 +1061,18 @@ async function playSyllable(el) {
   voicePlayer.src = silentWav();
   voicePlayer.play().catch(() => {});
   els.forEach(e => e.classList.toggle('on', e === el));
+  // The syllable recorded on its own (scripts/web/syllables.py), if it's been made.
+  const k = el.textContent.toLowerCase().replace(/[^а-яё]/g, '');
+  if (/[аеёиоуыэюя]/.test(k) && window.crypto?.subtle) {
+    try {
+      const url = fileUrl('syl', await sylName(k, prefs.sylSlow));
+      if (!sylMissing.has(url)) {
+        voicePlayer.src = url;
+        voicePlayer.onended = () => el.classList.remove('on');
+        try { await voicePlayer.play(); return; } catch { sylMissing.add(url); }
+      }
+    } catch { /* fall back to cutting it out of the word */ }
+  }
   try {
     if (lessonId && !audioMaps[lessonId]) await ensureAudio(lessonId);
     const clips = audioMaps[lessonId]?.[speakable(text)];
@@ -1078,6 +1090,12 @@ async function playSyllable(el) {
     await voicePlayer.play();
   } catch { el.classList.remove('on'); }
   finally { if (voicePlayer.src !== sylUrl) el.classList.remove('on'); }
+}
+// Same name as syllables.py: sha1("<letters>|<0 normal, 1 slow>"), first 16 hex digits.
+const sylMissing = new Set();
+async function sylName(k, slow) {
+  const h = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(`${k}|${slow ? 1 : 0}`));
+  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16) + '.mp3';
 }
 // Part of a decoded recording as a small WAV file (with 12 ms fades: no clicks at the cuts).
 let sylUrl = null;
