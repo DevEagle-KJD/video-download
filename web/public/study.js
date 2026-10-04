@@ -931,7 +931,7 @@ function analyzeClip(url) {
       // Decoded offline: a live AudioContext would join the iPhone's audio session and
       // can leave every voice muted by the silent switch until the app restarts.
       const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-      const audio = await new Promise((ok, bad) => new Off(1, 1, 44100).decodeAudioData(buf, ok, bad));
+      const audio = await new Promise((ok, bad) => new Off(1, 1, 44100).decodeAudioData(buf, ok, bad)?.catch?.(() => {}));
       const data = audio.getChannelData(0), hop = Math.round(audio.sampleRate / 100);
       const env = new Float32Array(Math.floor(data.length / hop)), zcr = new Float32Array(env.length);
       for (let f = 0; f < env.length; f++) {
@@ -1053,25 +1053,29 @@ function alignSyllables(info, els) {
 async function playSyllable(el) {
   const root = el.closest('.wc-word'), els = [...root.querySelectorAll('.syl')], n = els.indexOf(el);
   const lessonId = root.dataset.lesson, text = els.map(e => e.textContent).join('');
-  // Inside the tap: unlock the voice player (iOS only lets sound start from a tap).
-  // The syllable plays through the same player as the 🔊 buttons, so it's heard
-  // even with the iPhone's silent switch on (Web Audio would be muted).
+  // Plays through the same player as the 🔊 buttons, so it's heard even with the
+  // iPhone's silent switch on (Web Audio would be muted).
   speechSynthesis?.cancel?.();
   voicePlayer.onended = null; voicePlayer.onplaying = null;
+  els.forEach(e => e.classList.toggle('on', e === el));
+  const done = () => el.classList.remove('on');
+  const k = sylKey(el.textContent), ready = sylReady.get(`${k}|${prefs.sylSlow ? 1 : 0}`);
+  if (ready) {   // fetched and trimmed when the card opened: starts at once, inside the tap
+    voicePlayer.src = ready;
+    voicePlayer.onended = done;
+    voicePlayer.play().catch(done);
+    return;
+  }
+  // Not ready yet: unlock the player inside the tap (iOS), then play when it is.
   voicePlayer.src = silentWav();
   voicePlayer.play().catch(() => {});
-  els.forEach(e => e.classList.toggle('on', e === el));
-  // The syllable recorded on its own (scripts/web/syllables.py), if it's been made.
-  const k = el.textContent.toLowerCase().replace(/[^а-яё]/g, '');
-  if (/[аеёиоуыэюя]/.test(k) && window.crypto?.subtle) {
-    try {
-      const url = fileUrl('syl', await sylName(k, prefs.sylSlow));
-      if (!sylMissing.has(url)) {
-        voicePlayer.src = url;
-        voicePlayer.onended = () => el.classList.remove('on');
-        try { await voicePlayer.play(); return; } catch { sylMissing.add(url); }
-      }
-    } catch { /* fall back to cutting it out of the word */ }
+  if (k) {
+    const url = await prepSyl(k, prefs.sylSlow);
+    if (url) {
+      voicePlayer.src = url;
+      voicePlayer.onended = done;
+      try { await voicePlayer.play(); return; } catch { /* fall back below */ }
+    }
   }
   try {
     if (lessonId && !audioMaps[lessonId]) await ensureAudio(lessonId);
@@ -1092,7 +1096,30 @@ async function playSyllable(el) {
   finally { if (voicePlayer.src !== sylUrl) el.classList.remove('on'); }
 }
 // Same name as syllables.py: sha1("<letters>|<0 normal, 1 slow>"), first 16 hex digits.
-const sylMissing = new Set();
+const sylKey = t => { const k = String(t).toLowerCase().replace(/[^а-яё]/g, ''); return /[аеёиоуыэюя]/.test(k) ? k : ''; };
+// Each syllable's recording, fetched once and trimmed of its leading/trailing silence
+// (a small WAV), so a tap plays it with no wait. null: not recorded (cut it instead).
+const sylPrep = new Map(), sylReady = new Map();
+function prepSyl(k, slow) {
+  const id = `${k}|${slow ? 1 : 0}`;
+  if (!sylPrep.has(id)) {
+    sylPrep.set(id, (async () => {
+      if (!window.crypto?.subtle) return null;
+      const info = await analyzeClip(fileUrl('syl', await sylName(k, slow)));
+      if (!info?.buf) return null;
+      const url = wavSlice(info.buf, Math.max(0, info.start - 0.03), Math.min(info.buf.duration, info.end + 0.12));
+      sylReady.set(id, url);
+      return url;
+    })().catch(() => null));
+  }
+  return sylPrep.get(id);
+}
+function prepWord(root) {
+  for (const e of root.querySelectorAll('.syl')) { const k = sylKey(e.textContent); if (k) prepSyl(k, prefs.sylSlow); }
+}
+// A word card appeared (lesson, phrase, Bible, Saved, Review): get its syllables ready.
+new MutationObserver(() => document.querySelectorAll('.wc-word[data-lesson]:not([data-prep])')
+  .forEach(r => { r.dataset.prep = '1'; prepWord(r); })).observe(document.body, { childList: true, subtree: true });
 async function sylName(k, slow) {
   const h = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(`${k}|${slow ? 1 : 0}`));
   return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16) + '.mp3';
@@ -2765,7 +2792,7 @@ document.addEventListener('click', e => {
     case 'open-bible': openBible(); break;
     case 'bv-review': if (dueCards('bible').length) startReview(null, 'practice', 'bible'); else toast('Nothing due right now. Come back later.'); break;
     case 'bv-next': bibleNextSheet(); break;
-    case 'syl-slow': prefs.sylSlow = !prefs.sylSlow; savePrefs(); el.classList.toggle('on', prefs.sylSlow); toast(prefs.sylSlow ? 'Syllables: slow' : 'Syllables: normal speed'); break;
+    case 'syl-slow': prefs.sylSlow = !prefs.sylSlow; savePrefs(); el.classList.toggle('on', prefs.sylSlow); document.querySelectorAll('.wc-word[data-lesson]').forEach(prepWord); toast(prefs.sylSlow ? 'Syllables: slow' : 'Syllables: normal speed'); break;
     case 'bv-literal': case 'bv-english': {   // like the lesson's Literal / English buttons (own setting)
       const k = el.dataset.s === 'bv-literal' ? 'bvLiteral' : 'bvEnglish';
       prefs[k] = prefs[k] === false; savePrefs(); renderBible();
