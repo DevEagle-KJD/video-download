@@ -736,3 +736,5 @@ body:not(.signed-out):not(.in-page)::after {
 .bv-show { display: flex; gap: 8px; margin: 0 0 10px; }
 @keyframes bv-flash { 0%, 60% { background: rgba(255, 176, 32, 0.22); } 100% { background: transparent; } }
 .en.flash { animation: bv-flash 1.6s ease-out; border-radius: 8px; }
+.wc-word[data-lesson] .syl { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.syl-hint { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 13px; color: var(--secondary); margin: 2px 0 6px; }

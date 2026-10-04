@@ -940,7 +940,7 @@ function analyzeClip(url) {
       const loud = max * 0.08;
       let a = env.findIndex(x => x > loud), b = env.length - 1;
       while (b > a && env[b] <= loud) b--;
-      return { start: Math.max(0, a) / 100, end: (b + 1) / 100, env };
+      return { start: Math.max(0, a) / 100, end: (b + 1) / 100, env, buf: audio };
     })().catch(() => null));
   }
   return sylMaps.get(url);
@@ -969,6 +969,46 @@ function sylTimes(info, els) {
   }
   return times;
 }
+
+/* Tap one syllable of a word to hear just that part of the natural recording
+   (normal speed, or the slow recording with "🐢 Slow"). The syllable is cut out
+   of the whole word at the quiet dips found above, so it sounds like it does
+   inside the word. */
+const sylHint = () => `<div class="syl-hint">👆 Tap a syllable to hear it <button class="chip small${prefs.sylSlow ? ' on' : ''}" data-s="syl-slow">🐢 Slow</button></div>`;
+let sylSrc = null;
+async function playSyllable(el) {
+  const root = el.closest('.wc-word'), els = [...root.querySelectorAll('.syl')], n = els.indexOf(el);
+  const lessonId = root.dataset.lesson, text = els.map(e => e.textContent).join('');
+  // Inside the tap: wake the audio (iOS only allows sound that starts from a tap).
+  audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+  audioCtx.resume?.();
+  voicePlayer.pause();
+  speechSynthesis?.cancel?.();
+  if (lessonId && !audioMaps[lessonId]) await ensureAudio(lessonId);
+  const clips = audioMaps[lessonId]?.[speakable(text)];
+  if (!clips) { toast('No natural recording for this word yet'); return; }
+  const url = fileUrl(lessonId, `audio/${clips[prefs.sylSlow ? 1 : 0]}`);
+  const info = await analyzeClip(url);
+  if (!info?.buf) { toast('Couldn’t play that syllable'); return; }
+  const times = sylTimes(info, els);
+  const a = Math.max(0, times[n] - 0.02), b = Math.min(info.buf.duration, (times[n + 1] ?? info.end) + 0.04);
+  try { sylSrc?.stop(); } catch { /* already stopped */ }
+  const src = audioCtx.createBufferSource(), gain = audioCtx.createGain(), t0 = audioCtx.currentTime + 0.01;
+  src.buffer = info.buf;
+  gain.gain.setValueAtTime(0, t0);                       // short fades: no clicks at the cuts
+  gain.gain.linearRampToValueAtTime(1, t0 + 0.012);
+  gain.gain.setValueAtTime(1, t0 + Math.max(0.02, b - a - 0.02));
+  gain.gain.linearRampToValueAtTime(0, t0 + (b - a));
+  src.connect(gain).connect(audioCtx.destination);
+  src.start(t0, a, b - a);
+  sylSrc = src;
+  els.forEach(e => e.classList.toggle('on', e === el));
+  src.onended = () => { if (sylSrc === src) el.classList.remove('on'); };
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('.wc-word[data-lesson] .syl');
+  if (el) playSyllable(el);
+});
 
 let sylRaf = 0;
 function followSyllables(sylRoot, url) {
@@ -1080,7 +1120,7 @@ function openWord(i, k) {
   const id = `${lesson.id}:${i}:${k}`;
   openSheet('Word', `
     <div class="word-card">
-      <div class="wc-word" id="wc-word">${syllablesHTML(t.w)}</div>
+      <div class="wc-word" id="wc-word" data-lesson="${esc(lesson.id)}">${syllablesHTML(t.w)}</div>${sylHint()}
       ${t.g ? `<div class="wc-here">${esc(t.g)}</div>` : ''}
       <div class="wc-audio">
         <button class="chip" data-s="w-say" data-rate="${RATE_NORMAL}">🔊 Normal</button>
@@ -1393,7 +1433,7 @@ function revealCard() {
   if (c.kind === 'word') {
     $('#rv-body').innerHTML = `
       <div class="rv-back">
-        <div class="wc-word" id="rv-word">${syllablesHTML(c.w)}</div>
+        <div class="wc-word" id="rv-word" data-lesson="${esc(c.lesson || '')}">${syllablesHTML(c.w)}</div>${sylHint()}
         ${c.g ? `<div class="wc-here">${esc(c.g)}</div>` : ''}
         ${c.b || c.m ? `<p class="wc-dictline">${c.b ? `<b>${esc(c.b)}</b>` : ''}${c.b && c.m ? ' · ' : ''}${esc(c.m)}</p>` : ''}
         <div class="il" style="margin-top:14px">${tokensHTML(c.tokens, true, { hl: c.k })}</div>
@@ -1560,7 +1600,7 @@ function openSavedCard(id) {
   if (c.kind === 'word') {
     openSheet('Saved word', `
       <div class="word-card">
-        <div class="wc-word" id="sv-word">${syllablesHTML(c.w)}</div>
+        <div class="wc-word" id="sv-word" data-lesson="${esc(c.lesson || '')}">${syllablesHTML(c.w)}</div>${sylHint()}
         ${c.g ? `<div class="wc-here">${esc(c.g)}</div>` : ''}
         <div class="wc-audio">
           <button class="chip" data-s="sv-say" data-rate="${RATE_NORMAL}">🔊 Normal</button>
@@ -2531,7 +2571,7 @@ function phOpenWord(pid, i, k) {
   const id = `${pid}:${i}:${k}`;
   openSheet('Word', `
     <div class="word-card">
-      <div class="wc-word" id="wc-word">${syllablesHTML(t.w)}</div>
+      <div class="wc-word" id="wc-word" data-lesson="${esc(pid)}">${syllablesHTML(t.w)}</div>${sylHint()}
       ${t.g ? `<div class="wc-here">${esc(t.g)}</div>` : ''}
       <div class="wc-audio">
         <button class="chip" data-s="phw-say" data-rate="${RATE_NORMAL}">🔊 Normal</button>
@@ -2617,6 +2657,7 @@ document.addEventListener('click', e => {
     case 'open-bible': openBible(); break;
     case 'bv-review': if (dueCards('bible').length) startReview(null, 'practice', 'bible'); else toast('Nothing due right now. Come back later.'); break;
     case 'bv-next': bibleNextSheet(); break;
+    case 'syl-slow': prefs.sylSlow = !prefs.sylSlow; savePrefs(); el.classList.toggle('on', prefs.sylSlow); toast(prefs.sylSlow ? 'Syllables: slow' : 'Syllables: normal speed'); break;
     case 'bv-literal': case 'bv-english': {   // like the lesson's Literal / English buttons (own setting)
       const k = el.dataset.s === 'bv-literal' ? 'bvLiteral' : 'bvEnglish';
       prefs[k] = prefs[k] === false; savePrefs(); renderBible();

@@ -857,6 +857,12 @@ hand. The next verse is always made one ahead. Words saved from a verse (button 
 (`web/decks/bible.tsv`), their stress is applied. Note: the current НРП text of Matthew 1:18 has a
 second sentence ("Младенец… был от Святого Духа.") that the Anki card didn't have.
 
+**Tap a syllable (2026-10-04, owner asked):** in every word card (lesson, phrase/deck/Bible, Saved,
+Review answer) each syllable is tappable: `playSyllable()` cuts that syllable out of the word's
+natural recording (Web Audio, boundaries from `sylTimes()` / `analyzeClip()`, short fades) and plays
+it; the "🐢 Slow" chip next to the hint switches to the slow recording (`prefs.sylSlow`).
+Words saved earlier play only if their lesson has recordings.
+
 **Sign-in email (2026-10-02):** Supabase SMTP = Resend (smtp.resend.com, sender
 `nativnik@wildidahopowersports.com`, name Nativnik; owner's only verified Resend domain; switch the
 sender to the Nativnik domain once bought). Templates (Magic Link + Confirm signup, subject
