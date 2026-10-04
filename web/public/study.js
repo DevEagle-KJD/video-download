@@ -1047,36 +1047,50 @@ function alignSyllables(info, els) {
   }
   return times;
 }
-let sylSrc = null;
 async function playSyllable(el) {
   const root = el.closest('.wc-word'), els = [...root.querySelectorAll('.syl')], n = els.indexOf(el);
   const lessonId = root.dataset.lesson, text = els.map(e => e.textContent).join('');
-  // Inside the tap: wake the audio (iOS only allows sound that starts from a tap).
-  audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
-  audioCtx.resume?.();
-  voicePlayer.pause();
+  // Inside the tap: unlock the voice player (iOS only lets sound start from a tap).
+  // The syllable plays through the same player as the 🔊 buttons, so it's heard
+  // even with the iPhone's silent switch on (Web Audio would be muted).
   speechSynthesis?.cancel?.();
-  if (lessonId && !audioMaps[lessonId]) await ensureAudio(lessonId);
-  const clips = audioMaps[lessonId]?.[speakable(text)];
-  if (!clips) { toast('No natural recording for this word yet'); return; }
-  const url = fileUrl(lessonId, `audio/${clips[prefs.sylSlow ? 1 : 0]}`);
-  const info = await analyzeClip(url);
-  if (!info?.buf) { toast('Couldn’t play that syllable'); return; }
-  const times = alignSyllables(info, els);
-  // A little room either side, so a syllable's first and last sounds aren't clipped.
-  const a = Math.max(0, times[n] - 0.05), b = Math.min(info.buf.duration, n + 1 < times.length ? times[n + 1] + 0.03 : info.end + 0.1);
-  try { sylSrc?.stop(); } catch { /* already stopped */ }
-  const src = audioCtx.createBufferSource(), gain = audioCtx.createGain(), t0 = audioCtx.currentTime + 0.01;
-  src.buffer = info.buf;
-  gain.gain.setValueAtTime(0, t0);                       // short fades: no clicks at the cuts
-  gain.gain.linearRampToValueAtTime(1, t0 + 0.012);
-  gain.gain.setValueAtTime(1, t0 + Math.max(0.02, b - a - 0.02));
-  gain.gain.linearRampToValueAtTime(0, t0 + (b - a));
-  src.connect(gain).connect(audioCtx.destination);
-  src.start(t0, a, b - a);
-  sylSrc = src;
+  voicePlayer.onended = null; voicePlayer.onplaying = null;
+  voicePlayer.src = silentWav();
+  voicePlayer.play().catch(() => {});
   els.forEach(e => e.classList.toggle('on', e === el));
-  src.onended = () => { if (sylSrc === src) el.classList.remove('on'); };
+  try {
+    if (lessonId && !audioMaps[lessonId]) await ensureAudio(lessonId);
+    const clips = audioMaps[lessonId]?.[speakable(text)];
+    if (!clips) { toast('No natural recording for this word yet'); return; }
+    const url = fileUrl(lessonId, `audio/${clips[prefs.sylSlow ? 1 : 0]}`);
+    const info = await analyzeClip(url);
+    if (!info?.buf) { toast('Couldn’t play that syllable'); return; }
+    const times = alignSyllables(info, els);
+    // A little room either side, so a syllable's first and last sounds aren't clipped.
+    const a = Math.max(0, times[n] - 0.05), b = Math.min(info.buf.duration, n + 1 < times.length ? times[n + 1] + 0.03 : info.end + 0.1);
+    if (sylUrl) URL.revokeObjectURL(sylUrl);
+    sylUrl = wavSlice(info.buf, a, b);
+    voicePlayer.src = sylUrl;
+    voicePlayer.onended = () => el.classList.remove('on');
+    await voicePlayer.play();
+  } catch { el.classList.remove('on'); }
+  finally { if (voicePlayer.src !== sylUrl) el.classList.remove('on'); }
+}
+// Part of a decoded recording as a small WAV file (with 12 ms fades: no clicks at the cuts).
+let sylUrl = null;
+function wavSlice(buf, a, b) {
+  const sr = buf.sampleRate, d = buf.getChannelData(0), i0 = Math.floor(a * sr), n = Math.max(1, Math.floor((b - a) * sr));
+  const fade = Math.floor(0.012 * sr), out = new ArrayBuffer(44 + n * 2), v = new DataView(out);
+  const w = (o, str) => [...str].forEach((ch, k) => v.setUint8(o + k, ch.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let k = 0; k < n; k++) {
+    const g = Math.min(1, k / fade, (n - 1 - k) / fade);
+    v.setInt16(44 + k * 2, Math.max(-1, Math.min(1, (d[i0 + k] || 0) * g)) * 0x7fff, true);
+  }
+  return URL.createObjectURL(new Blob([out], { type: 'audio/wav' }));
 }
 document.addEventListener('click', e => {
   const el = e.target.closest('.wc-word[data-lesson] .syl');
