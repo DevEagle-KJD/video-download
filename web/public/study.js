@@ -922,13 +922,16 @@ voicePlayer.preload = 'auto';
    placed in the quiet dips between syllables. The highlight then follows the
    player's actual position, so it can't drift. */
 const sylMaps = new Map();   // url → Promise<{ start, end, env: Float32Array }>
-let audioCtx = null;
+// Voices keep playing with the silent switch on (Safari 16.4+), like a music app.
+try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* older iOS */ }
 function analyzeClip(url) {
   if (!sylMaps.has(url)) {
     sylMaps.set(url, (async () => {
       const buf = await (await fetch(url)).arrayBuffer();
-      audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
-      const audio = await new Promise((ok, bad) => audioCtx.decodeAudioData(buf, ok, bad));
+      // Decoded offline: a live AudioContext would join the iPhone's audio session and
+      // can leave every voice muted by the silent switch until the app restarts.
+      const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      const audio = await new Promise((ok, bad) => new Off(1, 1, 44100).decodeAudioData(buf, ok, bad));
       const data = audio.getChannelData(0), hop = Math.round(audio.sampleRate / 100);
       const env = new Float32Array(Math.floor(data.length / hop)), zcr = new Float32Array(env.length);
       for (let f = 0; f < env.length; f++) {
